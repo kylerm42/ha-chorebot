@@ -22,4 +22,5 @@ CONF_TICKTICK_CLIENT_SECRET = "ticktick_client_secret"
 
 # Services
 SERVICE_ADD_TASK = "add_task"
+SERVICE_CREATE_LIST = "create_list"
 SERVICE_REDEEM_ITEM = "redeem_item"

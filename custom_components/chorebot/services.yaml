@@ -1,0 +1,59 @@
+create_list:
+  name: Create List
+  description: Create a new ChoreBot task list.
+  fields:
+    name:
+      name: Name
+      description: The display name for the list (ID will be auto-generated).
+      required: true
+      example: "Work Tasks"
+      selector:
+        text:
+
+add_task:
+  name: Add Task
+  description: Add a new task to a ChoreBot list with full custom field support.
+  fields:
+    list_id:
+      name: List ID
+      description: The ChoreBot list entity to add the task to.
+      required: true
+      selector:
+        entity:
+          integration: chorebot
+          domain: todo
+    summary:
+      name: Summary
+      description: The task description/title.
+      required: true
+      example: "Take out the trash"
+      selector:
+        text:
+    description:
+      name: Description
+      description: Optional detailed description of the task.
+      required: false
+      example: "Remember to separate recycling"
+      selector:
+        text:
+          multiline: true
+    due:
+      name: Due Date
+      description: Due date and time for the task.
+      required: false
+      selector:
+        datetime:
+    tags:
+      name: Tags
+      description: List of tags for organizing tasks (e.g., ["Morning", "Chores"]).
+      required: false
+      example: '["Morning", "Chores"]'
+      selector:
+        object:
+    rrule:
+      name: Recurrence Rule
+      description: iCalendar RRULE string for recurring tasks (e.g., "FREQ=DAILY;INTERVAL=1" for daily tasks).
+      required: false
+      example: "FREQ=DAILY;INTERVAL=1"
+      selector:
+        text:

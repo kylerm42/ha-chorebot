@@ -22,7 +22,8 @@
       "cannot_connect": "Failed to connect to TickTick"
     },
     "abort": {
-      "already_configured": "ChoreBot is already configured"
+      "already_configured": "ChoreBot is already configured",
+      "single_instance_allowed": "Only a single instance of ChoreBot is allowed"
     }
   }
 }
