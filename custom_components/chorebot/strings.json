@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up ChoreBot",
+        "description": "Configure your ChoreBot integration",
+        "data": {
+          "ticktick_enabled": "Enable TickTick Synchronization"
+        }
+      },
+      "ticktick": {
+        "title": "TickTick Configuration",
+        "description": "Enter your TickTick OAuth credentials",
+        "data": {
+          "ticktick_client_id": "Client ID",
+          "ticktick_client_secret": "Client Secret"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication credentials",
+      "cannot_connect": "Failed to connect to TickTick"
+    },
+    "abort": {
+      "already_configured": "ChoreBot is already configured"
+    }
+  }
+}
