@@ -36,10 +36,18 @@ The integration will be composed of three distinct layers with a strict separati
     "rrule": "FREQ=DAILY;INTERVAL=1",
     "streak_current": 5,
     "streak_longest": 10,
-    "last_completed": "YYYY-MM-DDTHH:MM:SSZ"
+    "last_completed": "YYYY-MM-DDTHH:MM:SSZ",
+    "parent_uid": "template_task_uid",
+    "is_template": false,
+    "occurrence_index": 0
   }
 }
 ```
+
+**Recurring Task Model:**
+- **Template Tasks:** Store the `rrule`, default tags, and accumulated streak data. Templates have `is_template: true` and no `due` date. They are stored but not displayed in the UI.
+- **Instance Tasks:** Individual occurrences with specific due dates. Instances have `parent_uid` pointing to their template and `occurrence_index` tracking their position in the sequence.
+- **Archive Storage:** Completed instances older than 30 days are moved to `chorebot_{list_id}_archive.json` to prevent storage bloat while preserving historical data.
 
 **User Data Schema (`chorebot_user_data.json`):**
 ```json
@@ -61,41 +69,56 @@ The integration will be composed of three distinct layers with a strict separati
 - **Deletion:** The `async_delete_todo_item` service will perform a soft delete by setting the `deleted_at` timestamp in the JSON file. It will not remove the object.
 
 ### 3.2. Recurrence & Streak Tracking
-- **Recurrence Model:** The integration will follow a "Local Master" model. A single task object persists and is mutated upon completion.
-- **Completion Logic:** When a recurring task is marked "completed":
-    1.  Its `status` is updated to `completed`.
-    2.  The `last_completed` timestamp is set.
-    3.  The streak is updated (see below).
-    4.  The next due date is calculated based on its `rrule` string.
-    5.  The `due` date field is updated to the next occurrence.
-    6.  The `status` is reset to `needs_action`.
-- **Streak Logic:**
-    1.  When a recurring task is completed on or before its `due` date, `streak_current` is incremented.
-    2.  If `streak_current` exceeds `streak_longest`, `streak_longest` is updated.
-    3.  A daily background job will check for any recurring tasks whose `due` date has passed and whose status is `needs_action`. For these tasks, `streak_current` will be reset to 0.
+- **Recurrence Model:** The integration uses an **Instance-Based Model** with templates. When creating a recurring task, a template task (hidden from UI) and first instance are created. Each completion generates the next instance.
+- **Completion Logic:** When a recurring task instance is marked "completed":
+    1.  The instance's `status` is updated to `completed`.
+    2.  The instance's `last_completed` timestamp is set.
+    3.  The template's streak is updated (see below).
+    4.  The next due date is calculated from the template's `rrule` string.
+    5.  A new instance is created with the next due date and incremented `occurrence_index`.
+    6.  The completed instance remains visible until midnight, when a background job soft-deletes it.
+    7.  Before creating a new instance, the system checks if one already exists with the next `occurrence_index` to prevent duplicates (e.g., if a task is uncompleted then re-completed).
+- **Streak Logic (Strict Consecutive):**
+    1.  When a recurring task instance is completed on or before its `due` date, the template's `streak_current` is incremented.
+    2.  When a recurring task instance is completed after its `due` date, the template's `streak_current` is reset to 0.
+    3.  If `streak_current` exceeds `streak_longest`, `streak_longest` is updated.
+    4.  A daily background job checks for overdue instances (past due date and not completed) and resets the template's `streak_current` to 0.
+- **Daily Maintenance Job:** Runs at midnight to:
+    1.  Archive completed instances older than 30 days to `chorebot_{list_id}_archive.json`
+    2.  Soft-delete completed recurring instances from the current day (hides them from UI)
+    3.  Reset streaks for templates with overdue instances
+- **Progress Tracking:** Completed instances remain visible for the day they were completed, enabling daily progress tracking (e.g., "5/10 tasks completed today").
 
 ### 3.3. TickTick Two-Way Synchronization
 - **Library:** The integration will utilize the `ticktick-py` library.
-- **Synchronization Model:** The local JSON file is the primary source of truth. The sync process reconciles the state of TickTick with the local state. The probability of data inconsistency if this model is not strictly followed is 97%.
+- **Synchronization Model:** The local JSON file is the primary source of truth. The sync process reconciles the state of TickTick with the local state.
 - **Recurrence Handling:**
-    - The "Local Master" recurrence model is mandatory.
-    - When a recurring task is completed in HA, the integration pushes an *update* to the *existing* TickTick task, changing its due date.
-    - When a recurring task is seen as "completed" in TickTick during a sync, the integration runs its local completion logic (advancing due date, updating streak) and then pushes an update back to TickTick to "un-complete" it and set its new due date. This maintains a single task ID.
+    - TickTick syncs with the **template task**, not individual instances.
+    - The template's `rrule` is synced to TickTick's recurrence rule.
+    - Only the **current active instance** (highest `occurrence_index` that's incomplete) is synced to TickTick.
+    - When a TickTick task is completed, run local completion logic (which creates next instance) and update TickTick with the new due date.
+    - Historical instances and completed instances are local-only (not synced to TickTick).
+    - Archive storage is completely local and never synced.
 - **Metadata:**
-    - **Tags:** The sync logic will first attempt to use native tag handling from the `ticktick-py` library.
-    - **Other Metadata:** Fields with no native TickTick equivalent (e.g., streaks) will be stored in the TickTick task's description field in a structured, parsable format.
+    - **Tags:** Use native TickTick tags where possible.
+    - **Streak Data:** Store on the template in TickTick description field in a structured format:
       ```
       User's own description...
       ---
-      [chorebot:streak_current=7;streak_longest=15]
+      [chorebot:streak_current=7;streak_longest=15;occurrence_index=42]
       ```
+    - **Instance Tracking:** The `occurrence_index` in metadata helps reconcile which local instance corresponds to the TickTick task.
 - **Soft Deletes:**
-    - If a local task has a `deleted_at` timestamp, the sync logic will permanently delete the corresponding task in TickTick.
-    - If a TickTick task is discovered to be deleted (is missing from the API response), the sync logic will set the `deleted_at` timestamp on the corresponding local task.
+    - If a local template has a `deleted_at` timestamp, permanently delete the corresponding TickTick task.
+    - If a TickTick task is deleted, soft-delete the local template (which cascades to hiding all instances).
+    - Archived instances are never synced and don't affect TickTick state.
 
 ### 3.4. Frontend Lovelace Cards
 - **List Card (`custom:chorebot-list-card`):**
     - Displays items from a specified `todo` entity.
+    - Shows completed tasks from today for progress tracking.
+    - Displays daily progress bar (e.g., "5/10 tasks completed today").
+    - Shows streak counters from template metadata.
     - Includes frontend-only controls for filtering the displayed list by tag, date, completion status, etc.
     - May include purely cosmetic special effects (e.g., confetti) upon task completion, triggered by the card's JavaScript.
 - **Add Chore Button Card (`custom:chorebot-add-button-card`):**

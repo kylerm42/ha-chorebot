@@ -73,11 +73,14 @@ class ChoreBotList(TodoListEntity):
     @property
     def todo_items(self) -> list[TodoItem]:
         """Return the todo items (HA format)."""
-        # Get tasks from store (already filtered for non-deleted)
+        # Get tasks from store (includes templates, but we filter them out for UI)
         tasks = self._store.get_tasks_for_list(self._list_id)
 
+        # Filter out templates - they're in cache but not shown in UI
+        visible_tasks = [t for t in tasks if not t.is_recurring_template()]
+
         # Convert our Task objects to HA's TodoItem format
-        return [self._task_to_todo_item(task) for task in tasks]
+        return [self._task_to_todo_item(task) for task in visible_tasks]
 
     def _task_to_todo_item(self, task: Task) -> TodoItem:
         """Convert our Task to HA's TodoItem format."""
@@ -206,36 +209,48 @@ class ChoreBotList(TodoListEntity):
         instance.last_completed = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         instance.update_modified()
 
-        # Calculate next due date from template
-        next_due = self._calculate_next_due_date_from_template(template, instance.due)
+        # Check if next instance already exists (e.g., if this was uncompleted then re-completed)
+        next_occurrence_index = instance.occurrence_index + 1
+        instances = self._store.get_instances_for_template(self._list_id, template.uid)
+        next_instance_exists = any(inst.occurrence_index == next_occurrence_index for inst in instances)
 
-        if next_due:
-            # Create new instance from template
-            new_instance = Task.create_new(
-                summary=template.summary,
-                description=template.description,
-                due=next_due.isoformat().replace("+00:00", "Z"),
-                tags=template.tags.copy(),
-                rrule=None,  # Instances don't have rrule
-                points_value=template.points_value,
-                parent_uid=template.uid,
-                is_template=False,
-                occurrence_index=instance.occurrence_index + 1,
-            )
-            new_instance.streak_current = template.streak_current
-            new_instance.streak_longest = template.streak_longest
-
-            _LOGGER.info("Created new instance for next occurrence: %s", next_due)
-
-            # Save: update instance, update template, add new instance
+        if next_instance_exists:
+            _LOGGER.info("Next instance already exists for occurrence_index %d, skipping creation", next_occurrence_index)
+            # Just save the completed instance and updated template
             await self._store.async_update_task(self._list_id, instance)
             template.update_modified()
             await self._store.async_update_task(self._list_id, template)
-            await self._store.async_add_task(self._list_id, new_instance)
         else:
-            _LOGGER.warning("Could not calculate next occurrence for template: %s", template.uid)
-            # Just save the completed instance
-            await self._store.async_update_task(self._list_id, instance)
+            # Calculate next due date from template
+            next_due = self._calculate_next_due_date_from_template(template, instance.due)
+
+            if next_due:
+                # Create new instance from template
+                new_instance = Task.create_new(
+                    summary=template.summary,
+                    description=template.description,
+                    due=next_due.isoformat().replace("+00:00", "Z"),
+                    tags=template.tags.copy(),
+                    rrule=None,  # Instances don't have rrule
+                    points_value=template.points_value,
+                    parent_uid=template.uid,
+                    is_template=False,
+                    occurrence_index=next_occurrence_index,
+                )
+                new_instance.streak_current = template.streak_current
+                new_instance.streak_longest = template.streak_longest
+
+                _LOGGER.info("Created new instance for next occurrence: %s", next_due)
+
+                # Save: update instance, update template, add new instance
+                await self._store.async_update_task(self._list_id, instance)
+                template.update_modified()
+                await self._store.async_update_task(self._list_id, template)
+                await self._store.async_add_task(self._list_id, new_instance)
+            else:
+                _LOGGER.warning("Could not calculate next occurrence for template: %s", template.uid)
+                # Just save the completed instance
+                await self._store.async_update_task(self._list_id, instance)
 
     def _calculate_next_due_date_from_template(
         self, template: Task, current_due_str: str | None

@@ -1,4 +1,5 @@
 """Storage management for ChoreBot."""
+
 from __future__ import annotations
 
 import asyncio
@@ -59,15 +60,9 @@ class ChoreBotStore:
         else:
             tasks = [Task.from_dict(t) for t in task_data.get("tasks", [])]
             # Filter out:
-            # - Soft-deleted tasks
-            # - Completed recurring instances (hidden until midnight)
-            # - Templates (not shown as tasks, only instances are shown)
-            self._tasks_cache[list_id] = [
-                t for t in tasks
-                if not t.is_deleted()
-                and not (t.is_recurring_instance() and t.status == "completed")
-                and not t.is_recurring_template()
-            ]
+            # - Soft-deleted tasks (includes recurring instances deleted by midnight job)
+            # Templates stay in cache for easy access, filtered from UI in todo.py
+            self._tasks_cache[list_id] = [t for t in tasks if not t.is_deleted()]
 
     async def async_save_config(self) -> None:
         """Save configuration data. Must be called with lock held."""
@@ -79,7 +74,8 @@ class ChoreBotStore:
             _LOGGER.error("Cannot save tasks for unknown list: %s", list_id)
             return
 
-        # Include soft-deleted tasks in storage (but not in cache)
+        # Cache contains all active tasks (templates, instances, regular tasks, completed tasks)
+        # Need to also preserve soft-deleted tasks from storage
         store = self._task_stores[list_id]
         all_tasks_data = await store.async_load()
         if all_tasks_data is None:
@@ -87,11 +83,13 @@ class ChoreBotStore:
         else:
             all_tasks = [Task.from_dict(t) for t in all_tasks_data.get("tasks", [])]
 
-        # Update existing tasks or add new ones
-        active_tasks = self._tasks_cache.get(list_id, [])
+        # Get soft-deleted tasks from storage
         deleted_tasks = [t for t in all_tasks if t.is_deleted()]
 
-        # Merge: keep deleted tasks, update/add active tasks
+        # Get active tasks from cache
+        active_tasks = self._tasks_cache.get(list_id, [])
+
+        # Merge: keep deleted tasks + all active tasks from cache
         task_map = {t.uid: t for t in deleted_tasks}
         for task in active_tasks:
             task_map[task.uid] = task
@@ -131,7 +129,9 @@ class ChoreBotStore:
         """Delete a list."""
         async with self._lock:
             self._config_data["lists"] = [
-                lst for lst in self._config_data.get("lists", []) if lst["id"] != list_id
+                lst
+                for lst in self._config_data.get("lists", [])
+                if lst["id"] != list_id
             ]
             await self.async_save_config()
 
@@ -158,6 +158,8 @@ class ChoreBotStore:
                 _LOGGER.error("Cannot add task to unknown list: %s", list_id)
                 return
 
+            # Add to cache (templates and completed tasks stay in cache)
+            # Filtering for UI happens in todo.py
             self._tasks_cache[list_id].append(task)
             await self.async_save_tasks(list_id)
 
@@ -208,7 +210,7 @@ class ChoreBotStore:
         return result
 
     def get_template(self, list_id: str, uid: str) -> Task | None:
-        """Get a template task by UID."""
+        """Get a template task by UID (templates are in cache but filtered from UI)."""
         tasks = self._tasks_cache.get(list_id, [])
         for task in tasks:
             if task.uid == uid and task.is_recurring_template():
@@ -218,17 +220,17 @@ class ChoreBotStore:
     def get_instances_for_template(self, list_id: str, parent_uid: str) -> list[Task]:
         """Get all instances for a template, including from archive."""
         # Get active instances from cache
-        active_instances = [
-            t for t in self._tasks_cache.get(list_id, [])
-            if t.parent_uid == parent_uid
+        return [
+            t for t in self._tasks_cache.get(list_id, []) if t.parent_uid == parent_uid
         ]
-        return active_instances
 
     async def async_get_all_recurring_templates(self) -> list[tuple[str, Task]]:
         """Get all recurring task templates across all lists."""
         result = []
         for list_id, tasks in self._tasks_cache.items():
-            result.extend((list_id, task) for task in tasks if task.is_recurring_template())
+            result.extend(
+                (list_id, task) for task in tasks if task.is_recurring_template()
+            )
         return result
 
     async def async_archive_old_instances(self, list_id: str, days: int = 30) -> int:
@@ -256,9 +258,11 @@ class ChoreBotStore:
 
             for task in all_tasks:
                 # Archive completed recurring instances older than cutoff
-                if (task.is_recurring_instance() and
-                    task.status == "completed" and
-                    task.modified < cutoff_str):
+                if (
+                    task.is_recurring_instance()
+                    and task.status == "completed"
+                    and task.modified < cutoff_str
+                ):
                     to_archive.append(task)
                 else:
                     to_keep.append(task)
@@ -266,7 +270,9 @@ class ChoreBotStore:
             if not to_archive:
                 return 0
 
-            _LOGGER.info("Archiving %d old instances from list %s", len(to_archive), list_id)
+            _LOGGER.info(
+                "Archiving %d old instances from list %s", len(to_archive), list_id
+            )
 
             # Save remaining tasks
             data = {"tasks": [t.to_dict() for t in to_keep]}
@@ -278,7 +284,9 @@ class ChoreBotStore:
             if archive_data is None:
                 archived_tasks = []
             else:
-                archived_tasks = [Task.from_dict(t) for t in archive_data.get("tasks", [])]
+                archived_tasks = [
+                    Task.from_dict(t) for t in archive_data.get("tasks", [])
+                ]
 
             archived_tasks.extend(to_archive)
             archive_data = {"tasks": [t.to_dict() for t in archived_tasks]}

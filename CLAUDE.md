@@ -22,7 +22,9 @@ The integration follows a **three-layer architecture** with strict separation of
 
 - **Local Master Model**: For recurring tasks and TickTick sync, the local JSON file is ALWAYS the source of truth. Sync reconciles TickTick state with local state.
 - **Soft Deletes**: Tasks are never permanently deleted from local storage. Set `deleted_at` timestamp instead.
-- **Single Task Recurrence**: Recurring tasks use a "Local Master" model where a single task object persists and mutates on completion (not creating new instances).
+- **Instance-Based Recurrence**: Recurring tasks use a template + instance model. Templates (hidden from UI) store the `rrule` and streak data. Instances are individual occurrences with specific due dates. Each completion creates the next instance.
+- **Archive Storage**: Completed instances older than 30 days are moved to `chorebot_{list_id}_archive.json` to preserve history without bloating active storage.
+- **Progress Tracking**: Completed instances remain visible until midnight, enabling daily progress tracking.
 
 ## Development Environment
 
@@ -70,36 +72,59 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` with this structure:
     "streak_current": 5,
     "streak_longest": 10,
     "last_completed": "YYYY-MM-DDTHH:MM:SSZ",
-    "points_value": 10
+    "points_value": 10,
+    "parent_uid": "template_task_uid",
+    "is_template": false,
+    "occurrence_index": 0
   }
 }
 ```
 
-### Recurring Task Completion Logic
+### Recurring Task Model
 
-When a recurring task is marked completed:
-1. Set `status` to `completed`
-2. Update `last_completed` timestamp
-3. Increment `streak_current` (if completed on/before due date)
-4. Update `streak_longest` if necessary
-5. Calculate next due date from `rrule`
-6. Update `due` field to next occurrence
-7. Reset `status` to `needs_action`
+**Template + Instance Architecture:**
+- **Templates** store the `rrule`, default tags, and accumulated streak data. They have `is_template: true`, no `due` date, and are kept in cache but hidden from UI.
+- **Instances** are individual occurrences with specific due dates. They have `parent_uid` pointing to their template and `occurrence_index` tracking their sequence.
+- **Archive Storage**: `chorebot_{list_id}_archive.json` stores completed instances older than 30 days.
 
-### Streak Tracking
+### Recurring Instance Completion Logic
 
-- **Increment**: When recurring task completed on or before `due` date
-- **Reset**: Daily background job checks for overdue recurring tasks and resets `streak_current` to 0
+When a recurring task instance is marked completed:
+1. Mark instance as `completed` with `last_completed` timestamp
+2. Get template via `parent_uid`
+3. Check if completed on time (before/on due date)
+4. Update template's `streak_current` (increment if on-time, reset to 0 if late)
+5. Update template's `streak_longest` if necessary
+6. Check if next instance already exists (by `occurrence_index + 1`)
+7. If not, calculate next due date from template's `rrule`
+8. Create new instance with next due date and incremented `occurrence_index`
+9. Completed instance stays visible until midnight
+10. Daily maintenance job soft-deletes completed instances at midnight
+
+### Streak Tracking (Strict Consecutive)
+
+- **Increment**: When instance completed on or before its `due` date, template's `streak_current` is incremented
+- **Reset to 0**: When instance completed after its `due` date
+- **Daily Check**: Background job checks for overdue instances and resets template's `streak_current` to 0
+
+### Cache Management
+
+- **Cache contains**: Templates (hidden from UI), active instances, completed instances (until soft-deleted), regular tasks
+- **Storage contains**: Everything in cache PLUS soft-deleted tasks and archived instances
+- **UI filtering**: Templates are filtered out in `todo.py`'s `todo_items` property
 
 ## File Structure
 
 ```
 custom_components/chorebot/
-├── __init__.py           # Integration setup/teardown (async_setup_entry, async_unload_entry)
+├── __init__.py           # Integration setup, services, daily maintenance job
 ├── manifest.json         # Integration metadata (requires ticktick-py==1.0.0)
 ├── const.py             # Constants, storage keys, field names, service names
 ├── config_flow.py       # UI configuration flow (basic + TickTick OAuth)
-├── todo.py              # TodoListEntity implementation (CRUD operations)
+├── task.py              # Task data model (schema, serialization, helper methods)
+├── store.py             # Storage management (cache, persistence, archival)
+├── todo.py              # TodoListEntity implementation (CRUD, completion logic)
+├── services.yaml        # Service definitions (create_list, add_task)
 └── strings.json         # UI translations
 
 www/
@@ -109,8 +134,10 @@ www/
 
 ## Key Implementation Files
 
-- **`todo.py`**: Contains `ChoreBotTodoListEntity` which implements the HA `TodoListEntity` interface. All CRUD operations, recurring task logic, and streak tracking happen here.
-- **`__init__.py`**: Entry point for integration setup. Initializes data storage layer and forwards setup to platform (TODO).
+- **`task.py`**: Task data model with `parent_uid`, `is_template`, `occurrence_index` fields. Includes `is_recurring_template()`, `is_recurring_instance()` helper methods.
+- **`store.py`**: Storage management with cache, archive handling, and query methods (`get_template()`, `get_instances_for_template()`, `async_archive_old_instances()`).
+- **`todo.py`**: TodoListEntity implementation. Filters templates from UI. Completion logic creates new instances and checks for duplicates.
+- **`__init__.py`**: Entry point with service handlers (`create_list`, `add_task`). Daily maintenance job handles archival, soft-deletion, and streak resets.
 - **`config_flow.py`**: UI-based configuration including optional TickTick OAuth setup.
 
 ## TickTick Synchronization
@@ -118,34 +145,49 @@ www/
 - **Library**: `ticktick-py` (declared in manifest.json)
 - **Model**: Local Master - local JSON is source of truth
 - **Recurrence Handling**:
-  - Push *updates* to existing TickTick task (not new instances)
-  - When TickTick task is completed, run local completion logic and push update back to "un-complete" it with new due date
+  - Sync with **templates**, not individual instances
+  - Template's `rrule` syncs to TickTick's recurrence rule
+  - Only current active instance (highest incomplete `occurrence_index`) syncs to TickTick
+  - When TickTick task completed: run local completion logic (creates next instance), update TickTick with new due date
+  - Historical/completed instances are local-only, never synced
+  - Archive storage is completely local
 - **Metadata Storage**:
   - Use native TickTick tags where possible
-  - Store custom fields (streaks, etc.) in description field: `[chorebot:streak_current=7;streak_longest=15]`
+  - Store streaks and occurrence_index in template's TickTick description: `[chorebot:streak_current=7;streak_longest=15;occurrence_index=42]`
 - **Soft Deletes**:
-  - Local `deleted_at` → permanently delete in TickTick
-  - TickTick deletion → set local `deleted_at`
+  - Local template `deleted_at` → permanently delete in TickTick
+  - TickTick deletion → soft-delete local template (hides all instances)
+  - Archived instances never affect TickTick
 
 ## Custom Services
 
-- `chorebot.add_task`: Add task with full custom field support (tags, rrule, etc.)
+- `chorebot.create_list`: Create a new task list (auto-generates list_id from name)
+- `chorebot.add_task`: Add task with full custom field support (tags, rrule, etc.). When `rrule` is provided, creates both template and first instance.
 - `chorebot.redeem_item`: Subtract points from user data (post-MVP)
 
 ## Important Reminders
 
 - **NEVER** permanently delete tasks from local storage - always use soft deletes via `deleted_at`
-- **ALWAYS** filter out tasks where `deleted_at` is not null when reading from storage
+- **ALWAYS** filter out tasks where `deleted_at` is not null when loading into cache
 - **ALWAYS** maintain Local Master model for TickTick sync - local JSON is source of truth
 - **ALWAYS** update `spec/chore-bot.md` when making architectural decisions or pivoting from original plans
-- When implementing recurring tasks, ensure single task mutation (not creating new instances)
-- Streak logic depends on a daily background job - ensure this is implemented
+- **Templates stay in cache** but are filtered from UI in `todo.py`'s `todo_items` property
+- **Check for existing instances** before creating new ones to prevent duplicates (by `occurrence_index`)
+- **Completed instances stay visible** until midnight when daily maintenance job soft-deletes them
+- **Streak tracking is strict consecutive** - late completion resets streak to 0
+- Daily maintenance job runs at midnight: archives old instances, soft-deletes completed instances, resets streaks for overdue instances
 
-## Next Implementation Steps
+## Implementation Status
 
-Per README.md, the priority order is:
-1. Implement Data Persistence Layer (JSON storage, task schema)
-2. Implement TodoListEntity Logic (CRUD, recurring tasks, streaks)
-3. Implement TickTick Sync (OAuth, two-way sync, metadata handling)
-4. Implement Frontend Cards (display, filtering, add dialog, confetti)
-5. Test in Dev Container
+### ✅ Completed
+1. **Data Persistence Layer**: JSON storage with template + instance model, archive storage, cache management
+2. **TodoListEntity Logic**: Full CRUD operations, recurring task instance creation, strict consecutive streak tracking, duplicate prevention
+3. **Custom Services**: `chorebot.create_list` and `chorebot.add_task` with full field support
+4. **Daily Maintenance Job**: Archival (30+ days), soft-deletion of completed instances, streak resets
+
+### 🚧 In Progress / Next Steps
+1. **TickTick Sync**: OAuth, two-way sync with templates, metadata encoding/decoding
+2. **Frontend Cards**:
+   - `chorebot-list-card`: Display with progress tracking, streak counters, filtering by tags/date
+   - `chorebot-add-button-card`: Add dialog with custom fields (tags, rrule, etc.)
+3. **Advanced Features**: Points/rewards system, badges, shop functionality

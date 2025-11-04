@@ -1,10 +1,10 @@
 """The ChoreBot integration."""
+
 from __future__ import annotations
 
 from datetime import timedelta
 import logging
 
-from dateutil.rrule import rrulestr
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -69,7 +69,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # 1. Archive instances completed 30+ days ago
             archived_count = await store.async_archive_old_instances(list_id, days=30)
             if archived_count > 0:
-                _LOGGER.info("Archived %d old instances from list %s", archived_count, list_id)
+                _LOGGER.info(
+                    "Archived %d old instances from list %s", archived_count, list_id
+                )
 
             # 2. Soft-delete completed recurring instances (hide from UI)
             tasks = store.get_tasks_for_list(list_id)
@@ -123,7 +125,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Extract list_id from unique_id (format: "chorebot_{list_id}")
         unique_id = entity_entry.unique_id
         if unique_id and unique_id.startswith(f"{DOMAIN}_"):
-            return unique_id[len(DOMAIN) + 1:]
+            return unique_id[len(DOMAIN) + 1 :]
 
         _LOGGER.error("Invalid unique_id format: %s", unique_id)
         return None
@@ -140,7 +142,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Check if list already exists
         if store.get_list(list_id):
-            _LOGGER.error("List with id '%s' already exists (from name '%s')", list_id, name)
+            _LOGGER.error(
+                "List with id '%s' already exists (from name '%s')", list_id, name
+            )
             return
 
         # Create list in store
