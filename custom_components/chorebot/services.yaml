@@ -57,3 +57,16 @@ add_task:
       example: "FREQ=DAILY;INTERVAL=1"
       selector:
         text:
+
+sync_ticktick:
+  name: Sync TickTick
+  description: Manually trigger a sync with TickTick to pull latest changes.
+  fields:
+    list_id:
+      name: List ID
+      description: Optional. The specific ChoreBot list entity to sync. If omitted, syncs all mapped lists.
+      required: false
+      selector:
+        entity:
+          integration: chorebot
+          domain: todo

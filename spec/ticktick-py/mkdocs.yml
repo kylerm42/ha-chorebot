@@ -1,0 +1,53 @@
+site_name: "ticktick-py"
+site_description: "Unofficial TickTick API For Python 3"
+site_url: "https://lazeroffmichael.github.io/ticktick-py"
+repo_url: "https://github.com/lazeroffmichael/ticktick-py"
+repo_name: "lazeroffmichael/ticktick-py"
+
+nav:
+  - Overview: index.md
+  - Usage:
+      - Authorization: usage/oauth2.md
+      - API and Important Information: usage/api.md
+      - Tasks: usage/tasks.md
+      - Projects: usage/projects.md
+      - Tags: usage/tags.md
+      - Helpers: usage/helpers.md
+  - Changelog: changelog.md
+  - License: license.md
+
+theme:
+  name: "material"
+  palette:
+    primary:
+      purple
+  features:
+    - navigation.instant
+    - toc.integrate
+
+extra_css:
+  - css/mkdocstrings.css
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          rendering:
+            show_source: true
+          setup_commands:
+            - import sys
+            - sys.path.append("ticktick")
+      watch:
+        - ticktick
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+

@@ -68,6 +68,7 @@ class ChoreBotList(TodoListEntity):
         self._list_id = list_id
         self._attr_name = list_name
         self._attr_unique_id = f"{DOMAIN}_{list_id}"
+        self._sync_coordinator = hass.data[DOMAIN].get("sync_coordinator")
         _LOGGER.info("Initialized ChoreBotList entity: %s (id: %s)", list_name, list_id)
 
     @property
@@ -126,6 +127,11 @@ class ChoreBotList(TodoListEntity):
 
         # Save to store
         await self._store.async_add_task(self._list_id, task)
+
+        # Push to TickTick if sync is enabled
+        if self._sync_coordinator:
+            await self._sync_coordinator.async_push_task(self._list_id, task)
+
         self.async_write_ha_state()
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
@@ -166,6 +172,10 @@ class ChoreBotList(TodoListEntity):
             task.update_modified()
             # Save to store
             await self._store.async_update_task(self._list_id, task)
+
+            # Push to TickTick if sync is enabled
+            if self._sync_coordinator:
+                await self._sync_coordinator.async_push_task(self._list_id, task)
 
         self.async_write_ha_state()
 
@@ -247,10 +257,27 @@ class ChoreBotList(TodoListEntity):
                 template.update_modified()
                 await self._store.async_update_task(self._list_id, template)
                 await self._store.async_add_task(self._list_id, new_instance)
+
+                # Sync to TickTick if enabled
+                if self._sync_coordinator:
+                    # Complete the TickTick task (will auto-create next instance on their end)
+                    await self._sync_coordinator.async_complete_ticktick_task(
+                        self._list_id, template
+                    )
+                    # Push updated template (with new streaks and metadata)
+                    await self._sync_coordinator.async_push_task(self._list_id, template)
+
             else:
                 _LOGGER.warning("Could not calculate next occurrence for template: %s", template.uid)
                 # Just save the completed instance
                 await self._store.async_update_task(self._list_id, instance)
+
+                # Sync to TickTick if enabled
+                if self._sync_coordinator:
+                    await self._sync_coordinator.async_complete_ticktick_task(
+                        self._list_id, template
+                    )
+                    await self._sync_coordinator.async_push_task(self._list_id, template)
 
     def _calculate_next_due_date_from_template(
         self, template: Task, current_due_str: str | None
@@ -279,16 +306,33 @@ class ChoreBotList(TodoListEntity):
         """Delete a task (soft delete)."""
         _LOGGER.info("Soft deleting task: %s", uid)
 
+        # Get task before deleting (need it for TickTick sync)
+        task = self._store.get_task(self._list_id, uid)
+
         # Soft delete in store
         await self._store.async_delete_task(self._list_id, uid)
+
+        # Delete from TickTick if sync is enabled
+        if self._sync_coordinator and task:
+            await self._sync_coordinator.async_delete_ticktick_task(self._list_id, task)
+
         self.async_write_ha_state()
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete multiple tasks (soft delete)."""
         _LOGGER.info("Soft deleting %d tasks", len(uids))
 
+        # Get tasks before deleting (need them for TickTick sync)
+        tasks = [self._store.get_task(self._list_id, uid) for uid in uids]
+
         # Soft delete each task in store
         for uid in uids:
             await self._store.async_delete_task(self._list_id, uid)
+
+        # Delete from TickTick if sync is enabled
+        if self._sync_coordinator:
+            for task in tasks:
+                if task:
+                    await self._sync_coordinator.async_delete_ticktick_task(self._list_id, task)
 
         self.async_write_ha_state()

@@ -15,9 +15,18 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
 
-from .const import DOMAIN, SERVICE_ADD_TASK, SERVICE_CREATE_LIST
+from .const import (
+    CONF_LIST_MAPPINGS,
+    CONF_SYNC_INTERVAL_MINUTES,
+    DEFAULT_SYNC_INTERVAL_MINUTES,
+    DOMAIN,
+    SERVICE_ADD_TASK,
+    SERVICE_CREATE_LIST,
+    SERVICE_SYNC_TICKTICK,
+)
 from .store import ChoreBotStore
 from .task import Task
+from .ticktick_sync import TickTickSyncCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +63,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store in hass.data
     hass.data[DOMAIN]["store"] = store
     _LOGGER.info("Store saved to hass.data")
+
+    # Initialize TickTick sync coordinator
+    sync_coordinator = TickTickSyncCoordinator(hass, store, entry.data)
+    hass.data[DOMAIN]["sync_coordinator"] = sync_coordinator
+
+    # Initialize TickTick client if sync is enabled
+    if sync_coordinator.enabled:
+        _LOGGER.info("TickTick sync is enabled, initializing client")
+        await sync_coordinator.async_initialize()
 
     # Set up daily maintenance job
     async def daily_maintenance(now):
@@ -110,6 +128,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass, daily_maintenance, timedelta(days=1)
     )
 
+    # Set up periodic TickTick sync
+    if sync_coordinator.enabled:
+        sync_interval_minutes = entry.data.get(
+            CONF_SYNC_INTERVAL_MINUTES, DEFAULT_SYNC_INTERVAL_MINUTES
+        )
+
+        async def periodic_sync(now):
+            """Periodically pull changes from TickTick."""
+            _LOGGER.debug("Running periodic TickTick sync")
+            await sync_coordinator.async_pull_changes()
+
+        hass.data[DOMAIN]["periodic_sync"] = async_track_time_interval(
+            hass, periodic_sync, timedelta(minutes=sync_interval_minutes)
+        )
+        _LOGGER.info(
+            "TickTick periodic sync enabled (interval: %d minutes)",
+            sync_interval_minutes,
+        )
+
     # Helper function to extract list_id from entity_id
     def extract_list_id_from_entity(entity_id: str) -> str | None:
         """Extract list_id from entity_id by looking up the unique_id in the entity registry."""
@@ -149,6 +186,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Create list in store
         await store.async_create_list(list_id, name)
+
+        # Auto-create TickTick project if sync is enabled
+        if sync_coordinator.enabled:
+            _LOGGER.info("Creating TickTick project for new list: %s", name)
+            ticktick_project_id = await sync_coordinator.async_create_ticktick_project(
+                list_id, name
+            )
+            if ticktick_project_id:
+                # Update config entry with new mapping
+                new_data = {**entry.data}
+                new_data[CONF_LIST_MAPPINGS] = sync_coordinator.list_mappings
+                hass.config_entries.async_update_entry(entry, data=new_data)
+                _LOGGER.info("TickTick project created and mapped: %s", ticktick_project_id)
 
         # Reload the integration to pick up the new list
         await hass.config_entries.async_reload(entry.entry_id)
@@ -231,6 +281,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     _LOGGER.info("Service registered: %s", SERVICE_ADD_TASK)
 
+    # Register chorebot.sync_ticktick service
+    if sync_coordinator.enabled:
+        SYNC_TICKTICK_SCHEMA = vol.Schema(
+            {
+                vol.Optional("list_id"): cv.string,
+            }
+        )
+
+        async def handle_sync_ticktick(call: ServiceCall) -> None:
+            """Handle the chorebot.sync_ticktick service."""
+            list_id = call.data.get("list_id")
+
+            if list_id:
+                # Extract list_id from entity_id if needed
+                if list_id.startswith("todo."):
+                    list_id = extract_list_id_from_entity(list_id)
+                    if not list_id:
+                        _LOGGER.error("Invalid entity_id provided: %s", call.data.get("list_id"))
+                        return
+
+                _LOGGER.info("Manual TickTick sync triggered for list: %s", list_id)
+            else:
+                _LOGGER.info("Manual TickTick sync triggered for all lists")
+
+            stats = await sync_coordinator.async_pull_changes(list_id)
+            _LOGGER.info("Sync completed: %s", stats)
+
+        hass.services.async_register(
+            DOMAIN, SERVICE_SYNC_TICKTICK, handle_sync_ticktick, schema=SYNC_TICKTICK_SCHEMA
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_SYNC_TICKTICK)
+
     # Forward to TODO platform
     _LOGGER.info("Forwarding setup to platforms: %s", PLATFORMS)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -245,9 +327,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if "daily_maintenance" in hass.data[DOMAIN]:
         hass.data[DOMAIN]["daily_maintenance"]()
 
+    # Cancel periodic sync job
+    if "periodic_sync" in hass.data[DOMAIN]:
+        hass.data[DOMAIN]["periodic_sync"]()
+
     # Unload platforms
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop("store", None)
+        hass.data[DOMAIN].pop("sync_coordinator", None)
         hass.data[DOMAIN].pop("daily_maintenance", None)
+        hass.data[DOMAIN].pop("periodic_sync", None)
 
     return unload_ok
