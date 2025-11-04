@@ -2,11 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Last Updated**: 2025-11-04 - Refactored to use HA native OAuth2 + backend abstraction layer
+
 ## Project Overview
 
-ChoreBot is a Home Assistant custom integration that provides advanced task management with recurring tasks, streak tracking, tag-based organization, and TickTick synchronization. The project consists of a Python backend integration and JavaScript frontend Lovelace cards.
+ChoreBot is a Home Assistant custom integration that provides advanced task management with recurring tasks, streak tracking, tag-based organization, and remote backend synchronization (TickTick, with support for future backends like Todoist, Notion, etc.). The project consists of a Python backend integration and JavaScript frontend Lovelace cards.
 
-**Current Status**: Structure setup complete, ready for implementation. See `spec/chore-bot.md` for the full technical specification.
+**Current Status**: Backend synchronization complete with TickTick implementation. Ready for testing and frontend development. See `spec/chore-bot.md` for the full technical specification.
 
 ## Architecture
 
@@ -117,15 +119,21 @@ When a recurring task instance is marked completed:
 
 ```
 custom_components/chorebot/
-├── __init__.py           # Integration setup, services, daily maintenance job
-├── manifest.json         # Integration metadata (requires ticktick-py==1.0.0)
-├── const.py             # Constants, storage keys, field names, service names
-├── config_flow.py       # UI configuration flow (basic + TickTick OAuth)
-├── task.py              # Task data model (schema, serialization, helper methods)
-├── store.py             # Storage management (cache, persistence, archival)
-├── todo.py              # TodoListEntity implementation (CRUD, completion logic)
-├── services.yaml        # Service definitions (create_list, add_task)
-└── strings.json         # UI translations
+├── __init__.py                  # Integration setup, OAuth initialization, services
+├── manifest.json                # Integration metadata (dependencies: application_credentials, http)
+├── const.py                     # Constants, OAuth URLs, storage keys, service names
+├── config_flow.py               # OAuth2 configuration flow (AbstractOAuth2FlowHandler)
+├── application_credentials.py   # OAuth endpoints for HA's native system
+├── oauth_api.py                 # OAuth2Session wrapper with token management
+├── task.py                      # Task data model (schema, serialization, helper methods)
+├── store.py                     # Storage management (cache, persistence, archival)
+├── todo.py                      # TodoListEntity implementation (CRUD, completion logic)
+├── sync_backend.py              # Abstract base class for sync backends
+├── sync_coordinator.py          # Generic sync coordinator (backend-agnostic)
+├── ticktick_backend.py          # TickTick implementation of SyncBackend
+├── ticktick_api_client.py       # Lightweight REST API client for TickTick
+├── services.yaml                # Service definitions (create_list, add_task, sync)
+└── strings.json                 # UI translations
 
 www/
 ├── chorebot-list-card.js        # Task display card with filtering
@@ -134,35 +142,60 @@ www/
 
 ## Key Implementation Files
 
-- **`task.py`**: Task data model with `parent_uid`, `is_template`, `occurrence_index` fields. Includes `is_recurring_template()`, `is_recurring_instance()` helper methods.
+- **`task.py`**: Task data model with `parent_uid`, `is_template`, `occurrence_index`, `ticktick_id` fields. Includes `is_recurring_template()`, `is_recurring_instance()` helper methods.
 - **`store.py`**: Storage management with cache, archive handling, and query methods (`get_template()`, `get_instances_for_template()`, `async_archive_old_instances()`).
-- **`todo.py`**: TodoListEntity implementation. Filters templates from UI. Completion logic creates new instances and checks for duplicates.
-- **`__init__.py`**: Entry point with service handlers (`create_list`, `add_task`). Daily maintenance job handles archival, soft-deletion, and streak resets.
-- **`config_flow.py`**: UI-based configuration including optional TickTick OAuth setup.
+- **`todo.py`**: TodoListEntity implementation. Filters templates from UI. Completion logic creates new instances and checks for duplicates. Triggers sync coordinator for push operations.
+- **`__init__.py`**: Entry point with OAuth2 setup, backend initialization, service handlers (`create_list`, `add_task`, `sync`). Daily maintenance job handles archival, soft-deletion, and streak resets. Sets up periodic pull sync.
+- **`config_flow.py`**: OAuth2 configuration flow using `AbstractOAuth2FlowHandler`. Integrates with HA's native `application_credentials` system.
+- **`sync_backend.py`**: Abstract base class defining the interface for sync backends. Methods for push/pull/delete/complete operations.
+- **`sync_coordinator.py`**: Generic coordinator that orchestrates sync operations with any backend. Handles locking, polling intervals, and error handling. Backend-agnostic.
+- **`ticktick_backend.py`**: TickTick-specific implementation of `SyncBackend`. Handles metadata encoding/decoding, task conversion, and TickTick API interactions.
+- **`ticktick_api_client.py`**: Lightweight REST API client for TickTick Open API using `aiohttp`. Bearer token authentication.
+- **`oauth_api.py`**: Wrapper for OAuth2Session providing automatic token refresh and access token retrieval.
 
-## TickTick Synchronization
+## Remote Backend Synchronization
 
-- **Library**: `ticktick-py` (declared in manifest.json)
-- **Model**: Local Master - local JSON is source of truth
+- **Architecture**: Backend-agnostic design using `SyncBackend` abstract interface
+- **OAuth**: Home Assistant's native `application_credentials` system with OAuth2 flow
+  - Users complete OAuth in HA web UI (works from any device)
+  - No browser access needed on server (solves headless server problem)
+  - Automatic token refresh via `OAuth2Session`
+- **TickTick Implementation**:
+  - Custom lightweight REST API client (`ticktick_api_client.py`) using `aiohttp`
+  - Bearer token authentication from OAuth2Session
+  - Backend-specific logic in `ticktick_backend.py` implementing `SyncBackend`
+- **Sync Model**: Local Master - local JSON is source of truth
+- **Generic Coordinator**: `sync_coordinator.py` orchestrates all sync operations
+  - Push sync: Immediate when local changes occur
+  - Pull sync: Every 15 minutes + manual via `chorebot.sync` service
+  - Conflict resolution: Most recently updated wins, local wins on ties
+  - Locking and error handling
 - **Recurrence Handling**:
   - Sync with **templates**, not individual instances
-  - Template's `rrule` syncs to TickTick's recurrence rule
-  - Only current active instance (highest incomplete `occurrence_index`) syncs to TickTick
-  - When TickTick task completed: run local completion logic (creates next instance), update TickTick with new due date
+  - Template's `rrule` syncs to backend's recurrence rule
+  - Only current active instance (highest incomplete `occurrence_index`) syncs to backend
+  - When remote task completed: run local completion logic (creates next instance), update remote with new due date
   - Historical/completed instances are local-only, never synced
   - Archive storage is completely local
-- **Metadata Storage**:
-  - Use native TickTick tags where possible
-  - Store streaks and occurrence_index in template's TickTick description: `[chorebot:streak_current=7;streak_longest=15;occurrence_index=42]`
+- **Metadata Storage** (Backend-Specific):
+  - Use native backend tags where possible
+  - TickTick: Store streaks and occurrence_index in template's description: `[chorebot:streak_current=7;streak_longest=15;occurrence_index=42]`
+  - Each backend handles encoding/decoding appropriately
 - **Soft Deletes**:
-  - Local template `deleted_at` → permanently delete in TickTick
-  - TickTick deletion → soft-delete local template (hides all instances)
-  - Archived instances never affect TickTick
+  - Local template `deleted_at` → permanently delete on remote backend
+  - Remote deletion → soft-delete local template (hides all instances)
+  - Archived instances never affect remote backend
+- **Extensibility**: Adding new backends (Todoist, Notion, etc.) only requires:
+  1. Implement `SyncBackend` interface
+  2. Create backend-specific API client
+  3. Add OAuth endpoints to `application_credentials.py`
+  4. No changes to core logic!
 
 ## Custom Services
 
-- `chorebot.create_list`: Create a new task list (auto-generates list_id from name)
+- `chorebot.create_list`: Create a new task list (auto-generates list_id from name). If sync enabled, auto-creates remote list/project.
 - `chorebot.add_task`: Add task with full custom field support (tags, rrule, etc.). When `rrule` is provided, creates both template and first instance.
+- `chorebot.sync`: Manually trigger pull sync from remote backend. Optional `list_id` parameter to sync specific list (otherwise syncs all).
 - `chorebot.redeem_item`: Subtract points from user data (post-MVP)
 
 ## Important Reminders
@@ -182,12 +215,20 @@ www/
 ### ✅ Completed
 1. **Data Persistence Layer**: JSON storage with template + instance model, archive storage, cache management
 2. **TodoListEntity Logic**: Full CRUD operations, recurring task instance creation, strict consecutive streak tracking, duplicate prevention
-3. **Custom Services**: `chorebot.create_list` and `chorebot.add_task` with full field support
+3. **Custom Services**: `chorebot.create_list`, `chorebot.add_task`, and `chorebot.sync` with full field support
 4. **Daily Maintenance Job**: Archival (30+ days), soft-deletion of completed instances, streak resets
+5. **Backend Synchronization Infrastructure**:
+   - Native HA OAuth2 integration with `application_credentials`
+   - Abstract `SyncBackend` interface for multi-provider support
+   - Generic `SyncCoordinator` for backend-agnostic sync orchestration
+   - Complete TickTick backend implementation with REST API client
+   - Two-way sync: Push (immediate) + Pull (15 min intervals + manual)
+   - Conflict resolution and error handling
 
 ### 🚧 In Progress / Next Steps
-1. **TickTick Sync**: OAuth, two-way sync with templates, metadata encoding/decoding
+1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution
 2. **Frontend Cards**:
    - `chorebot-list-card`: Display with progress tracking, streak counters, filtering by tags/date
    - `chorebot-add-button-card`: Add dialog with custom fields (tags, rrule, etc.)
 3. **Advanced Features**: Points/rewards system, badges, shop functionality
+4. **Additional Backends**: Todoist, Notion, or other task management services

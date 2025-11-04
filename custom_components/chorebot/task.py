@@ -41,6 +41,7 @@ class Task:
     parent_uid: str | None = None  # Points to template task if this is an instance
     is_template: bool = False  # True if this is a recurring task template
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
+    custom_fields: dict[str, Any] = field(default_factory=dict)  # Backend-specific metadata
 
     @classmethod
     def create_new(
@@ -75,25 +76,29 @@ class Task:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert task to dictionary for JSON storage."""
-        custom_fields = {}
+        # Start with standard fields
+        custom_fields_output = {}
         if self.tags:
-            custom_fields[FIELD_TAGS] = self.tags
+            custom_fields_output[FIELD_TAGS] = self.tags
         if self.rrule:
-            custom_fields[FIELD_RRULE] = self.rrule
+            custom_fields_output[FIELD_RRULE] = self.rrule
         if self.streak_current > 0:
-            custom_fields[FIELD_STREAK_CURRENT] = self.streak_current
+            custom_fields_output[FIELD_STREAK_CURRENT] = self.streak_current
         if self.streak_longest > 0:
-            custom_fields[FIELD_STREAK_LONGEST] = self.streak_longest
+            custom_fields_output[FIELD_STREAK_LONGEST] = self.streak_longest
         if self.last_completed:
-            custom_fields[FIELD_LAST_COMPLETED] = self.last_completed
+            custom_fields_output[FIELD_LAST_COMPLETED] = self.last_completed
         if self.points_value > 0:
-            custom_fields[FIELD_POINTS_VALUE] = self.points_value
+            custom_fields_output[FIELD_POINTS_VALUE] = self.points_value
         if self.parent_uid:
-            custom_fields[FIELD_PARENT_UID] = self.parent_uid
+            custom_fields_output[FIELD_PARENT_UID] = self.parent_uid
         if self.is_template:
-            custom_fields[FIELD_IS_TEMPLATE] = self.is_template
+            custom_fields_output[FIELD_IS_TEMPLATE] = self.is_template
         if self.occurrence_index > 0:
-            custom_fields[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
+            custom_fields_output[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
+
+        # Merge in any extra custom fields (e.g., backend-specific metadata)
+        custom_fields_output.update(self.custom_fields)
 
         result: dict[str, Any] = {
             "uid": self.uid,
@@ -109,8 +114,8 @@ class Task:
             result["due"] = self.due
         if self.deleted_at:
             result[FIELD_DELETED_AT] = self.deleted_at
-        if custom_fields:
-            result["custom_fields"] = custom_fields
+        if custom_fields_output:
+            result["custom_fields"] = custom_fields_output
 
         return result
 
@@ -118,6 +123,25 @@ class Task:
     def from_dict(cls, data: dict[str, Any]) -> Task:
         """Create task from dictionary (JSON storage)."""
         custom_fields = data.get("custom_fields", {})
+
+        # Known fields that map to dataclass attributes
+        known_fields = {
+            FIELD_TAGS,
+            FIELD_RRULE,
+            FIELD_STREAK_CURRENT,
+            FIELD_STREAK_LONGEST,
+            FIELD_LAST_COMPLETED,
+            FIELD_POINTS_VALUE,
+            FIELD_PARENT_UID,
+            FIELD_IS_TEMPLATE,
+            FIELD_OCCURRENCE_INDEX,
+        }
+
+        # Extract extra custom fields (backend-specific metadata)
+        extra_custom_fields = {
+            k: v for k, v in custom_fields.items() if k not in known_fields
+        }
+
         return cls(
             uid=data["uid"],
             summary=data["summary"],
@@ -136,6 +160,7 @@ class Task:
             parent_uid=custom_fields.get(FIELD_PARENT_UID),
             is_template=custom_fields.get(FIELD_IS_TEMPLATE, False),
             occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
+            custom_fields=extra_custom_fields,
         )
 
     def is_deleted(self) -> bool:

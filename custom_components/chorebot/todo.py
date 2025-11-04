@@ -128,7 +128,7 @@ class ChoreBotList(TodoListEntity):
         # Save to store
         await self._store.async_add_task(self._list_id, task)
 
-        # Push to TickTick if sync is enabled
+        # Push to remote backend if sync is enabled
         if self._sync_coordinator:
             await self._sync_coordinator.async_push_task(self._list_id, task)
 
@@ -173,7 +173,7 @@ class ChoreBotList(TodoListEntity):
             # Save to store
             await self._store.async_update_task(self._list_id, task)
 
-            # Push to TickTick if sync is enabled
+            # Push to remote backend if sync is enabled
             if self._sync_coordinator:
                 await self._sync_coordinator.async_push_task(self._list_id, task)
 
@@ -258,10 +258,10 @@ class ChoreBotList(TodoListEntity):
                 await self._store.async_update_task(self._list_id, template)
                 await self._store.async_add_task(self._list_id, new_instance)
 
-                # Sync to TickTick if enabled
+                # Sync to remote backend if enabled
                 if self._sync_coordinator:
-                    # Complete the TickTick task (will auto-create next instance on their end)
-                    await self._sync_coordinator.async_complete_ticktick_task(
+                    # Complete the remote task (will auto-create next instance on their end)
+                    await self._sync_coordinator.async_complete_task(
                         self._list_id, template
                     )
                     # Push updated template (with new streaks and metadata)
@@ -272,9 +272,9 @@ class ChoreBotList(TodoListEntity):
                 # Just save the completed instance
                 await self._store.async_update_task(self._list_id, instance)
 
-                # Sync to TickTick if enabled
+                # Sync to remote backend if enabled
                 if self._sync_coordinator:
-                    await self._sync_coordinator.async_complete_ticktick_task(
+                    await self._sync_coordinator.async_complete_task(
                         self._list_id, template
                     )
                     await self._sync_coordinator.async_push_task(self._list_id, template)
@@ -306,15 +306,15 @@ class ChoreBotList(TodoListEntity):
         """Delete a task (soft delete)."""
         _LOGGER.info("Soft deleting task: %s", uid)
 
-        # Get task before deleting (need it for TickTick sync)
+        # Get task before deleting (need it for sync)
         task = self._store.get_task(self._list_id, uid)
 
         # Soft delete in store
         await self._store.async_delete_task(self._list_id, uid)
 
-        # Delete from TickTick if sync is enabled
+        # Delete from remote backend if sync is enabled
         if self._sync_coordinator and task:
-            await self._sync_coordinator.async_delete_ticktick_task(self._list_id, task)
+            await self._sync_coordinator.async_delete_task(self._list_id, task)
 
         self.async_write_ha_state()
 
@@ -322,17 +322,17 @@ class ChoreBotList(TodoListEntity):
         """Delete multiple tasks (soft delete)."""
         _LOGGER.info("Soft deleting %d tasks", len(uids))
 
-        # Get tasks before deleting (need them for TickTick sync)
+        # Get tasks before deleting (need them for sync)
         tasks = [self._store.get_task(self._list_id, uid) for uid in uids]
 
         # Soft delete each task in store
         for uid in uids:
             await self._store.async_delete_task(self._list_id, uid)
 
-        # Delete from TickTick if sync is enabled
+        # Delete from remote backend if sync is enabled
         if self._sync_coordinator:
             for task in tasks:
                 if task:
-                    await self._sync_coordinator.async_delete_ticktick_task(self._list_id, task)
+                    await self._sync_coordinator.async_delete_task(self._list_id, task)
 
         self.async_write_ha_state()
