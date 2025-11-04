@@ -14,6 +14,9 @@ FIELD_STREAK_LONGEST = "streak_longest"
 FIELD_LAST_COMPLETED = "last_completed"
 FIELD_POINTS_VALUE = "points_value"
 FIELD_DELETED_AT = "deleted_at"
+FIELD_PARENT_UID = "parent_uid"
+FIELD_IS_TEMPLATE = "is_template"
+FIELD_OCCURRENCE_INDEX = "occurrence_index"
 
 # Configuration keys
 CONF_TICKTICK_ENABLED = "ticktick_enabled"

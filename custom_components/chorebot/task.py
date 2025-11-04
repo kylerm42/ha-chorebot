@@ -8,7 +8,10 @@ from uuid import uuid4
 
 from .const import (
     FIELD_DELETED_AT,
+    FIELD_IS_TEMPLATE,
     FIELD_LAST_COMPLETED,
+    FIELD_OCCURRENCE_INDEX,
+    FIELD_PARENT_UID,
     FIELD_POINTS_VALUE,
     FIELD_RRULE,
     FIELD_STREAK_CURRENT,
@@ -35,6 +38,9 @@ class Task:
     streak_longest: int = 0
     last_completed: str | None = None  # ISO 8601 timestamp
     points_value: int = 0
+    parent_uid: str | None = None  # Points to template task if this is an instance
+    is_template: bool = False  # True if this is a recurring task template
+    occurrence_index: int = 0  # Which occurrence this is (0-indexed)
 
     @classmethod
     def create_new(
@@ -45,6 +51,9 @@ class Task:
         tags: list[str] | None = None,
         rrule: str | None = None,
         points_value: int = 0,
+        parent_uid: str | None = None,
+        is_template: bool = False,
+        occurrence_index: int = 0,
     ) -> Task:
         """Create a new task with generated UID and timestamps."""
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -59,6 +68,9 @@ class Task:
             tags=tags or [],
             rrule=rrule,
             points_value=points_value,
+            parent_uid=parent_uid,
+            is_template=is_template,
+            occurrence_index=occurrence_index,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -76,6 +88,12 @@ class Task:
             custom_fields[FIELD_LAST_COMPLETED] = self.last_completed
         if self.points_value > 0:
             custom_fields[FIELD_POINTS_VALUE] = self.points_value
+        if self.parent_uid:
+            custom_fields[FIELD_PARENT_UID] = self.parent_uid
+        if self.is_template:
+            custom_fields[FIELD_IS_TEMPLATE] = self.is_template
+        if self.occurrence_index > 0:
+            custom_fields[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
 
         result: dict[str, Any] = {
             "uid": self.uid,
@@ -115,15 +133,26 @@ class Task:
             streak_longest=custom_fields.get(FIELD_STREAK_LONGEST, 0),
             last_completed=custom_fields.get(FIELD_LAST_COMPLETED),
             points_value=custom_fields.get(FIELD_POINTS_VALUE, 0),
+            parent_uid=custom_fields.get(FIELD_PARENT_UID),
+            is_template=custom_fields.get(FIELD_IS_TEMPLATE, False),
+            occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
         )
 
     def is_deleted(self) -> bool:
         """Check if task is soft-deleted."""
         return self.deleted_at is not None
 
+    def is_recurring_template(self) -> bool:
+        """Check if task is a recurring task template."""
+        return self.is_template and self.rrule is not None
+
+    def is_recurring_instance(self) -> bool:
+        """Check if task is an instance of a recurring task."""
+        return self.parent_uid is not None
+
     def is_recurring(self) -> bool:
-        """Check if task is a recurring task."""
-        return self.rrule is not None
+        """Check if task is a recurring task (template or instance)."""
+        return self.is_recurring_template() or self.is_recurring_instance()
 
     def is_overdue(self) -> bool:
         """Check if task is overdue (past due date and not completed)."""

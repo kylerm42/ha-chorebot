@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 
+from dateutil.rrule import rrulestr
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -54,26 +55,57 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["store"] = store
     _LOGGER.info("Store saved to hass.data")
 
-    # Set up daily streak checker
-    async def check_streaks(now):
-        """Check for overdue recurring tasks and reset streaks."""
-        _LOGGER.debug("Running daily streak check")
-        recurring_tasks = await store.async_get_all_recurring_tasks()
+    # Set up daily maintenance job
+    async def daily_maintenance(now):
+        """Daily maintenance: archive old instances, hide completed instances, check streaks."""
+        _LOGGER.debug("Running daily maintenance job")
 
-        for list_id, task in recurring_tasks:
-            if task.is_overdue() and task.streak_current > 0:
-                _LOGGER.info(
-                    "Resetting streak for overdue task: %s (was %d)",
-                    task.summary,
-                    task.streak_current,
-                )
-                task.streak_current = 0
-                task.update_modified()
-                await store.async_update_task(list_id, task)
+        # Get all lists
+        lists = store.get_all_lists()
+
+        for list_config in lists:
+            list_id = list_config["id"]
+
+            # 1. Archive instances completed 30+ days ago
+            archived_count = await store.async_archive_old_instances(list_id, days=30)
+            if archived_count > 0:
+                _LOGGER.info("Archived %d old instances from list %s", archived_count, list_id)
+
+            # 2. Soft-delete completed recurring instances (hide from UI)
+            tasks = store.get_tasks_for_list(list_id)
+            for task in tasks:
+                if task.is_recurring_instance() and task.status == "completed":
+                    _LOGGER.debug("Soft-deleting completed instance: %s", task.summary)
+                    task.mark_deleted()
+                    await store.async_update_task(list_id, task)
+
+        # 3. Check for overdue instances and reset template streaks
+        templates = await store.async_get_all_recurring_templates()
+
+        for list_id, template in templates:
+            # Get all instances for this template
+            instances = store.get_instances_for_template(list_id, template.uid)
+
+            # Find the most recent instance
+            if instances:
+                # Sort by occurrence_index descending
+                instances.sort(key=lambda t: t.occurrence_index, reverse=True)
+                latest_instance = instances[0]
+
+                # If latest instance is overdue and not completed, reset streak
+                if latest_instance.is_overdue() and template.streak_current > 0:
+                    _LOGGER.info(
+                        "Resetting streak for overdue template: %s (was %d)",
+                        template.summary,
+                        template.streak_current,
+                    )
+                    template.streak_current = 0
+                    template.update_modified()
+                    await store.async_update_task(list_id, template)
 
     # Run daily at midnight
-    hass.data[DOMAIN]["streak_checker"] = async_track_time_interval(
-        hass, check_streaks, timedelta(days=1)
+    hass.data[DOMAIN]["daily_maintenance"] = async_track_time_interval(
+        hass, daily_maintenance, timedelta(days=1)
     )
 
     # Helper function to extract list_id from entity_id
@@ -145,17 +177,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if due:
             due_str = due.isoformat().replace("+00:00", "Z")
 
-        # Create task
-        task = Task.create_new(
-            summary=summary,
-            description=description,
-            due=due_str,
-            tags=tags,
-            rrule=rrule,
-        )
+        # Check if this is a recurring task
+        if rrule and due_str:
+            # Create template (not shown in UI)
+            template = Task.create_new(
+                summary=summary,
+                description=description,
+                due=None,  # Templates don't have a due date
+                tags=tags,
+                rrule=rrule,
+                is_template=True,
+            )
 
-        # Add to store
-        await store.async_add_task(list_id, task)
+            # Create first instance
+            first_instance = Task.create_new(
+                summary=summary,
+                description=description,
+                due=due_str,
+                tags=tags.copy() if tags else [],
+                rrule=None,  # Instances don't have rrule
+                parent_uid=template.uid,
+                is_template=False,
+                occurrence_index=0,
+            )
+
+            _LOGGER.info("Creating recurring task template and first instance")
+
+            # Add both to store
+            await store.async_add_task(list_id, template)
+            await store.async_add_task(list_id, first_instance)
+        else:
+            # Create regular (non-recurring) task
+            task = Task.create_new(
+                summary=summary,
+                description=description,
+                due=due_str,
+                tags=tags,
+                rrule=None,
+            )
+
+            # Add to store
+            await store.async_add_task(list_id, task)
 
         # Notify entities to update
         async_dispatcher_send(hass, f"{DOMAIN}_update")
@@ -175,13 +237,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Cancel streak checker
-    if "streak_checker" in hass.data[DOMAIN]:
-        hass.data[DOMAIN]["streak_checker"]()
+    # Cancel daily maintenance job
+    if "daily_maintenance" in hass.data[DOMAIN]:
+        hass.data[DOMAIN]["daily_maintenance"]()
 
     # Unload platforms
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop("store", None)
-        hass.data[DOMAIN].pop("streak_checker", None)
+        hass.data[DOMAIN].pop("daily_maintenance", None)
 
     return unload_ok

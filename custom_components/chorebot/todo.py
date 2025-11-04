@@ -157,78 +157,107 @@ class ChoreBotList(TodoListEntity):
             task.due = item.due.isoformat().replace("+00:00", "Z")
 
         # Handle recurring task completion (includes streak update)
-        if status_changed_to_completed and task.is_recurring():
-            await self._handle_recurring_task_completion(task)
+        if status_changed_to_completed and task.is_recurring_instance():
+            await self._handle_recurring_instance_completion(task)
+        else:
+            task.update_modified()
+            # Save to store
+            await self._store.async_update_task(self._list_id, task)
 
-        task.update_modified()
-
-        # Save to store
-        await self._store.async_update_task(self._list_id, task)
         self.async_write_ha_state()
 
-    async def _handle_recurring_task_completion(self, task: Task) -> None:
-        """Handle completion of a recurring task."""
-        _LOGGER.info("Handling recurring task completion for: %s", task.summary)
+    async def _handle_recurring_instance_completion(self, instance: Task) -> None:
+        """Handle completion of a recurring task instance."""
+        _LOGGER.info("Handling recurring instance completion for: %s", instance.summary)
 
-        # Update streak
-        self._update_streak_on_completion(task)
-
-        # Calculate next due date
-        next_due = self._calculate_next_due_date(task)
-
-        if next_due:
-            # Update task for next occurrence
-            task.last_completed = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-            task.due = next_due.isoformat().replace("+00:00", "Z")
-            task.status = "needs_action"  # Reset status
-            _LOGGER.info("Next occurrence scheduled for: %s", task.due)
-        else:
-            _LOGGER.warning("Could not calculate next occurrence for task: %s", task.uid)
-
-    def _update_streak_on_completion(self, task: Task) -> None:
-        """Update streak counters based on completion timing."""
-        if not task.is_recurring():
+        if not instance.parent_uid:
+            _LOGGER.error("Instance has no parent_uid: %s", instance.uid)
             return
 
-        # Check if completed on or before due date
-        if task.due:
-            due_dt = self._parse_datetime(task.due)
+        # Get the template
+        template = self._store.get_template(self._list_id, instance.parent_uid)
+        if not template:
+            _LOGGER.error("Template not found for instance: %s", instance.parent_uid)
+            return
+
+        # Check if completed on time
+        completed_on_time = False
+        if instance.due:
+            due_dt = self._parse_datetime(instance.due)
             now = datetime.now(due_dt.tzinfo if due_dt else None)
+            completed_on_time = due_dt and now <= due_dt
 
-            if due_dt and now <= due_dt:
-                # Completed on time - increment streak
-                task.streak_current += 1
-                task.streak_longest = max(task.streak_longest, task.streak_current)
-                _LOGGER.info(
-                    "Streak incremented for task %s: current=%d, longest=%d",
-                    task.summary,
-                    task.streak_current,
-                    task.streak_longest,
-                )
-            else:
-                # Completed late - reset streak
-                _LOGGER.info("Task completed late, resetting streak for: %s", task.summary)
-                task.streak_current = 0
+        # Update streak on template (strict consecutive)
+        if completed_on_time:
+            template.streak_current += 1
+            template.streak_longest = max(template.streak_longest, template.streak_current)
+            _LOGGER.info(
+                "Streak incremented for template %s: current=%d, longest=%d",
+                template.summary,
+                template.streak_current,
+                template.streak_longest,
+            )
+        else:
+            _LOGGER.info("Instance completed late, resetting streak for: %s", template.summary)
+            template.streak_current = 0
 
-    def _calculate_next_due_date(self, task: Task) -> datetime | None:
-        """Calculate next due date for recurring task."""
-        if not task.rrule or not task.due:
+        # Mark instance as completed
+        instance.status = "completed"
+        instance.last_completed = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        instance.update_modified()
+
+        # Calculate next due date from template
+        next_due = self._calculate_next_due_date_from_template(template, instance.due)
+
+        if next_due:
+            # Create new instance from template
+            new_instance = Task.create_new(
+                summary=template.summary,
+                description=template.description,
+                due=next_due.isoformat().replace("+00:00", "Z"),
+                tags=template.tags.copy(),
+                rrule=None,  # Instances don't have rrule
+                points_value=template.points_value,
+                parent_uid=template.uid,
+                is_template=False,
+                occurrence_index=instance.occurrence_index + 1,
+            )
+            new_instance.streak_current = template.streak_current
+            new_instance.streak_longest = template.streak_longest
+
+            _LOGGER.info("Created new instance for next occurrence: %s", next_due)
+
+            # Save: update instance, update template, add new instance
+            await self._store.async_update_task(self._list_id, instance)
+            template.update_modified()
+            await self._store.async_update_task(self._list_id, template)
+            await self._store.async_add_task(self._list_id, new_instance)
+        else:
+            _LOGGER.warning("Could not calculate next occurrence for template: %s", template.uid)
+            # Just save the completed instance
+            await self._store.async_update_task(self._list_id, instance)
+
+    def _calculate_next_due_date_from_template(
+        self, template: Task, current_due_str: str | None
+    ) -> datetime | None:
+        """Calculate next due date from template's rrule."""
+        if not template.rrule or not current_due_str:
             return None
 
         try:
             # Parse current due date
-            current_due = self._parse_datetime(task.due)
+            current_due = self._parse_datetime(current_due_str)
             if not current_due:
                 return None
 
-            # Parse rrule
+            # Parse rrule from template
             # Create a rrule from the string, starting from current due date
-            rule = rrulestr(task.rrule, dtstart=current_due)
+            rule = rrulestr(template.rrule, dtstart=current_due)
 
             # Get next occurrence after current due date
             return rule.after(current_due)
         except (ValueError, TypeError, AttributeError) as e:
-            _LOGGER.error("Error calculating next due date for task %s: %s", task.uid, e)
+            _LOGGER.error("Error calculating next due date for template %s: %s", template.uid, e)
             return None
 
     async def async_delete_todo_item(self, uid: str) -> None:
