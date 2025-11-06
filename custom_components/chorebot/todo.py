@@ -285,8 +285,6 @@ class ChoreBotList(TodoListEntity):
                     occurrence_index=next_occurrence_index,
                     is_all_day=template.is_all_day,  # Inherit from template
                 )
-                new_instance.streak_current = template.streak_current
-                new_instance.streak_longest = template.streak_longest
 
                 _LOGGER.info("Created new instance for next occurrence: %s", next_due)
 

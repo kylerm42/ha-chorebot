@@ -204,6 +204,30 @@ class TickTickBackend(SyncBackend):
 
         return formatted, system_tz_name
 
+    def _normalize_ticktick_date(self, ticktick_date: str) -> str:
+        """Convert TickTick date format to internal ISO Z format (UTC).
+
+        TickTick dates come in format: YYYY-MM-DDTHH:MM:SS±HHMM
+        Internal format: YYYY-MM-DDTHH:MM:SSZ (UTC)
+
+        Args:
+            ticktick_date: Date string from TickTick API
+
+        Returns:
+            Date string in ISO Z format (UTC)
+        """
+        # Parse TickTick date (with timezone)
+        dt = datetime.fromisoformat(ticktick_date)
+
+        # Convert to UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        else:
+            dt = dt.astimezone(UTC)
+
+        # Return in ISO Z format
+        return dt.isoformat().replace("+00:00", "Z")
+
     def _task_to_ticktick(
         self, task: Task, list_id: str, project_id: str
     ) -> dict[str, Any]:
@@ -723,11 +747,13 @@ class TickTickBackend(SyncBackend):
             # Create new instance with TickTick's new due date
             new_due = ticktick_task.get("dueDate")
             if new_due:
-                _LOGGER.info("Creating new instance with due date: %s", new_due)
+                # Normalize TickTick date format to internal ISO Z format
+                normalized_due = self._normalize_ticktick_date(new_due)
+                _LOGGER.info("Creating new instance with due date: %s", normalized_due)
                 new_instance = Task.create_new(
                     summary=template.summary,
                     description=template.description,
-                    due=new_due,
+                    due=normalized_due,
                     tags=template.tags.copy() if template.tags else [],
                     rrule=None,
                     parent_uid=template.uid,
@@ -735,8 +761,6 @@ class TickTickBackend(SyncBackend):
                     occurrence_index=next_occurrence_index,
                     is_all_day=template.is_all_day,
                 )
-                new_instance.streak_current = template.streak_current
-                new_instance.streak_longest = template.streak_longest
 
                 await self.store.async_add_task(list_id, new_instance)
                 _LOGGER.info("Created new instance: %s", new_instance.uid)
@@ -825,6 +849,11 @@ class TickTickBackend(SyncBackend):
                     # Check if TickTick's due date changed from the last synced instance
                     current_ticktick_due = ticktick_task.get("dueDate")
                     last_known_due = last_synced_instance.due
+
+                    # Normalize TickTick date for comparison
+                    if current_ticktick_due:
+                        current_ticktick_due = self._normalize_ticktick_date(current_ticktick_due)
+
                     due_date_changed = (
                         current_ticktick_due
                         and last_known_due
@@ -846,7 +875,7 @@ class TickTickBackend(SyncBackend):
 
         # Update due date (only for tasks, never templates!)
         if "dueDate" in ticktick_task and not local_task.is_template:
-            local_task.due = ticktick_task["dueDate"]
+            local_task.due = self._normalize_ticktick_date(ticktick_task["dueDate"])
 
         # Update isAllDay flag
         if "isAllDay" in ticktick_task:
@@ -957,14 +986,16 @@ class TickTickBackend(SyncBackend):
 
             # Create first instance if there's a due date
             if "dueDate" in ticktick_task:
+                # Normalize TickTick date format to internal ISO Z format
+                normalized_due = self._normalize_ticktick_date(ticktick_task["dueDate"])
                 _LOGGER.info(
                     "Creating first instance for template with due date: %s",
-                    ticktick_task["dueDate"],
+                    normalized_due,
                 )
                 first_instance = Task.create_new(
                     summary=ticktick_task["title"],
                     description=description,
-                    due=ticktick_task["dueDate"],
+                    due=normalized_due,
                     tags=ticktick_task.get("tags", []).copy(),
                     rrule=None,
                     parent_uid=template.uid,
@@ -977,10 +1008,15 @@ class TickTickBackend(SyncBackend):
 
         else:
             # Create regular task
+            # Normalize TickTick date if present
+            normalized_due = None
+            if ticktick_task.get("dueDate"):
+                normalized_due = self._normalize_ticktick_date(ticktick_task["dueDate"])
+
             task = Task.create_new(
                 summary=ticktick_task["title"],
                 description=description,
-                due=ticktick_task.get("dueDate"),
+                due=normalized_due,
                 tags=ticktick_task.get("tags", []),
                 rrule=None,
                 is_all_day=is_all_day,

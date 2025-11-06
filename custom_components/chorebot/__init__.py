@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, timedelta
 import logging
+from zoneinfo import ZoneInfo
 
 import voluptuous as vol
 
@@ -179,7 +180,14 @@ async def _handle_add_task(
 
     due_str = None
     if due:
-        due_str = due.isoformat().replace("+00:00", "Z")
+        # Ensure timezone-aware datetime
+        if due.tzinfo is None:
+            # Naive datetime - assume system timezone
+            system_tz = ZoneInfo(hass.config.time_zone)
+            due = due.replace(tzinfo=system_tz)
+        # Convert to UTC
+        due_utc = due.astimezone(UTC)
+        due_str = due_utc.isoformat().replace("+00:00", "Z")
 
     if rrule and due_str:
         # Create template
