@@ -6,10 +6,10 @@ from datetime import UTC, datetime, timedelta
 import logging
 import re
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_LIST_MAPPINGS, FIELD_TICKTICK_ID
 from .oauth_api import AsyncConfigEntryAuth
 from .store import ChoreBotStore
 from .sync_backend import SyncBackend
@@ -38,7 +38,9 @@ class TickTickBackend(SyncBackend):
         self._auth = auth
         self.config = config
         self._client: TickTickAPIClient | None = None
-        self._list_mappings: dict[str, str] = config.get(CONF_LIST_MAPPINGS, {})
+        _LOGGER.info(
+            "TickTick backend initialized (list mappings now stored in storage)"
+        )
 
     async def async_initialize(self) -> bool:
         """Initialize the TickTick client."""
@@ -53,8 +55,14 @@ class TickTickBackend(SyncBackend):
             return True
 
     def get_list_mappings(self) -> dict[str, str]:
-        """Get current list mappings."""
-        return self._list_mappings
+        """Get current list mappings from storage."""
+        mappings = {}
+        for list_config in self.store.get_all_lists():
+            list_id = list_config["id"]
+            sync_info = self.store.get_list_sync_info(list_id, "ticktick")
+            if sync_info and "project_id" in sync_info:
+                mappings[list_id] = sync_info["project_id"]
+        return mappings
 
     async def async_get_remote_lists(self) -> list[dict[str, Any]]:
         """Get all available projects from TickTick."""
@@ -71,7 +79,7 @@ class TickTickBackend(SyncBackend):
             return []
 
     async def async_create_list(self, list_id: str, name: str) -> str | None:
-        """Create a new TickTick project."""
+        """Create a new TickTick project and store mapping in storage."""
         if not self._client:
             return None
 
@@ -79,9 +87,18 @@ class TickTickBackend(SyncBackend):
             project = await self._client.create_project(name)
             project_id = project["id"]
 
-            # Store mapping
-            self._list_mappings[list_id] = project_id
-            _LOGGER.info("Created TickTick project %s with ID %s", name, project_id)
+            # Store mapping in storage
+            sync_info = {
+                "project_id": project_id,
+                "status": "synced",
+                "last_synced_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            }
+            await self.store.async_set_list_sync_info(list_id, "ticktick", sync_info)
+            _LOGGER.info(
+                "Created TickTick project %s with ID %s and saved to storage",
+                name,
+                project_id,
+            )
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Failed to create TickTick project: %s", err)
             return None
@@ -139,30 +156,57 @@ class TickTickBackend(SyncBackend):
 
         return user_description, metadata
 
-    def _compare_timestamps(self, local_modified: str, ticktick_modified: int) -> int:
-        """Compare timestamps to determine which is newer.
+    def _format_ticktick_date(self, iso_date: str) -> tuple[str, str]:
+        """Convert ISO 8601 date to TickTick format with system timezone.
+
+        TickTick expects dates in format: yyyy-MM-dd'T'HH:mm:ss+0000
+        This method converts dates to the system timezone.
+
+        Args:
+            iso_date: Date string in ISO 8601 format (may be naive or aware)
 
         Returns:
-            1 if local is newer
-            -1 if ticktick is newer
-            0 if equal (local wins as tiebreaker)
+            Tuple of (formatted_date_string, timezone_name)
         """
-        try:
-            local_dt = datetime.fromisoformat(local_modified)
-            # TickTick uses Unix timestamp in milliseconds
-            ticktick_dt = datetime.fromtimestamp(ticktick_modified / 1000, tz=UTC)
+        # Get the system timezone from Home Assistant
+        system_tz_name = self.hass.config.time_zone
+        system_tz = ZoneInfo(system_tz_name)
 
-            if local_dt > ticktick_dt:
-                return 1
-            if local_dt < ticktick_dt:
-                return -1
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.warning("Error comparing timestamps: %s", err)
-            return 0  # Default to local wins
+        # Parse the date string
+        # Try parsing with various formats
+        dt = None
+        for fmt in [
+            "%Y-%m-%dT%H:%M:%S%z",  # With timezone
+            "%Y-%m-%dT%H:%M:%SZ",  # UTC with Z
+            "%Y-%m-%dT%H:%M:%S",  # Naive
+        ]:
+            try:
+                dt = datetime.strptime(iso_date.replace("Z", "+0000"), fmt)
+                break
+            except ValueError:
+                continue
+
+        if dt is None:
+            # Fallback: assume it's a naive datetime in system timezone
+            dt = datetime.fromisoformat(iso_date)
+
+        # If datetime is naive, assume it's in system timezone
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=system_tz)
         else:
-            return 0
+            # Convert to system timezone
+            dt = dt.astimezone(system_tz)
 
-    def _task_to_ticktick(self, task: Task, project_id: str) -> dict[str, Any]:
+        # Format for TickTick: yyyy-MM-dd'T'HH:mm:ss+0000
+        # Get the UTC offset in the format +0000 or -0500
+        offset = dt.strftime("%z")  # Returns like +0000 or -0500
+        formatted = dt.strftime(f"%Y-%m-%dT%H:%M:%S{offset}")
+
+        return formatted, system_tz_name
+
+    def _task_to_ticktick(
+        self, task: Task, list_id: str, project_id: str
+    ) -> dict[str, Any]:
         """Convert ChoreBot Task to TickTick API format."""
         ticktick_task: dict[str, Any] = {
             "title": task.summary,
@@ -180,14 +224,59 @@ class TickTickBackend(SyncBackend):
 
         # Add due date (for instances or regular tasks)
         if task.due and not task.is_template:
-            ticktick_task["dueDate"] = task.due
+            formatted_date, timezone_name = self._format_ticktick_date(task.due)
+            ticktick_task["dueDate"] = formatted_date
+            ticktick_task["timeZone"] = timezone_name
+            ticktick_task["isAllDay"] = task.is_all_day  # Use task's is_all_day flag
+            _LOGGER.debug(
+                "Adding dueDate %s with timeZone %s (isAllDay=%s) to task %s",
+                formatted_date,
+                timezone_name,
+                task.is_all_day,
+                task.summary,
+            )
 
         # Add recurrence rule for templates
         if task.is_template and task.rrule:
-            ticktick_task["repea"] = task.rrule
+            # TickTick expects RRULE: prefix
+            rrule_with_prefix = (
+                task.rrule if task.rrule.startswith("RRULE:") else f"RRULE:{task.rrule}"
+            )
+            ticktick_task["repeatFlag"] = rrule_with_prefix
+
+            # For templates, include the due date from the active instance
+            # This tells TickTick when the next occurrence is due
+            instances = self.store.get_instances_for_template(list_id, task.uid)
+            if instances:
+                # Get the latest incomplete instance
+                incomplete_instances = [
+                    i
+                    for i in instances
+                    if i.status != "completed" and not i.is_deleted()
+                ]
+                if incomplete_instances:
+                    # Sort by occurrence_index to get the current one
+                    incomplete_instances.sort(key=lambda i: i.occurrence_index)
+                    current_instance = incomplete_instances[0]
+                    if current_instance.due:
+                        formatted_date, timezone_name = self._format_ticktick_date(
+                            current_instance.due
+                        )
+                        ticktick_task["dueDate"] = formatted_date
+                        ticktick_task["timeZone"] = timezone_name
+                        ticktick_task["isAllDay"] = (
+                            task.is_all_day
+                        )  # Use template's is_all_day flag
+                        _LOGGER.debug(
+                            "Adding due date %s from instance to template %s with timeZone %s (isAllDay=%s)",
+                            current_instance.due,
+                            task.summary,
+                            timezone_name,
+                            task.is_all_day,
+                        )
 
         # Add TickTick ID if exists
-        ticktick_id = task.custom_fields.get(FIELD_TICKTICK_ID)
+        ticktick_id = task.get_sync_id("ticktick")
         if ticktick_id:
             ticktick_task["id"] = ticktick_id
 
@@ -198,39 +287,86 @@ class TickTickBackend(SyncBackend):
         if not self._client:
             return False
 
-        # Check if this list is mapped
-        project_id = self._list_mappings.get(list_id)
-        if not project_id:
-            _LOGGER.debug("List %s is not mapped to a TickTick project", list_id)
+        # Check if this list is mapped (read from storage)
+        sync_info = self.store.get_list_sync_info(list_id, "ticktick")
+        if not sync_info or "project_id" not in sync_info:
+            _LOGGER.warning(
+                "List %s is not mapped to a TickTick project. Current mappings: %s",
+                list_id,
+                self.get_list_mappings(),
+            )
             return False
 
-        try:
-            # Skip recurring instances (only sync templates + their current due date)
-            if task.is_recurring_instance():
-                _LOGGER.debug("Skipping sync for recurring instance")
-                return True
+        project_id = sync_info["project_id"]
 
+        # Skip recurring instances (only sync templates + their current due date)
+        if task.is_recurring_instance():
+            _LOGGER.debug("Skipping sync for recurring instance")
+            return True
+
+        # Mark as pending push
+        if "ticktick" not in task.sync:
+            task.sync["ticktick"] = {}
+        task.sync["ticktick"]["status"] = "pending_push"
+        await self.store.async_update_task(list_id, task)
+
+        try:
             # Convert to TickTick format
-            ticktick_task = self._task_to_ticktick(task, project_id)
+            ticktick_task = self._task_to_ticktick(task, list_id, project_id)
 
             # Check if task already exists on TickTick
-            ticktick_id = task.custom_fields.get(FIELD_TICKTICK_ID)
+            ticktick_id = task.get_sync_id("ticktick")
 
             if ticktick_id:
                 # Update existing task
                 _LOGGER.debug("Updating TickTick task: %s", task.summary)
-                await self._client.update_task(ticktick_id, ticktick_task)
+                response = await self._client.update_task(ticktick_id, ticktick_task)
             else:
                 # Create new task
                 _LOGGER.debug("Creating new TickTick task: %s", task.summary)
-                created_task = await self._client.create_task(ticktick_task)
+                response = await self._client.create_task(ticktick_task)
 
-                # Store the TickTick ID
-                task.custom_fields[FIELD_TICKTICK_ID] = created_task["id"]
-                await self.store.async_update_task(list_id, task)
+                # Store the TickTick ID in sync metadata
+                task.set_sync_id("ticktick", response["id"])
+
+            # Mark as successfully synced with etag (preserve ID)
+            task.sync["ticktick"]["status"] = "synced"
+            task.sync["ticktick"]["etag"] = response.get("etag")
+            task.sync["ticktick"]["last_synced_at"] = (
+                datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            )
+
+            # Track last_synced_occurrence_index for recurring templates
+            if task.is_recurring_template():
+                # Find the current active instance
+                instances = self.store.get_instances_for_template(list_id, task.uid)
+                if instances:
+                    incomplete_instances = [
+                        i
+                        for i in instances
+                        if i.status != "completed" and not i.is_deleted()
+                    ]
+                    if incomplete_instances:
+                        # Sort by occurrence_index to get the current one
+                        incomplete_instances.sort(key=lambda i: i.occurrence_index)
+                        current_instance = incomplete_instances[0]
+                        task.sync["ticktick"]["last_synced_occurrence_index"] = (
+                            current_instance.occurrence_index
+                        )
+                        _LOGGER.debug(
+                            "Stored last_synced_occurrence_index=%d for template %s",
+                            current_instance.occurrence_index,
+                            task.summary,
+                        )
+
+            await self.store.async_update_task(list_id, task)
+            _LOGGER.debug("Successfully pushed task '%s' to TickTick", task.summary)
 
         except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Failed to push task to TickTick: %s", err)
+            _LOGGER.error("Failed to push task '%s' to TickTick: %s", task.summary, err)
+            # Mark as failed
+            task.sync["ticktick"]["status"] = "push_failed"
+            await self.store.async_update_task(list_id, task)
             return False
         else:
             return True
@@ -240,14 +376,17 @@ class TickTickBackend(SyncBackend):
         if not self._client:
             return False
 
-        ticktick_id = task.custom_fields.get(FIELD_TICKTICK_ID)
+        ticktick_id = task.get_sync_id("ticktick")
         if not ticktick_id:
             # Task was never synced
             return True
 
-        project_id = self._list_mappings.get(list_id)
-        if not project_id:
+        # Get project_id from storage
+        sync_info = self.store.get_list_sync_info(list_id, "ticktick")
+        if not sync_info or "project_id" not in sync_info:
             return False
+
+        project_id = sync_info["project_id"]
 
         try:
             _LOGGER.debug("Deleting TickTick task: %s", task.summary)
@@ -263,14 +402,17 @@ class TickTickBackend(SyncBackend):
         if not self._client:
             return False
 
-        ticktick_id = task.custom_fields.get(FIELD_TICKTICK_ID)
+        ticktick_id = task.get_sync_id("ticktick")
         if not ticktick_id:
             # Task was never synced
             return True
 
-        project_id = self._list_mappings.get(list_id)
-        if not project_id:
+        # Get project_id from storage
+        sync_info = self.store.get_list_sync_info(list_id, "ticktick")
+        if not sync_info or "project_id" not in sync_info:
             return False
+
+        project_id = sync_info["project_id"]
 
         try:
             _LOGGER.debug("Completing TickTick task: %s", task.summary)
@@ -284,12 +426,18 @@ class TickTickBackend(SyncBackend):
                     instances.sort(key=lambda t: t.occurrence_index, reverse=True)
                     latest_instance = instances[0]
 
-                    # Update TickTick task with new due date
-                    update_data = {
-                        "id": ticktick_id,
-                        "dueDate": latest_instance.due,
-                    }
-                    await self._client.update_task(ticktick_id, update_data)
+                    # Update TickTick task with new due date (if instance has one)
+                    if latest_instance.due:
+                        formatted_date, timezone_name = self._format_ticktick_date(
+                            latest_instance.due
+                        )
+                        update_data = {
+                            "id": ticktick_id,
+                            "dueDate": formatted_date,
+                            "timeZone": timezone_name,
+                            "isAllDay": task.is_all_day,  # Use template's is_all_day flag
+                        }
+                        await self._client.update_task(ticktick_id, update_data)
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Failed to complete TickTick task: %s", err)
             return False
@@ -304,32 +452,53 @@ class TickTickBackend(SyncBackend):
         stats = {"created": 0, "updated": 0, "deleted": 0}
 
         try:
-            # Get lists to sync
+            # Get lists to sync (read from storage)
+            list_mappings = self.get_list_mappings()
             lists_to_sync = []
             if list_id:
-                if list_id in self._list_mappings:
+                if list_id in list_mappings:
                     lists_to_sync.append(list_id)
             else:
-                lists_to_sync = list(self._list_mappings.keys())
+                lists_to_sync = list(list_mappings.keys())
+
+            # First, retry any failed pushes
+            for local_list_id in lists_to_sync:
+                local_tasks = self.store.get_tasks_for_list(local_list_id)
+                failed_tasks = [
+                    t
+                    for t in local_tasks
+                    if t.sync.get("ticktick", {}).get("status") == "push_failed"
+                ]
+
+                if failed_tasks:
+                    _LOGGER.info(
+                        "Retrying %d failed push(es) for list %s",
+                        len(failed_tasks),
+                        local_list_id,
+                    )
+                    for task in failed_tasks:
+                        _LOGGER.debug("Retrying failed push: %s", task.summary)
+                        await self.async_push_task(local_list_id, task)
 
             # Sync each mapped list
             for local_list_id in lists_to_sync:
-                project_id = self._list_mappings[local_list_id]
+                project_id = list_mappings[local_list_id]
 
                 # Get TickTick tasks for this project
                 project_data = await self._client.get_project_with_tasks(project_id)
                 ticktick_tasks = project_data.get("tasks", [])
 
-                # Get local tasks (templates only for recurring tasks)
+                # Get local templates and regular tasks (not instances)
+                local_templates = self.store.get_templates_for_list(local_list_id)
                 local_tasks = self.store.get_tasks_for_list(local_list_id)
-                local_templates = [
+                local_regular_tasks = [
                     t for t in local_tasks if not t.is_recurring_instance()
                 ]
 
-                # Build mapping of ticktick_id -> local task
+                # Build mapping of ticktick_id -> local task (templates + regular tasks)
                 ticktick_id_map = {}
-                for task in local_templates:
-                    ticktick_id = task.custom_fields.get(FIELD_TICKTICK_ID)
+                for task in local_templates + local_regular_tasks:
+                    ticktick_id = task.get_sync_id("ticktick")
                     if ticktick_id:
                         ticktick_id_map[ticktick_id] = task
 
@@ -341,22 +510,58 @@ class TickTickBackend(SyncBackend):
                         # Task exists - check for updates
                         local_task = ticktick_id_map[tt_id]
 
-                        # Compare timestamps
-                        comparison = self._compare_timestamps(
-                            local_task.modified,
-                            tt_task.get("modifiedTime", 0),
+                        # Check sync status
+                        tt_sync = local_task.sync.get("ticktick", {})
+                        sync_status = tt_sync.get("status", "synced")
+
+                        # Skip if local has pending or failed changes
+                        if sync_status in ["pending_push", "push_failed"]:
+                            _LOGGER.debug(
+                                "Skipping task '%s' - local has %s status",
+                                tt_task.get("title"),
+                                sync_status,
+                            )
+                            del ticktick_id_map[tt_id]
+                            continue
+
+                        # Compare etags to detect remote changes
+                        remote_etag = tt_task.get("etag")
+                        last_etag = tt_sync.get("etag")
+
+                        _LOGGER.debug(
+                            "Checking task '%s' - Local etag: %s, Remote etag: %s",
+                            tt_task.get("title"),
+                            last_etag,
+                            remote_etag,
                         )
 
-                        if comparison == -1:
-                            # TickTick is newer - update local
-                            _LOGGER.debug(
-                                "Updating local task from TickTick: %s",
+                        if remote_etag and remote_etag != last_etag:
+                            # Remote changed - update local
+                            _LOGGER.info(
+                                "Updating local task '%s' from TickTick (etag changed)",
                                 tt_task["title"],
                             )
                             await self._update_local_from_ticktick(
                                 local_list_id, local_task, tt_task
                             )
+                            # Update sync metadata (preserve existing fields like id, last_synced_occurrence_index)
+                            local_task.sync["ticktick"].update(
+                                {
+                                    "status": "synced",
+                                    "etag": remote_etag,
+                                    "last_synced_at": datetime.now(UTC)
+                                    .isoformat()
+                                    .replace("+00:00", "Z"),
+                                }
+                            )
+                            await self.store.async_update_task(
+                                local_list_id, local_task
+                            )
                             stats["updated"] += 1
+                        else:
+                            _LOGGER.debug(
+                                "Task '%s' unchanged (etag match)", tt_task.get("title")
+                            )
 
                         # Remove from map (processed)
                         del ticktick_id_map[tt_id]
@@ -402,6 +607,150 @@ class TickTickBackend(SyncBackend):
 
         return stats
 
+
+    async def _handle_remote_completion(
+        self, list_id: str, template: Task, ticktick_task: dict[str, Any]
+    ) -> None:
+        """Handle a recurring task that was completed on TickTick.
+
+        This finds the old instance with the last synced occurrence_index, marks it as completed,
+        updates streaks, and prepares for the next instance with TickTick's new due date.
+
+        Args:
+            list_id: The list ID
+            template: The local recurring task template
+            ticktick_task: The TickTick task data with new due date
+        """
+        _LOGGER.info(
+            "Handling remote completion for recurring task: %s", template.summary
+        )
+
+        # Get the last synced occurrence_index
+        last_synced_index = template.sync.get("ticktick", {}).get(
+            "last_synced_occurrence_index"
+        )
+
+        if last_synced_index is None:
+            _LOGGER.warning(
+                "No last_synced_occurrence_index in metadata for template %s, cannot find old instance",
+                template.uid,
+            )
+            return
+
+        # Find the instance with the last synced occurrence_index
+        instances = self.store.get_instances_for_template(list_id, template.uid)
+        old_instance = None
+        for instance in instances:
+            if instance.occurrence_index == last_synced_index:
+                old_instance = instance
+                break
+
+        if not old_instance:
+            _LOGGER.warning(
+                "Could not find instance with occurrence_index %d for template %s",
+                last_synced_index,
+                template.uid,
+            )
+            return
+
+        if old_instance.status == "completed":
+            _LOGGER.debug(
+                "Instance %s already marked as completed, skipping", old_instance.uid
+            )
+            return
+
+        # Mark instance as completed
+        old_instance.status = "completed"
+
+        # Set completion time from TickTick (convert from milliseconds)
+        completed_time_ms = ticktick_task.get("completedTime")
+        if completed_time_ms:
+            completed_dt = datetime.fromtimestamp(completed_time_ms / 1000, tz=UTC)
+            old_instance.last_completed = completed_dt.isoformat().replace(
+                "+00:00", "Z"
+            )
+        else:
+            old_instance.last_completed = (
+                datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            )
+
+        # Check if completed on time (for streak tracking)
+        completed_on_time = False
+        if old_instance.due:
+            due_dt = datetime.fromisoformat(old_instance.due)
+            completed_dt = datetime.fromisoformat(old_instance.last_completed)
+
+            if old_instance.is_all_day:
+                # For all-day tasks, compare dates only
+                completed_on_time = completed_dt.date() <= due_dt.date()
+            else:
+                # For timed tasks, compare full datetime
+                completed_on_time = completed_dt <= due_dt
+
+        # Update streak on template
+        if completed_on_time:
+            template.streak_current += 1
+            template.streak_longest = max(
+                template.streak_longest, template.streak_current
+            )
+            _LOGGER.info(
+                "Streak incremented for template %s: current=%d, longest=%d",
+                template.summary,
+                template.streak_current,
+                template.streak_longest,
+            )
+        else:
+            _LOGGER.info(
+                "Instance completed late, resetting streak for: %s", template.summary
+            )
+            template.streak_current = 0
+
+        old_instance.update_modified()
+        await self.store.async_update_task(list_id, old_instance)
+
+        # Check if next instance already exists
+        next_occurrence_index = old_instance.occurrence_index + 1
+        next_exists = any(
+            inst.occurrence_index == next_occurrence_index for inst in instances
+        )
+
+        if next_exists:
+            _LOGGER.debug(
+                "Next instance (occurrence_index=%d) already exists, skipping creation",
+                next_occurrence_index,
+            )
+        else:
+            # Create new instance with TickTick's new due date
+            new_due = ticktick_task.get("dueDate")
+            if new_due:
+                _LOGGER.info("Creating new instance with due date: %s", new_due)
+                new_instance = Task.create_new(
+                    summary=template.summary,
+                    description=template.description,
+                    due=new_due,
+                    tags=template.tags.copy() if template.tags else [],
+                    rrule=None,
+                    parent_uid=template.uid,
+                    is_template=False,
+                    occurrence_index=next_occurrence_index,
+                    is_all_day=template.is_all_day,
+                )
+                new_instance.streak_current = template.streak_current
+                new_instance.streak_longest = template.streak_longest
+
+                await self.store.async_add_task(list_id, new_instance)
+                _LOGGER.info("Created new instance: %s", new_instance.uid)
+
+        # Update template's last_synced_occurrence_index to the new current instance
+        template.sync["ticktick"]["last_synced_occurrence_index"] = (
+            next_occurrence_index
+        )
+        _LOGGER.debug(
+            "Updated last_synced_occurrence_index to %d for template %s",
+            next_occurrence_index,
+            template.summary,
+        )
+
     async def _update_local_from_ticktick(
         self, list_id: str, local_task: Task, ticktick_task: dict[str, Any]
     ) -> None:
@@ -414,21 +763,102 @@ class TickTickBackend(SyncBackend):
         description, metadata = self._decode_metadata(content)
         local_task.description = description
 
-        # Update metadata
+        # Update metadata (streak data, etc.)
         if metadata:
             for key, value in metadata.items():
-                local_task.custom_fields[key] = value
+                if key in ["streak_current", "streak_longest", "occurrence_index"]:
+                    # These map to direct properties
+                    setattr(local_task, key, value)
+                else:
+                    # Other metadata goes in custom_fields
+                    local_task.custom_fields[key] = value
 
-        # Update tags
-        local_task.custom_fields["tags"] = ticktick_task.get("tags", [])
+        # Initialize last_synced_occurrence_index for recurring templates if missing
+        # This handles existing tasks created before this feature was added
+        if local_task.is_recurring_template():
+            if "ticktick" not in local_task.sync:
+                local_task.sync["ticktick"] = {}
 
-        # Update due date
-        if "dueDate" in ticktick_task:
+            if "last_synced_occurrence_index" not in local_task.sync["ticktick"]:
+                # Initialize with current instance's occurrence_index
+                # For first sync after feature added, this captures the current state
+                instances = self.store.get_instances_for_template(
+                    list_id, local_task.uid
+                )
+                if instances:
+                    incomplete_instances = [
+                        i
+                        for i in instances
+                        if i.status != "completed" and not i.is_deleted()
+                    ]
+                    if incomplete_instances:
+                        incomplete_instances.sort(key=lambda i: i.occurrence_index)
+                        current_instance = incomplete_instances[0]
+                        local_task.sync["ticktick"]["last_synced_occurrence_index"] = (
+                            current_instance.occurrence_index
+                        )
+                        _LOGGER.debug(
+                            "Initialized last_synced_occurrence_index for template %s: %d",
+                            local_task.summary,
+                            current_instance.occurrence_index,
+                        )
+
+        # Check for remote completion of recurring task BEFORE updating task
+        # This must happen before we update the due date on the template
+        # Note: TickTick resets status to active after completion, so we check for due date changes
+        if local_task.is_recurring_template():
+            # Get the last synced instance to compare due dates
+            last_synced_index = local_task.sync.get("ticktick", {}).get(
+                "last_synced_occurrence_index"
+            )
+
+            if last_synced_index is not None:
+                # Find the instance with this occurrence_index
+                instances = self.store.get_instances_for_template(list_id, local_task.uid)
+                last_synced_instance = None
+                for instance in instances:
+                    if instance.occurrence_index == last_synced_index:
+                        last_synced_instance = instance
+                        break
+
+                if last_synced_instance:
+                    # Check if TickTick's due date changed from the last synced instance
+                    current_ticktick_due = ticktick_task.get("dueDate")
+                    last_known_due = last_synced_instance.due
+                    due_date_changed = (
+                        current_ticktick_due
+                        and last_known_due
+                        and current_ticktick_due != last_known_due
+                    )
+
+                    if due_date_changed:
+                        _LOGGER.info(
+                            "Detected remote completion for recurring task: %s (due changed from %s to %s)",
+                            local_task.summary,
+                            last_known_due,
+                            current_ticktick_due,
+                        )
+                        # Handle the completion (mark old instance complete, create new instance)
+                        await self._handle_remote_completion(list_id, local_task, ticktick_task)
+
+        # Update tags (direct property, not custom_fields)
+        local_task.tags = ticktick_task.get("tags", [])
+
+        # Update due date (only for tasks, never templates!)
+        if "dueDate" in ticktick_task and not local_task.is_template:
             local_task.due = ticktick_task["dueDate"]
 
-        # Update recurrence rule
-        if "repeat" in ticktick_task:
-            local_task.custom_fields["rrule"] = ticktick_task["repeat"]
+        # Update isAllDay flag
+        if "isAllDay" in ticktick_task:
+            local_task.is_all_day = ticktick_task["isAllDay"]
+
+        # Update recurrence rule (direct property, not custom_fields)
+        if "repeatFlag" in ticktick_task:
+            # Strip RRULE: prefix for internal storage consistency
+            rrule = ticktick_task["repeatFlag"]
+            if rrule and rrule.startswith("RRULE:"):
+                rrule = rrule[6:]  # Remove "RRULE:" prefix
+            local_task.rrule = rrule
 
         # Check if completed on TickTick
         if ticktick_task.get("status") == 2:
@@ -440,6 +870,30 @@ class TickTickBackend(SyncBackend):
         # Save to store
         await self.store.async_update_task(list_id, local_task)
 
+        # If this is a template, propagate changes to active instances
+        if local_task.is_recurring_template():
+            _LOGGER.debug(
+                "Template '%s' updated, propagating to active instances",
+                local_task.summary,
+            )
+            instances = self.store.get_instances_for_template(list_id, local_task.uid)
+
+            for instance in instances:
+                # Only update active instances (not deleted, not completed)
+                if instance.is_deleted() or instance.status == "completed":
+                    continue
+
+                # Propagate fields that should sync from template
+                instance.summary = local_task.summary
+                instance.description = local_task.description
+                instance.tags = local_task.tags.copy() if local_task.tags else []
+                instance.update_modified()
+
+                await self.store.async_update_task(list_id, instance)
+                _LOGGER.debug(
+                    "Updated instance '%s' with template changes", instance.uid
+                )
+
     async def _import_ticktick_task(
         self, list_id: str, ticktick_task: dict[str, Any]
     ) -> None:
@@ -449,10 +903,29 @@ class TickTickBackend(SyncBackend):
         description, metadata = self._decode_metadata(content)
 
         # Check if this is a recurring task
-        rrule = ticktick_task.get("repeat")
+        rrule = ticktick_task.get("repeatFlag")
+        # Strip RRULE: prefix for internal storage consistency
+        if rrule and rrule.startswith("RRULE:"):
+            rrule = rrule[6:]  # Remove "RRULE:" prefix
+
+        # Get isAllDay flag from TickTick
+        is_all_day = ticktick_task.get("isAllDay", False)
+
+        _LOGGER.debug(
+            "Importing task '%s': has repeatFlag=%s (normalized: %s), dueDate=%s",
+            ticktick_task.get("title"),
+            bool(ticktick_task.get("repeatFlag")),
+            rrule,
+            ticktick_task.get("dueDate"),
+        )
 
         if rrule:
             # Create template
+            _LOGGER.info(
+                "Creating template for recurring task '%s' with rrule: %s",
+                ticktick_task["title"],
+                rrule,
+            )
             template = Task.create_new(
                 summary=ticktick_task["title"],
                 description=description,
@@ -460,6 +933,7 @@ class TickTickBackend(SyncBackend):
                 tags=ticktick_task.get("tags", []),
                 rrule=rrule,
                 is_template=True,
+                is_all_day=is_all_day,
             )
 
             # Apply metadata
@@ -467,14 +941,26 @@ class TickTickBackend(SyncBackend):
                 for key, value in metadata.items():
                     template.custom_fields[key] = value
 
-            # Store TickTick ID
-            template.custom_fields[FIELD_TICKTICK_ID] = ticktick_task["id"]
+            # Store TickTick ID in sync metadata
+            template.set_sync_id("ticktick", ticktick_task["id"])
+
+            # Set sync metadata
+            template.sync["ticktick"]["status"] = "synced"
+            template.sync["ticktick"]["etag"] = ticktick_task.get("etag")
+            template.sync["ticktick"]["last_synced_at"] = (
+                datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            )
 
             # Add to store
             await self.store.async_add_task(list_id, template)
+            _LOGGER.info("Template created with uid: %s", template.uid)
 
             # Create first instance if there's a due date
             if "dueDate" in ticktick_task:
+                _LOGGER.info(
+                    "Creating first instance for template with due date: %s",
+                    ticktick_task["dueDate"],
+                )
                 first_instance = Task.create_new(
                     summary=ticktick_task["title"],
                     description=description,
@@ -484,8 +970,10 @@ class TickTickBackend(SyncBackend):
                     parent_uid=template.uid,
                     is_template=False,
                     occurrence_index=metadata.get("occurrence_index", 0),
+                    is_all_day=is_all_day,
                 )
                 await self.store.async_add_task(list_id, first_instance)
+                _LOGGER.info("First instance created with uid: %s", first_instance.uid)
 
         else:
             # Create regular task
@@ -495,10 +983,18 @@ class TickTickBackend(SyncBackend):
                 due=ticktick_task.get("dueDate"),
                 tags=ticktick_task.get("tags", []),
                 rrule=None,
+                is_all_day=is_all_day,
             )
 
-            # Store TickTick ID
-            task.custom_fields[FIELD_TICKTICK_ID] = ticktick_task["id"]
+            # Store TickTick ID in sync metadata
+            task.set_sync_id("ticktick", ticktick_task["id"])
+
+            # Set sync metadata
+            task.sync["ticktick"]["status"] = "synced"
+            task.sync["ticktick"]["etag"] = ticktick_task.get("etag")
+            task.sync["ticktick"]["last_synced_at"] = (
+                datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            )
 
             # Check if completed
             if ticktick_task.get("status") == 2:

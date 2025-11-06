@@ -22,7 +22,6 @@ from homeassistant.util import slugify
 
 from .const import (
     BACKEND_TICKTICK,
-    CONF_LIST_MAPPINGS,
     CONF_SYNC_BACKEND,
     CONF_SYNC_ENABLED,
     CONF_SYNC_INTERVAL_MINUTES,
@@ -56,6 +55,7 @@ ADD_TASK_SCHEMA = vol.Schema(
         vol.Required("summary"): cv.string,
         vol.Optional("description"): cv.string,
         vol.Optional("due"): cv.datetime,
+        vol.Optional("is_all_day"): cv.boolean,
         vol.Optional("tags"): cv.ensure_list,
         vol.Optional("rrule"): cv.string,
     }
@@ -143,24 +143,30 @@ async def _handle_create_list(
         _LOGGER.info("Creating remote list for new list: %s", name)
         remote_list_id = await sync_coordinator.async_create_list(list_id, name)
         if remote_list_id:
-            new_data = {**entry.data}
-            new_data[CONF_LIST_MAPPINGS] = sync_coordinator.get_list_mappings()
-            hass.config_entries.async_update_entry(entry, data=new_data)
-            _LOGGER.info("Remote list created and mapped: %s", remote_list_id)
+            # Mapping is now stored in storage by the backend
+            _LOGGER.info(
+                "Remote list created and mapped: %s -> %s",
+                list_id,
+                remote_list_id,
+            )
 
-    await hass.config_entries.async_reload(entry.entry_id)
+    # Schedule reload as background task so service returns immediately
+    # This prevents UI from briefly losing service definition
+    hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
 
 
 async def _handle_add_task(
     call: ServiceCall,
     hass: HomeAssistant,
     store: ChoreBotStore,
+    sync_coordinator: SyncCoordinator | None,
 ) -> None:
     """Handle the chorebot.add_task service."""
     entity_id = call.data["list_id"]
     summary = call.data["summary"]
     description = call.data.get("description")
     due = call.data.get("due")
+    is_all_day = call.data.get("is_all_day", False)
     tags = call.data.get("tags", [])
     rrule = call.data.get("rrule")
 
@@ -184,6 +190,7 @@ async def _handle_add_task(
             tags=tags,
             rrule=rrule,
             is_template=True,
+            is_all_day=is_all_day,
         )
 
         # Create first instance
@@ -196,11 +203,17 @@ async def _handle_add_task(
             parent_uid=template.uid,
             is_template=False,
             occurrence_index=0,
+            is_all_day=is_all_day,
         )
 
         _LOGGER.info("Creating recurring task template and first instance")
         await store.async_add_task(list_id, template)
         await store.async_add_task(list_id, first_instance)
+
+        # Push to remote backend if sync is enabled
+        if sync_coordinator:
+            # For recurring tasks, only sync the template
+            await sync_coordinator.async_push_task(list_id, template)
     else:
         # Create regular task
         task = Task.create_new(
@@ -209,8 +222,13 @@ async def _handle_add_task(
             due=due_str,
             tags=tags,
             rrule=None,
+            is_all_day=is_all_day,
         )
         await store.async_add_task(list_id, task)
+
+        # Push to remote backend if sync is enabled
+        if sync_coordinator:
+            await sync_coordinator.async_push_task(list_id, task)
 
     async_dispatcher_send(hass, f"{DOMAIN}_update")
 
@@ -346,7 +364,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register chorebot.add_task service
     async def handle_add_task(call: ServiceCall) -> None:
-        await _handle_add_task(call, hass, store)
+        await _handle_add_task(call, hass, store, sync_coordinator)
 
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_TASK, handle_add_task, schema=ADD_TASK_SCHEMA

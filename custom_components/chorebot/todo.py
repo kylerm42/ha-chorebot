@@ -1,7 +1,7 @@
 """Todo platform for ChoreBot integration."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 import logging
 
 from dateutil.rrule import rrulestr
@@ -55,7 +55,8 @@ class ChoreBotList(TodoListEntity):
         TodoListEntityFeature.CREATE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
-        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+        | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM  # For date-only (all-day tasks)
+        | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM  # For datetime (timed tasks)
         | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
     )
 
@@ -74,17 +75,28 @@ class ChoreBotList(TodoListEntity):
     @property
     def todo_items(self) -> list[TodoItem]:
         """Return the todo items (HA format)."""
-        # Get tasks from store (includes templates, but we filter them out for UI)
+        # Get tasks from store (templates already separated, only returns tasks)
         tasks = self._store.get_tasks_for_list(self._list_id)
 
-        # Filter out templates - they're in cache but not shown in UI
-        visible_tasks = [t for t in tasks if not t.is_recurring_template()]
+        # Filter out soft-deleted tasks
+        visible_tasks = [t for t in tasks if not t.is_deleted()]
 
         # Convert our Task objects to HA's TodoItem format
         return [self._task_to_todo_item(task) for task in visible_tasks]
 
     def _task_to_todo_item(self, task: Task) -> TodoItem:
         """Convert our Task to HA's TodoItem format."""
+        # Handle due date - return date for all-day tasks, datetime for timed tasks
+        due_value = None
+        if task.due:
+            dt = self._parse_datetime(task.due)
+            if dt and task.is_all_day:
+                # Return date only for all-day tasks
+                due_value = dt.date()
+            else:
+                # Return datetime for timed tasks
+                due_value = dt
+
         return TodoItem(
             uid=task.uid,
             summary=task.summary,
@@ -92,7 +104,7 @@ class ChoreBotList(TodoListEntity):
             status=TodoItemStatus.COMPLETED
             if task.status == "completed"
             else TodoItemStatus.NEEDS_ACTION,
-            due=self._parse_datetime(task.due) if task.due else None,
+            due=due_value,
         )
 
     def _parse_datetime(self, date_str: str | None) -> datetime | None:
@@ -113,16 +125,26 @@ class ChoreBotList(TodoListEntity):
             _LOGGER.error("Cannot create task without summary")
             return
 
-        # Convert due date to ISO string if present
+        # Convert due date to ISO string if present and detect all-day
         due_str = None
+        is_all_day = False
         if item.due:
-            due_str = item.due.isoformat().replace("+00:00", "Z")
+            if isinstance(item.due, datetime):
+                # Full datetime - timed task
+                due_str = item.due.isoformat().replace("+00:00", "Z")
+                is_all_day = False
+            elif isinstance(item.due, date):
+                # Date only - all-day task
+                # Convert to datetime at midnight UTC
+                due_str = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+                is_all_day = True
 
         # Create new task
         task = Task.create_new(
             summary=item.summary,
             description=item.description,
             due=due_str,
+            is_all_day=is_all_day,
         )
 
         # Save to store
@@ -161,9 +183,17 @@ class ChoreBotList(TodoListEntity):
             task.description = item.description
         task.status = new_status
 
-        # Handle due date
+        # Handle due date and detect all-day
         if item.due:
-            task.due = item.due.isoformat().replace("+00:00", "Z")
+            if isinstance(item.due, datetime):
+                # Full datetime - timed task
+                task.due = item.due.isoformat().replace("+00:00", "Z")
+                task.is_all_day = False
+            elif isinstance(item.due, date):
+                # Date only - all-day task
+                # Convert to datetime at midnight UTC
+                task.due = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+                task.is_all_day = True
 
         # Handle recurring task completion (includes streak update)
         if status_changed_to_completed and task.is_recurring_instance():
@@ -197,8 +227,15 @@ class ChoreBotList(TodoListEntity):
         completed_on_time = False
         if instance.due:
             due_dt = self._parse_datetime(instance.due)
-            now = datetime.now(due_dt.tzinfo if due_dt else None)
-            completed_on_time = due_dt and now <= due_dt
+            if instance.is_all_day:
+                # For all-day tasks, compare dates only
+                # Task completed "on time" if completed on or before due date
+                now = datetime.now(UTC)
+                completed_on_time = due_dt and now.date() <= due_dt.date()
+            else:
+                # For timed tasks, compare full datetime
+                now = datetime.now(due_dt.tzinfo if due_dt else None)
+                completed_on_time = due_dt and now <= due_dt
 
         # Update streak on template (strict consecutive)
         if completed_on_time:
@@ -246,6 +283,7 @@ class ChoreBotList(TodoListEntity):
                     parent_uid=template.uid,
                     is_template=False,
                     occurrence_index=next_occurrence_index,
+                    is_all_day=template.is_all_day,  # Inherit from template
                 )
                 new_instance.streak_current = template.streak_current
                 new_instance.streak_longest = template.streak_longest

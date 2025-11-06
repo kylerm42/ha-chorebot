@@ -43,6 +43,13 @@ add_task:
       required: false
       selector:
         datetime:
+    is_all_day:
+      name: All Day
+      description: Whether this is an all-day task (no specific time).
+      required: false
+      default: false
+      selector:
+        boolean:
     tags:
       name: Tags
       description: List of tags for organizing tasks (e.g., ["Morning", "Chores"]).

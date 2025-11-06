@@ -22,12 +22,12 @@ FIELD_DELETED_AT = "deleted_at"
 FIELD_PARENT_UID = "parent_uid"
 FIELD_IS_TEMPLATE = "is_template"
 FIELD_OCCURRENCE_INDEX = "occurrence_index"
-FIELD_TICKTICK_ID = "ticktick_id"
+FIELD_IS_ALL_DAY = "is_all_day"
+# FIELD_TICKTICK_ID removed - now stored in sync.ticktick.id instead of custom_fields
 
 # Configuration keys
 CONF_SYNC_ENABLED = "sync_enabled"
 CONF_SYNC_BACKEND = "sync_backend"  # "ticktick", "todoist", etc.
-CONF_LIST_MAPPINGS = "list_mappings"
 CONF_SYNC_INTERVAL_MINUTES = "sync_interval_minutes"
 
 # Default values

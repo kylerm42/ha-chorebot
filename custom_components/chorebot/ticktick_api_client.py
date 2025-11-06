@@ -86,7 +86,9 @@ class TickTickAPIClient:
         """
         return await self._post(f"{TICKTICK_API_BASE}/task", task_data)
 
-    async def update_task(self, task_id: str, task_data: dict[str, Any]) -> dict[str, Any]:
+    async def update_task(
+        self, task_id: str, task_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Update an existing task.
 
         Args:
@@ -158,14 +160,18 @@ class TickTickAPIClient:
     ) -> dict[str, Any]:
         """Perform POST request."""
         try:
+            _LOGGER.debug("POST %s with body: %s", url, json_body)
             headers = {**self._headers, "Content-Type": "application/json"}
             response = await self._session.post(
                 url, headers=headers, json=json_body if json_body else None
             )
-            return await self._get_response_dict(response)
+            result = await self._get_response_dict(response)
+            _LOGGER.debug("POST %s response: %s", url, result)
         except Exception as err:
             _LOGGER.error("POST request failed for %s: %s", url, err)
             raise
+        else:
+            return result
 
     async def _delete(self, url: str) -> dict[str, Any]:
         """Perform DELETE request."""
@@ -182,7 +188,9 @@ class TickTickAPIClient:
         """Process response and return JSON data."""
         if response.ok:
             try:
-                json_data = await response.json()
+                # Use content_type=None to bypass content-type validation
+                # Some endpoints (like /complete) return success without JSON
+                json_data = await response.json(content_type=None)
             except (ValueError, TypeError):
                 # Response has no JSON body (e.g., DELETE operations)
                 return {"status": "success"}
@@ -194,7 +202,7 @@ class TickTickAPIClient:
         # Error response
         error_msg = f"TickTick API error: {response.status}"
         try:
-            error_data = await response.json()
+            error_data = await response.json(content_type=None)
             error_msg += f" - {error_data}"
         except (ValueError, TypeError):
             error_msg += f" - {await response.text()}"

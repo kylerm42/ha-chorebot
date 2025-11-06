@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from .const import (
     FIELD_DELETED_AT,
+    FIELD_IS_ALL_DAY,
     FIELD_IS_TEMPLATE,
     FIELD_LAST_COMPLETED,
     FIELD_OCCURRENCE_INDEX,
@@ -41,7 +42,9 @@ class Task:
     parent_uid: str | None = None  # Points to template task if this is an instance
     is_template: bool = False  # True if this is a recurring task template
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
+    is_all_day: bool = False  # True if this is an all-day task (no specific time)
     custom_fields: dict[str, Any] = field(default_factory=dict)  # Backend-specific metadata
+    sync: dict[str, dict[str, Any]] = field(default_factory=dict)  # Sync metadata per backend
 
     @classmethod
     def create_new(
@@ -55,6 +58,7 @@ class Task:
         parent_uid: str | None = None,
         is_template: bool = False,
         occurrence_index: int = 0,
+        is_all_day: bool = False,
     ) -> Task:
         """Create a new task with generated UID and timestamps."""
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -72,6 +76,7 @@ class Task:
             parent_uid=parent_uid,
             is_template=is_template,
             occurrence_index=occurrence_index,
+            is_all_day=is_all_day,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -92,10 +97,12 @@ class Task:
             custom_fields_output[FIELD_POINTS_VALUE] = self.points_value
         if self.parent_uid:
             custom_fields_output[FIELD_PARENT_UID] = self.parent_uid
+            # Always store occurrence_index for instances (even if 0)
+            custom_fields_output[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
         if self.is_template:
             custom_fields_output[FIELD_IS_TEMPLATE] = self.is_template
-        if self.occurrence_index > 0:
-            custom_fields_output[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
+        if self.is_all_day:
+            custom_fields_output[FIELD_IS_ALL_DAY] = self.is_all_day
 
         # Merge in any extra custom fields (e.g., backend-specific metadata)
         custom_fields_output.update(self.custom_fields)
@@ -116,6 +123,8 @@ class Task:
             result[FIELD_DELETED_AT] = self.deleted_at
         if custom_fields_output:
             result["custom_fields"] = custom_fields_output
+        if self.sync:
+            result["sync"] = self.sync
 
         return result
 
@@ -135,6 +144,7 @@ class Task:
             FIELD_PARENT_UID,
             FIELD_IS_TEMPLATE,
             FIELD_OCCURRENCE_INDEX,
+            FIELD_IS_ALL_DAY,
         }
 
         # Extract extra custom fields (backend-specific metadata)
@@ -160,7 +170,9 @@ class Task:
             parent_uid=custom_fields.get(FIELD_PARENT_UID),
             is_template=custom_fields.get(FIELD_IS_TEMPLATE, False),
             occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
+            is_all_day=custom_fields.get(FIELD_IS_ALL_DAY, False),
             custom_fields=extra_custom_fields,
+            sync=data.get("sync", {}),
         )
 
     def is_deleted(self) -> bool:
@@ -197,3 +209,25 @@ class Task:
     def update_modified(self) -> None:
         """Update the modified timestamp to now."""
         self.modified = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    def get_sync_id(self, backend: str) -> str | None:
+        """Get the remote ID for a specific backend.
+
+        Args:
+            backend: The backend name (e.g., "ticktick")
+
+        Returns:
+            The remote ID or None if not synced
+        """
+        return self.sync.get(backend, {}).get("id")
+
+    def set_sync_id(self, backend: str, remote_id: str) -> None:
+        """Set the remote ID for a specific backend.
+
+        Args:
+            backend: The backend name (e.g., "ticktick")
+            remote_id: The remote task ID
+        """
+        if backend not in self.sync:
+            self.sync[backend] = {}
+        self.sync[backend]["id"] = remote_id
