@@ -1,8 +1,8 @@
 # Technical Specification: Enhanced Chore & Task Integration (ChoreBot)
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** Finalized
-**Last Updated:** 2025-11-04 (Refactored to HA native OAuth2 + backend abstraction)
+**Last Updated:** 2025-11-06 (Optimized storage structure: two-array model, removed streak duplication)
 
 ## 1. High-Level Architecture
 
@@ -18,12 +18,27 @@ The integration will be composed of three distinct layers with a strict separati
 
 ### 2.1. Storage Mechanism
 
-- **Primary Storage:** The integration will use one JSON file per to-do list, located in the Home Assistant `.storage/` directory (e.g., `.storage/chorebot_my_chores.json`).
-- **Configuration:** A central `chorebot_config.json` file will track the existence and configuration of all lists.
+- **Primary Storage:** The integration uses one JSON file per to-do list, located in the Home Assistant `.storage/` directory (e.g., `.storage/chorebot_my_chores.json`).
+- **Storage Structure:** Each storage file uses a **two-array structure** that physically separates recurring task templates from tasks:
+  ```json
+  {
+    "version": 1,
+    "minor_version": 1,
+    "key": "chorebot_list_id",
+    "data": {
+      "recurring_templates": [...],  // Template tasks with rrule and streak data
+      "tasks": [...]                 // Regular tasks and recurring instances
+    }
+  }
+  ```
+- **Configuration:** A central `chorebot_config.json` file tracks the existence and configuration of all lists.
+- **Archive Storage:** Completed recurring instances older than 30 days are moved to separate `chorebot_{list_id}_archive.json` files.
 
 ### 2.2. Data Schemas
 
 **Task Schema:**
+
+All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
 
 ```json
 {
@@ -37,21 +52,22 @@ The integration will be composed of three distinct layers with a strict separati
   "deleted_at": null | "YYYY-MM-DDTHH:MM:SSZ",
   "custom_fields": {
     "tags": ["Morning", "Chores"],
-    "rrule": "FREQ=DAILY;INTERVAL=1",
-    "streak_current": 5,
-    "streak_longest": 10,
     "last_completed": "YYYY-MM-DDTHH:MM:SSZ",
-    "parent_uid": "template_task_uid",
-    "is_template": false,
-    "occurrence_index": 0
+    "parent_uid": "template_task_uid",  // Only for instances
+    "occurrence_index": 0,               // Only for instances
+    "rrule": "FREQ=DAILY;INTERVAL=1",   // Only for templates
+    "streak_current": 5,                 // Only for templates
+    "streak_longest": 10,                // Only for templates
+    "is_template": true                  // Only for templates
   }
 }
 ```
 
 **Recurring Task Model:**
 
-- **Template Tasks:** Store the `rrule`, default tags, and accumulated streak data. Templates have `is_template: true` and no `due` date. They are stored but not displayed in the UI.
-- **Instance Tasks:** Individual occurrences with specific due dates. Instances have `parent_uid` pointing to their template and `occurrence_index` tracking their position in the sequence.
+- **Template Tasks:** Store the `rrule`, default tags, and accumulated streak data. Templates have `is_template: true` and no `due` date. They are physically stored in the `recurring_templates` array and hidden from the UI.
+- **Instance Tasks:** Individual occurrences with specific due dates. Instances have `parent_uid` pointing to their template and `occurrence_index` tracking their position in the sequence. **Instances do NOT store streak data** - they reference their parent template for current streak values.
+- **Two-Array Storage:** Templates and tasks are physically separated at the storage level to prevent accidental mixing and simplify queries.
 - **Archive Storage:** Completed instances older than 30 days are moved to `chorebot_{list_id}_archive.json` to prevent storage bloat while preserving historical data.
 
 **User Data Schema (`chorebot_user_data.json`):**

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: 2025-11-04 - Refactored to use HA native OAuth2 + backend abstraction layer
+**Last Updated**: 2025-11-06 - Optimized storage structure: two-array model, removed streak duplication, standardized date formats
 
 ## Project Overview
 
@@ -23,8 +23,10 @@ The integration follows a **three-layer architecture** with strict separation of
 ### Critical Design Decisions
 
 - **Local Master Model**: For recurring tasks and TickTick sync, the local JSON file is ALWAYS the source of truth. Sync reconciles TickTick state with local state.
+- **Two-Array Storage Structure**: Templates and tasks are physically separated at the storage level (`recurring_templates` and `tasks` arrays) to prevent accidental mixing and eliminate structural bugs.
 - **Soft Deletes**: Tasks are never permanently deleted from local storage. Set `deleted_at` timestamp instead.
-- **Instance-Based Recurrence**: Recurring tasks use a template + instance model. Templates (hidden from UI) store the `rrule` and streak data. Instances are individual occurrences with specific due dates. Each completion creates the next instance.
+- **Instance-Based Recurrence**: Recurring tasks use a template + instance model. Templates (hidden from UI) store the `rrule` and streak data. Instances are individual occurrences with specific due dates. **Instances do NOT duplicate streak data** - they reference their parent template.
+- **Date Format Standardization**: All dates use ISO 8601 format in UTC with Z suffix (`YYYY-MM-DDTHH:MM:SSZ`). TickTick dates are normalized on import.
 - **Archive Storage**: Completed instances older than 30 days are moved to `chorebot_{list_id}_archive.json` to preserve history without bloating active storage.
 - **Progress Tracking**: Completed instances remain visible until midnight, enabling daily progress tracking.
 
@@ -56,37 +58,61 @@ This integration is developed using the [Home Assistant Core devcontainer](https
 
 ### Task Schema (JSON Storage)
 
-Tasks are stored in `.storage/chorebot_{list_id}.json` with this structure:
+Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array structure**:
 
 ```json
 {
-  "uid": "unique_identifier_string",
-  "summary": "Task description",
-  "description": "Optional longer description",
-  "status": "needs_action" | "completed",
-  "due": "YYYY-MM-DDTHH:MM:SSZ",
-  "created": "YYYY-MM-DDTHH:MM:SSZ",
-  "modified": "YYYY-MM-DDTHH:MM:SSZ",
-  "deleted_at": null | "YYYY-MM-DDTHH:MM:SSZ",
-  "custom_fields": {
-    "tags": ["Morning", "Chores"],
-    "rrule": "FREQ=DAILY;INTERVAL=1",
-    "streak_current": 5,
-    "streak_longest": 10,
-    "last_completed": "YYYY-MM-DDTHH:MM:SSZ",
-    "points_value": 10,
-    "parent_uid": "template_task_uid",
-    "is_template": false,
-    "occurrence_index": 0
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_list_id",
+  "data": {
+    "recurring_templates": [
+      {
+        "uid": "template_id",
+        "summary": "Daily chore",
+        "status": "needs_action",
+        "created": "YYYY-MM-DDTHH:MM:SSZ",
+        "modified": "YYYY-MM-DDTHH:MM:SSZ",
+        "custom_fields": {
+          "tags": ["Morning"],
+          "rrule": "FREQ=DAILY;INTERVAL=1",
+          "streak_current": 5,
+          "streak_longest": 10,
+          "is_template": true
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "uid": "instance_id",
+        "summary": "Daily chore",
+        "status": "needs_action",
+        "due": "YYYY-MM-DDTHH:MM:SSZ",
+        "created": "YYYY-MM-DDTHH:MM:SSZ",
+        "modified": "YYYY-MM-DDTHH:MM:SSZ",
+        "custom_fields": {
+          "tags": ["Morning"],
+          "parent_uid": "template_id",
+          "occurrence_index": 0
+        }
+      }
+    ]
   }
 }
 ```
 
+**Key Points:**
+- All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
+- Templates are in `recurring_templates` array (have `rrule`, `streak_current`, `streak_longest`, `is_template`)
+- Tasks/instances are in `tasks` array (regular tasks and recurring instances)
+- **Instances do NOT store streak data** - they reference their parent template via `parent_uid`
+
 ### Recurring Task Model
 
 **Template + Instance Architecture:**
-- **Templates** store the `rrule`, default tags, and accumulated streak data. They have `is_template: true`, no `due` date, and are kept in cache but hidden from UI.
-- **Instances** are individual occurrences with specific due dates. They have `parent_uid` pointing to their template and `occurrence_index` tracking their sequence.
+- **Templates** store the `rrule`, default tags, and accumulated streak data. They have `is_template: true`, no `due` date, and are physically stored in the `recurring_templates` array. Hidden from UI.
+- **Instances** are individual occurrences with specific due dates. They have `parent_uid` pointing to their template and `occurrence_index` tracking their sequence. Stored in the `tasks` array alongside regular tasks.
+- **No Streak Duplication**: Instances do NOT store `streak_current` or `streak_longest`. They reference their parent template for current streak values.
 - **Archive Storage**: `chorebot_{list_id}_archive.json` stores completed instances older than 30 days.
 
 ### Recurring Instance Completion Logic
@@ -111,9 +137,15 @@ When a recurring task instance is marked completed:
 
 ### Cache Management
 
-- **Cache contains**: Templates (hidden from UI), active instances, completed instances (until soft-deleted), regular tasks
+- **Cache structure**: Two-dictionary model: `{"templates": {uid: Task}, "tasks": {uid: Task}}`
+- **Templates cache**: Contains recurring task templates (hidden from UI)
+- **Tasks cache**: Contains regular tasks and recurring instances
 - **Storage contains**: Everything in cache PLUS soft-deleted tasks and archived instances
-- **UI filtering**: Templates are filtered out in `todo.py`'s `todo_items` property
+- **UI filtering**: Templates are automatically excluded in `todo.py`'s `todo_items` property (uses `get_tasks_for_list()` which only returns tasks)
+- **Store methods**:
+  - `get_tasks_for_list(list_id)` - Returns only tasks (excludes templates)
+  - `get_templates_for_list(list_id)` - Returns only templates
+  - `get_instances_for_template(list_id, template_uid)` - Returns instances for a template
 
 ## File Structure
 
@@ -142,14 +174,14 @@ www/
 
 ## Key Implementation Files
 
-- **`task.py`**: Task data model with `parent_uid`, `is_template`, `occurrence_index`, `ticktick_id` fields. Includes `is_recurring_template()`, `is_recurring_instance()` helper methods.
-- **`store.py`**: Storage management with cache, archive handling, and query methods (`get_template()`, `get_instances_for_template()`, `async_archive_old_instances()`).
+- **`task.py`**: Task data model with `parent_uid`, `is_template`, `occurrence_index`, `ticktick_id` fields. Includes `is_recurring_template()`, `is_recurring_instance()` helper methods. All date formatting uses ISO Z format (UTC).
+- **`store.py`**: Storage management with two-array structure (`recurring_templates` and `tasks`), cache as two-dictionary model, archive handling, and query methods (`get_tasks_for_list()`, `get_templates_for_list()`, `get_instances_for_template()`, `async_archive_old_instances()`).
 - **`todo.py`**: TodoListEntity implementation. Filters templates from UI. Completion logic creates new instances and checks for duplicates. Triggers sync coordinator for push operations.
 - **`__init__.py`**: Entry point with OAuth2 setup, backend initialization, service handlers (`create_list`, `add_task`, `sync`). Daily maintenance job handles archival, soft-deletion, and streak resets. Sets up periodic pull sync.
 - **`config_flow.py`**: OAuth2 configuration flow using `AbstractOAuth2FlowHandler`. Integrates with HA's native `application_credentials` system.
 - **`sync_backend.py`**: Abstract base class defining the interface for sync backends. Methods for push/pull/delete/complete operations.
 - **`sync_coordinator.py`**: Generic coordinator that orchestrates sync operations with any backend. Handles locking, polling intervals, and error handling. Backend-agnostic.
-- **`ticktick_backend.py`**: TickTick-specific implementation of `SyncBackend`. Handles metadata encoding/decoding, task conversion, and TickTick API interactions.
+- **`ticktick_backend.py`**: TickTick-specific implementation of `SyncBackend`. Handles metadata encoding/decoding, task conversion, TickTick date normalization (`_normalize_ticktick_date()` converts TickTick format to ISO Z), and TickTick API interactions.
 - **`ticktick_api_client.py`**: Lightweight REST API client for TickTick Open API using `aiohttp`. Bearer token authentication.
 - **`oauth_api.py`**: Wrapper for OAuth2Session providing automatic token refresh and access token retrieval.
 
@@ -204,7 +236,10 @@ www/
 - **ALWAYS** filter out tasks where `deleted_at` is not null when loading into cache
 - **ALWAYS** maintain Local Master model for TickTick sync - local JSON is source of truth
 - **ALWAYS** update `spec/chore-bot.md` when making architectural decisions or pivoting from original plans
-- **Templates stay in cache** but are filtered from UI in `todo.py`'s `todo_items` property
+- **Two-array storage**: Templates in `recurring_templates`, tasks/instances in `tasks` - never mix them
+- **Templates stay in cache** as separate dictionary but are filtered from UI (use `get_tasks_for_list()`, not `get_templates_for_list()`)
+- **No streak duplication**: NEVER copy `streak_current` or `streak_longest` to instances - they belong only on templates
+- **Date format**: All dates must be in ISO Z format (UTC): `YYYY-MM-DDTHH:MM:SSZ`. Normalize TickTick dates with `_normalize_ticktick_date()`
 - **Check for existing instances** before creating new ones to prevent duplicates (by `occurrence_index`)
 - **Completed instances stay visible** until midnight when daily maintenance job soft-deletes them
 - **Streak tracking is strict consecutive** - late completion resets streak to 0
@@ -213,8 +248,16 @@ www/
 ## Implementation Status
 
 ### ✅ Completed
-1. **Data Persistence Layer**: JSON storage with template + instance model, archive storage, cache management
-2. **TodoListEntity Logic**: Full CRUD operations, recurring task instance creation, strict consecutive streak tracking, duplicate prevention
+1. **Data Persistence Layer**:
+   - Two-array JSON storage structure (`recurring_templates` and `tasks`)
+   - Template + instance model with proper separation
+   - Archive storage for old completed instances
+   - Cache management with two-dictionary model
+2. **TodoListEntity Logic**:
+   - Full CRUD operations
+   - Recurring task instance creation without streak duplication
+   - Strict consecutive streak tracking
+   - Duplicate prevention via `occurrence_index`
 3. **Custom Services**: `chorebot.create_list`, `chorebot.add_task`, and `chorebot.sync` with full field support
 4. **Daily Maintenance Job**: Archival (30+ days), soft-deletion of completed instances, streak resets
 5. **Backend Synchronization Infrastructure**:
@@ -222,8 +265,14 @@ www/
    - Abstract `SyncBackend` interface for multi-provider support
    - Generic `SyncCoordinator` for backend-agnostic sync orchestration
    - Complete TickTick backend implementation with REST API client
+   - TickTick date normalization to ISO Z format
    - Two-way sync: Push (immediate) + Pull (15 min intervals + manual)
    - Conflict resolution and error handling
+6. **Storage Optimizations**:
+   - Physical separation of templates and tasks at storage level
+   - Eliminated redundant streak data on instances
+   - Standardized date format (ISO Z / UTC) throughout codebase
+   - Date normalization for TickTick sync
 
 ### 🚧 In Progress / Next Steps
 1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution
