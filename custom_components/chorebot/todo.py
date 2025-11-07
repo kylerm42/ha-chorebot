@@ -43,6 +43,9 @@ async def async_setup_entry(
     ]
     _LOGGER.info("Created %d entities", len(entities))
 
+    # Store entity references for service access
+    hass.data[DOMAIN]["entities"] = {entity._list_id: entity for entity in entities}
+
     async_add_entities(entities)
     _LOGGER.info("Entities added successfully")
 
@@ -81,8 +84,33 @@ class ChoreBotList(TodoListEntity):
         # Filter out soft-deleted tasks
         visible_tasks = [t for t in tasks if not t.is_deleted()]
 
+        _LOGGER.debug("Building todo_items for %s: %d visible tasks", self._list_id, len(visible_tasks))
+
         # Convert our Task objects to HA's TodoItem format
         return [self._task_to_todo_item(task) for task in visible_tasks]
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Expose additional ChoreBot data to frontend."""
+        # Get tasks (regular tasks and recurring instances)
+        tasks = self._store.get_tasks_for_list(self._list_id)
+        visible_tasks = [t for t in tasks if not t.is_deleted()]
+
+        # Get templates (for streak lookups)
+        templates = self._store.get_templates_for_list(self._list_id)
+        visible_templates = [t for t in templates if not t.is_deleted()]
+
+        _LOGGER.debug(
+            "Building extra_state_attributes for %s: %d tasks, %d templates",
+            self._list_id,
+            len(visible_tasks),
+            len(visible_templates),
+        )
+
+        return {
+            "chorebot_tasks": [task.to_dict() for task in visible_tasks],
+            "chorebot_templates": [template.to_dict() for template in visible_templates],
+        }
 
     def _task_to_todo_item(self, task: Task) -> TodoItem:
         """Convert our Task to HA's TodoItem format."""
@@ -117,8 +145,8 @@ class ChoreBotList(TodoListEntity):
             return None
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
-        """Create a new task."""
-        _LOGGER.info("Creating task: %s", item.summary)
+        """Create a new task (standard HA interface)."""
+        _LOGGER.info("Creating task via TodoItem: %s", item.summary)
 
         # Validate required fields
         if not item.summary:
@@ -139,22 +167,86 @@ class ChoreBotList(TodoListEntity):
                 due_str = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
                 is_all_day = True
 
-        # Create new task
-        task = Task.create_new(
+        # Use internal method to create task
+        await self.async_create_task_internal(
             summary=item.summary,
             description=item.description,
             due=due_str,
+            tags=[],
+            rrule=None,
             is_all_day=is_all_day,
         )
 
-        # Save to store
-        await self._store.async_add_task(self._list_id, task)
+    async def async_create_task_internal(
+        self,
+        summary: str,
+        description: str | None = None,
+        due: str | None = None,
+        tags: list[str] | None = None,
+        rrule: str | None = None,
+        is_all_day: bool = False,
+    ) -> None:
+        """Internal method to create task(s) - used by both entity and services.
 
-        # Push to remote backend if sync is enabled
-        if self._sync_coordinator:
-            await self._sync_coordinator.async_push_task(self._list_id, task)
+        This is the single source of truth for task creation.
+        Handles regular tasks and recurring tasks (template + instance).
+        """
+        _LOGGER.info("Creating task internally: %s (recurring=%s)", summary, bool(rrule))
 
-        self.async_write_ha_state()
+        if rrule and due:
+            # Create recurring task: template + first instance
+            template = Task.create_new(
+                summary=summary,
+                description=description,
+                due=None,  # Templates don't have due dates
+                tags=tags or [],
+                rrule=rrule,
+                is_template=True,
+                is_all_day=is_all_day,
+            )
+
+            first_instance = Task.create_new(
+                summary=summary,
+                description=description,
+                due=due,
+                tags=(tags or []).copy() if tags else [],
+                rrule=None,  # Instances don't have rrule
+                parent_uid=template.uid,
+                is_template=False,
+                occurrence_index=0,
+                is_all_day=is_all_day,
+            )
+
+            _LOGGER.debug("Creating recurring task template and first instance")
+            await self._store.async_add_task(self._list_id, template)
+            await self._store.async_add_task(self._list_id, first_instance)
+
+            # Write state immediately
+            self.async_write_ha_state()
+
+            # Push to remote backend if sync is enabled (only sync template for recurring)
+            if self._sync_coordinator:
+                await self._sync_coordinator.async_push_task(self._list_id, template)
+        else:
+            # Create regular task
+            task = Task.create_new(
+                summary=summary,
+                description=description,
+                due=due,
+                tags=tags or [],
+                rrule=None,
+                is_all_day=is_all_day,
+            )
+
+            await self._store.async_add_task(self._list_id, task)
+
+            # Write state immediately
+            _LOGGER.debug("Writing HA state immediately after creating task: %s", task.summary)
+            self.async_write_ha_state()
+
+            # Push to remote backend if sync is enabled
+            if self._sync_coordinator:
+                await self._sync_coordinator.async_push_task(self._list_id, task)
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Update a task."""
@@ -203,11 +295,12 @@ class ChoreBotList(TodoListEntity):
             # Save to store
             await self._store.async_update_task(self._list_id, task)
 
-            # Push to remote backend if sync is enabled
+            # Write state immediately
+            self.async_write_ha_state()
+
+            # Push to remote backend if sync is enabled (non-blocking for frontend)
             if self._sync_coordinator:
                 await self._sync_coordinator.async_push_task(self._list_id, task)
-
-        self.async_write_ha_state()
 
     async def _handle_recurring_instance_completion(self, instance: Task) -> None:
         """Handle completion of a recurring task instance."""
@@ -267,6 +360,9 @@ class ChoreBotList(TodoListEntity):
             await self._store.async_update_task(self._list_id, instance)
             template.update_modified()
             await self._store.async_update_task(self._list_id, template)
+
+            # Write state immediately
+            self.async_write_ha_state()
         else:
             # Calculate next due date from template
             next_due = self._calculate_next_due_date_from_template(template, instance.due)
@@ -294,7 +390,10 @@ class ChoreBotList(TodoListEntity):
                 await self._store.async_update_task(self._list_id, template)
                 await self._store.async_add_task(self._list_id, new_instance)
 
-                # Sync to remote backend if enabled
+                # Write state immediately before sync
+                self.async_write_ha_state()
+
+                # Sync to remote backend if enabled (non-blocking for frontend)
                 if self._sync_coordinator:
                     # Complete the remote task (will auto-create next instance on their end)
                     await self._sync_coordinator.async_complete_task(
@@ -308,7 +407,10 @@ class ChoreBotList(TodoListEntity):
                 # Just save the completed instance
                 await self._store.async_update_task(self._list_id, instance)
 
-                # Sync to remote backend if enabled
+                # Write state immediately
+                self.async_write_ha_state()
+
+                # Sync to remote backend if enabled (non-blocking for frontend)
                 if self._sync_coordinator:
                     await self._sync_coordinator.async_complete_task(
                         self._list_id, template
@@ -348,11 +450,12 @@ class ChoreBotList(TodoListEntity):
         # Soft delete in store
         await self._store.async_delete_task(self._list_id, uid)
 
-        # Delete from remote backend if sync is enabled
+        # Write state immediately
+        self.async_write_ha_state()
+
+        # Delete from remote backend if sync is enabled (non-blocking for frontend)
         if self._sync_coordinator and task:
             await self._sync_coordinator.async_delete_task(self._list_id, task)
-
-        self.async_write_ha_state()
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete multiple tasks (soft delete)."""
@@ -365,10 +468,11 @@ class ChoreBotList(TodoListEntity):
         for uid in uids:
             await self._store.async_delete_task(self._list_id, uid)
 
-        # Delete from remote backend if sync is enabled
+        # Write state immediately
+        self.async_write_ha_state()
+
+        # Delete from remote backend if sync is enabled (non-blocking for frontend)
         if self._sync_coordinator:
             for task in tasks:
                 if task:
                     await self._sync_coordinator.async_delete_task(self._list_id, task)
-
-        self.async_write_ha_state()

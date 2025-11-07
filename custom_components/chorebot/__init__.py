@@ -17,7 +17,6 @@ from homeassistant.helpers import (
     config_validation as cv,
     entity_registry as er,
 )
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
 
@@ -178,6 +177,15 @@ async def _handle_add_task(
 
     _LOGGER.info("Adding task via service: %s to list %s", summary, list_id)
 
+    # Get the entity instance
+    entities = hass.data[DOMAIN].get("entities", {})
+    entity = entities.get(list_id)
+
+    if not entity:
+        _LOGGER.error("Entity not found for list_id: %s", list_id)
+        return
+
+    # Convert due datetime to ISO string if present
     due_str = None
     if due:
         # Ensure timezone-aware datetime
@@ -189,56 +197,16 @@ async def _handle_add_task(
         due_utc = due.astimezone(UTC)
         due_str = due_utc.isoformat().replace("+00:00", "Z")
 
-    if rrule and due_str:
-        # Create template
-        template = Task.create_new(
-            summary=summary,
-            description=description,
-            due=None,
-            tags=tags,
-            rrule=rrule,
-            is_template=True,
-            is_all_day=is_all_day,
-        )
-
-        # Create first instance
-        first_instance = Task.create_new(
-            summary=summary,
-            description=description,
-            due=due_str,
-            tags=tags.copy() if tags else [],
-            rrule=None,
-            parent_uid=template.uid,
-            is_template=False,
-            occurrence_index=0,
-            is_all_day=is_all_day,
-        )
-
-        _LOGGER.info("Creating recurring task template and first instance")
-        await store.async_add_task(list_id, template)
-        await store.async_add_task(list_id, first_instance)
-
-        # Push to remote backend if sync is enabled
-        if sync_coordinator:
-            # For recurring tasks, only sync the template
-            await sync_coordinator.async_push_task(list_id, template)
-    else:
-        # Create regular task
-        task = Task.create_new(
-            summary=summary,
-            description=description,
-            due=due_str,
-            tags=tags,
-            rrule=None,
-            is_all_day=is_all_day,
-        )
-        await store.async_add_task(list_id, task)
-
-        # Push to remote backend if sync is enabled
-        if sync_coordinator:
-            await sync_coordinator.async_push_task(list_id, task)
-
-    async_dispatcher_send(hass, f"{DOMAIN}_update")
+    # Call entity's internal method - single source of truth!
+    # This ensures consistent state updates, sync, and no dispatcher needed
+    await entity.async_create_task_internal(
+        summary=summary,
+        description=description,
+        due=due_str,
+        tags=tags or [],
+        rrule=rrule,
+        is_all_day=is_all_day,
+    )
 
 
 async def _handle_sync(
