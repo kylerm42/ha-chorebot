@@ -65,6 +65,91 @@ add_task:
       selector:
         text:
 
+update_task:
+  name: Update Task
+  description: Update an existing task with support for ChoreBot custom fields (tags, points, rrule, etc.).
+  fields:
+    list_id:
+      name: List
+      description: The ChoreBot list entity containing the task.
+      required: true
+      selector:
+        entity:
+          integration: chorebot
+          domain: todo
+    uid:
+      name: Task UID
+      description: Unique identifier of the task to update.
+      required: true
+      example: "abc123-def456-..."
+      selector:
+        text:
+    summary:
+      name: Summary
+      description: Task title/name.
+      required: false
+      selector:
+        text:
+    description:
+      name: Description
+      description: Detailed description.
+      required: false
+      selector:
+        text:
+          multiline: true
+    due:
+      name: Due Date
+      description: Due date and time.
+      required: false
+      selector:
+        datetime:
+    is_all_day:
+      name: All Day
+      description: Whether this is an all-day task.
+      required: false
+      selector:
+        boolean:
+    status:
+      name: Status
+      description: Completion status.
+      required: false
+      selector:
+        select:
+          options:
+            - label: "Needs Action"
+              value: "needs_action"
+            - label: "Completed"
+              value: "completed"
+    tags:
+      name: Tags
+      description: Task tags for organization.
+      required: false
+      example: '["Morning", "Chores"]'
+      selector:
+        object:
+    points_value:
+      name: Points
+      description: Task point value for gamification.
+      required: false
+      selector:
+        number:
+          min: 0
+          mode: box
+    rrule:
+      name: Recurrence Rule
+      description: Update recurrence pattern (RFC 5545 rrule string). Only allowed with include_future_occurrences on the latest incomplete instance.
+      required: false
+      example: "FREQ=DAILY;INTERVAL=1"
+      selector:
+        text:
+    include_future_occurrences:
+      name: Include Future Occurrences
+      description: For recurring tasks, update the template so all future occurrences inherit changes. Must be called on the latest incomplete instance.
+      required: false
+      default: false
+      selector:
+        boolean:
+
 sync:
   name: Sync
   description: Manually trigger a sync with the remote backend to pull latest changes.

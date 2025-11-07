@@ -30,6 +30,7 @@ from .const import (
     SERVICE_ADD_TASK,
     SERVICE_CREATE_LIST,
     SERVICE_SYNC,
+    SERVICE_UPDATE_TASK,
 )
 from .oauth_api import AsyncConfigEntryAuth
 from .store import ChoreBotStore
@@ -58,6 +59,23 @@ ADD_TASK_SCHEMA = vol.Schema(
         vol.Optional("is_all_day"): cv.boolean,
         vol.Optional("tags"): cv.ensure_list,
         vol.Optional("rrule"): cv.string,
+    }
+)
+
+# Service schema for chorebot.update_task
+UPDATE_TASK_SCHEMA = vol.Schema(
+    {
+        vol.Required("list_id"): cv.string,
+        vol.Required("uid"): cv.string,
+        vol.Optional("summary"): cv.string,
+        vol.Optional("description"): cv.string,
+        vol.Optional("due"): cv.datetime,
+        vol.Optional("is_all_day"): cv.boolean,
+        vol.Optional("status"): vol.In(["needs_action", "completed"]),
+        vol.Optional("tags"): cv.ensure_list,
+        vol.Optional("points_value"): cv.positive_int,
+        vol.Optional("rrule"): cv.string,
+        vol.Optional("include_future_occurrences"): cv.boolean,
     }
 )
 
@@ -209,6 +227,65 @@ async def _handle_add_task(
     )
 
 
+async def _handle_update_task(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    store: ChoreBotStore,
+    sync_coordinator: SyncCoordinator | None,
+) -> None:
+    """Handle the chorebot.update_task service."""
+    entity_id = call.data["list_id"]
+    uid = call.data["uid"]
+
+    list_id = _extract_list_id_from_entity(hass, entity_id)
+    if not list_id:
+        _LOGGER.error("Invalid entity_id provided: %s", entity_id)
+        return
+
+    _LOGGER.info("Updating task via service: %s in list %s", uid, list_id)
+
+    # Get the entity instance
+    entities = hass.data[DOMAIN].get("entities", {})
+    entity = entities.get(list_id)
+
+    if not entity:
+        _LOGGER.error("Entity not found for list_id: %s", list_id)
+        return
+
+    # Convert due datetime to ISO string if present
+    due_str = None
+    if "due" in call.data:
+        due = call.data["due"]
+        if due:
+            # Ensure timezone-aware datetime
+            if due.tzinfo is None:
+                # Naive datetime - assume system timezone
+                system_tz = ZoneInfo(hass.config.time_zone)
+                due = due.replace(tzinfo=system_tz)
+            # Convert to UTC
+            due_utc = due.astimezone(UTC)
+            due_str = due_utc.isoformat().replace("+00:00", "Z")
+
+    # Extract tags explicitly to handle empty list case
+    # call.data.get() returns None if key not present
+    # But we need to distinguish between "not provided" and "provided as empty list"
+    tags = call.data.get("tags") if "tags" in call.data else None
+
+    # Call entity's internal method - single source of truth!
+    await entity.async_update_task_internal(
+        uid=uid,
+        summary=call.data.get("summary"),
+        description=call.data.get("description"),
+        due=due_str,
+        status=call.data.get("status"),
+        tags=tags,
+        is_all_day=call.data.get("is_all_day"),
+        points_value=call.data.get("points_value"),
+        rrule=call.data.get("rrule"),
+        include_future_occurrences=call.data.get("include_future_occurrences", False),
+    )
+
+
 async def _handle_sync(
     call: ServiceCall,
     hass: HomeAssistant,
@@ -346,6 +423,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_ADD_TASK, handle_add_task, schema=ADD_TASK_SCHEMA
     )
     _LOGGER.info("Service registered: %s", SERVICE_ADD_TASK)
+
+    # Register chorebot.update_task service
+    async def handle_update_task(call: ServiceCall) -> None:
+        await _handle_update_task(call, hass, store, sync_coordinator)
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_UPDATE_TASK, handle_update_task, schema=UPDATE_TASK_SCHEMA
+    )
+    _LOGGER.info("Service registered: %s", SERVICE_UPDATE_TASK)
 
     # Register chorebot.sync service
     if sync_coordinator and sync_coordinator.enabled:

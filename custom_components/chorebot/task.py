@@ -99,8 +99,6 @@ class Task:
             custom_fields_output[FIELD_PARENT_UID] = self.parent_uid
             # Always store occurrence_index for instances (even if 0)
             custom_fields_output[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
-        if self.is_template:
-            custom_fields_output[FIELD_IS_TEMPLATE] = self.is_template
         if self.is_all_day:
             custom_fields_output[FIELD_IS_ALL_DAY] = self.is_all_day
 
@@ -129,8 +127,14 @@ class Task:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Task:
-        """Create task from dictionary (JSON storage)."""
+    def from_dict(cls, data: dict[str, Any], is_template: bool | None = None) -> Task:
+        """Create task from dictionary (JSON storage).
+
+        Args:
+            data: Task data dictionary
+            is_template: Override to set template status (inferred from storage location).
+                        If None, falls back to reading from custom_fields for backwards compatibility.
+        """
         custom_fields = data.get("custom_fields", {})
 
         # Known fields that map to dataclass attributes
@@ -152,6 +156,8 @@ class Task:
             k: v for k, v in custom_fields.items() if k not in known_fields
         }
 
+        template_value = is_template if is_template is not None else custom_fields.get(FIELD_IS_TEMPLATE, False)
+
         return cls(
             uid=data["uid"],
             summary=data["summary"],
@@ -168,7 +174,7 @@ class Task:
             last_completed=custom_fields.get(FIELD_LAST_COMPLETED),
             points_value=custom_fields.get(FIELD_POINTS_VALUE, 0),
             parent_uid=custom_fields.get(FIELD_PARENT_UID),
-            is_template=custom_fields.get(FIELD_IS_TEMPLATE, False),
+            is_template=template_value,
             occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
             is_all_day=custom_fields.get(FIELD_IS_ALL_DAY, False),
             custom_fields=extra_custom_fields,

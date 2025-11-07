@@ -248,59 +248,151 @@ class ChoreBotList(TodoListEntity):
             if self._sync_coordinator:
                 await self._sync_coordinator.async_push_task(self._list_id, task)
 
+    async def async_update_task_internal(
+        self,
+        uid: str,
+        summary: str | None = None,
+        description: str | None = None,
+        due: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
+        is_all_day: bool | None = None,
+        points_value: int | None = None,
+        rrule: str | None = None,
+        include_future_occurrences: bool = False,
+    ) -> None:
+        """Internal method to update task - used by both entity and services.
+
+        This is the single source of truth for task updates.
+        Only updates fields that are explicitly provided (not None).
+
+        Args:
+            uid: Task unique identifier (required)
+            All other fields: Optional - only provided fields are updated
+            include_future_occurrences: For recurring instances, update template too
+        """
+        _LOGGER.info("Updating task internally: %s (include_future=%s)", uid, include_future_occurrences)
+
+        # Get existing task
+        task = self._store.get_task(self._list_id, uid)
+        if not task:
+            _LOGGER.error("Task %s not found in list %s", uid, self._list_id)
+            return
+
+        # Prevent updating templates directly (must update via instances)
+        if task.is_recurring_template():
+            _LOGGER.error("Cannot update recurring templates directly - update via an instance")
+            return
+
+        # Track old status for completion logic
+        old_status = task.status
+
+        # If updating future occurrences for recurring instance, validate and update template
+        if include_future_occurrences and task.is_recurring_instance():
+            # Validate this is the latest incomplete instance
+            if not self._is_latest_incomplete_instance(task):
+                _LOGGER.error(
+                    "Can only update future occurrences from the latest incomplete instance. "
+                    "Task %s is not the latest.",
+                    uid
+                )
+                return
+
+            # Get parent template
+            template = self._store.get_template(self._list_id, task.parent_uid)
+            if not template:
+                _LOGGER.error("Template not found for instance: %s", task.parent_uid)
+                return
+
+            _LOGGER.debug("Updating template %s for future occurrences", template.uid)
+
+            # Update template with all provided fields
+            if summary is not None:
+                template.summary = summary
+            if description is not None:
+                template.description = description
+            if tags is not None:
+                template.tags = tags
+            if is_all_day is not None:
+                template.is_all_day = is_all_day
+            if points_value is not None:
+                template.points_value = points_value
+            if rrule is not None:
+                template.rrule = rrule
+
+            template.update_modified()
+            await self._store.async_update_task(self._list_id, template)
+
+        # Update the task instance with all provided fields
+        if summary is not None:
+            task.summary = summary
+        if description is not None:
+            task.description = description
+        if due is not None:
+            task.due = due
+        if status is not None:
+            task.status = status
+        if tags is not None:
+            task.tags = tags
+        if is_all_day is not None:
+            task.is_all_day = is_all_day
+        if points_value is not None:
+            task.points_value = points_value
+
+        # Check if status changed to completed
+        status_changed_to_completed = old_status == "needs_action" and task.status == "completed"
+
+        # Handle recurring instance completion
+        if status_changed_to_completed and task.is_recurring_instance():
+            await self._handle_recurring_instance_completion(task)
+        else:
+            task.update_modified()
+            await self._store.async_update_task(self._list_id, task)
+
+            # Write state immediately
+            self.async_write_ha_state()
+
+            # Push to remote backend if sync is enabled
+            if self._sync_coordinator:
+                await self._sync_coordinator.async_push_task(self._list_id, task)
+
     async def async_update_todo_item(self, item: TodoItem) -> None:
-        """Update a task."""
-        _LOGGER.info("Updating task: %s (uid: %s)", item.summary, item.uid)
+        """Update a task (standard HA interface)."""
+        _LOGGER.info("Updating task via TodoItem: %s (uid: %s)", item.summary, item.uid)
 
         # Validate required fields
         if not item.uid:
             _LOGGER.error("Cannot update task without uid")
             return
 
-        # Get existing task
-        task = self._store.get_task(self._list_id, item.uid)
-        if not task:
-            _LOGGER.error("Task %s not found in list %s", item.uid, self._list_id)
-            return
-
-        # Check if status changed from needs_action to completed
-        old_status = task.status
-        new_status = "completed" if item.status == TodoItemStatus.COMPLETED else "needs_action"
-        status_changed_to_completed = old_status == "needs_action" and new_status == "completed"
-
-        # Update basic fields (keep existing values if new values are None)
-        if item.summary is not None:
-            task.summary = item.summary
-        if item.description is not None:
-            task.description = item.description
-        task.status = new_status
-
-        # Handle due date and detect all-day
+        # Convert due date to ISO string if present and detect all-day
+        due_str = None
+        is_all_day = None
         if item.due:
             if isinstance(item.due, datetime):
                 # Full datetime - timed task
-                task.due = item.due.isoformat().replace("+00:00", "Z")
-                task.is_all_day = False
+                due_str = item.due.isoformat().replace("+00:00", "Z")
+                is_all_day = False
             elif isinstance(item.due, date):
                 # Date only - all-day task
                 # Convert to datetime at midnight UTC
-                task.due = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
-                task.is_all_day = True
+                due_str = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+                is_all_day = True
 
-        # Handle recurring task completion (includes streak update)
-        if status_changed_to_completed and task.is_recurring_instance():
-            await self._handle_recurring_instance_completion(task)
-        else:
-            task.update_modified()
-            # Save to store
-            await self._store.async_update_task(self._list_id, task)
+        # Convert status
+        status = "completed" if item.status == TodoItemStatus.COMPLETED else "needs_action"
 
-            # Write state immediately
-            self.async_write_ha_state()
-
-            # Push to remote backend if sync is enabled (non-blocking for frontend)
-            if self._sync_coordinator:
-                await self._sync_coordinator.async_push_task(self._list_id, task)
+        # Use internal method - single source of truth!
+        await self.async_update_task_internal(
+            uid=item.uid,
+            summary=item.summary,
+            description=item.description,
+            due=due_str,
+            status=status,
+            is_all_day=is_all_day,
+            # TodoItem doesn't support tags, points, rrule, etc.
+            # Those can only be updated via chorebot.update_task service
+        )
 
     async def _handle_recurring_instance_completion(self, instance: Task) -> None:
         """Handle completion of a recurring task instance."""
@@ -439,6 +531,24 @@ class ChoreBotList(TodoListEntity):
         except (ValueError, TypeError, AttributeError) as e:
             _LOGGER.error("Error calculating next due date for template %s: %s", template.uid, e)
             return None
+
+    def _is_latest_incomplete_instance(self, task: Task) -> bool:
+        """Check if this is the latest incomplete instance of its template.
+
+        Used to validate that template updates via include_future_occurrences
+        are always done from the most recent incomplete instance.
+        """
+        if not task.is_recurring_instance():
+            return False
+
+        instances = self._store.get_instances_for_template(self._list_id, task.parent_uid)
+        incomplete_instances = [i for i in instances if i.status == "needs_action" and not i.is_deleted()]
+
+        if not incomplete_instances:
+            return False
+
+        latest = max(incomplete_instances, key=lambda i: i.occurrence_index)
+        return task.uid == latest.uid
 
     async def async_delete_todo_item(self, uid: str) -> None:
         """Delete a task (soft delete)."""

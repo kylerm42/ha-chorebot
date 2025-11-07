@@ -43,3 +43,4 @@ SERVICE_ADD_TASK = "add_task"
 SERVICE_CREATE_LIST = "create_list"
 SERVICE_REDEEM_ITEM = "redeem_item"
 SERVICE_SYNC = "sync"  # Generic sync service (was sync_ticktick)
+SERVICE_UPDATE_TASK = "update_task"

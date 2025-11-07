@@ -63,8 +63,8 @@ class ChoreBotStore:
             templates_data = task_data.get("recurring_templates", [])
             tasks_data = task_data.get("tasks", [])
 
-            templates = [Task.from_dict(t) for t in templates_data]
-            tasks = [Task.from_dict(t) for t in tasks_data]
+            templates = [Task.from_dict(t, is_template=True) for t in templates_data]
+            tasks = [Task.from_dict(t, is_template=False) for t in tasks_data]
 
             # Filter out soft-deleted and index by UID
             self._tasks_cache[list_id] = {
