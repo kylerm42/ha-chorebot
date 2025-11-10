@@ -18,6 +18,9 @@ class ChoreBotListCard extends LitElement {
     hass: { type: Object },
     _config: { state: true },
     _selectedDate: { state: true },
+    _editDialogOpen: { state: true },
+    _editingTask: { state: true },
+    _saving: { state: true },
   };
 
   static styles = css`
@@ -26,6 +29,12 @@ class ChoreBotListCard extends LitElement {
     }
     ha-card {
       padding: 16px;
+      border: none;
+    }
+    ha-card.no-background {
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
     }
     .card-header {
       font-size: 24px;
@@ -78,73 +87,69 @@ class ChoreBotListCard extends LitElement {
       margin-top: 4px;
     }
     .todo-list {
-      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       padding: 0;
       margin: 0;
     }
     .todo-item {
       display: flex;
-      align-items: flex-start;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--divider-color);
-      gap: 12px;
-    }
-    .todo-item:last-child {
-      border-bottom: none;
-    }
-    .todo-checkbox {
-      margin-top: 2px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-radius: var(--ha-card-border-radius, 12px);
       cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .todo-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     .todo-content {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       min-width: 0;
     }
     .todo-summary {
       font-size: 16px;
+      font-weight: bold;
       word-wrap: break-word;
     }
-    .todo-summary.completed {
-      text-decoration: line-through;
-      color: var(--secondary-text-color);
+    .todo-due-date {
+      font-size: 14px;
+      font-weight: normal;
     }
-    .todo-meta {
-      font-size: 12px;
-      color: var(--secondary-text-color);
-      margin-top: 4px;
+    .completion-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .todo-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 4px;
-    }
-    .tag {
-      display: inline-block;
-      padding: 2px 8px;
-      background: var(--primary-color);
-      color: var(--text-primary-color);
-      border-radius: 12px;
-      font-size: 11px;
-    }
-    .streak-badge {
-      display: inline-flex;
       align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: var(--accent-color, var(--primary-color));
-      color: var(--text-primary-color);
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 500;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+    .completion-circle ha-icon {
+      --mdi-icon-size: 28px;
+      color: #d3d3d3;
+    }
+    .completion-circle.completed {
+      filter: brightness(0.7);
+    }
+    .completion-circle.completed ha-icon {
+      color: white;
     }
     .empty-state {
       text-align: center;
       padding: 32px;
       color: var(--secondary-text-color);
+    }
+    ha-dialog {
+      --mdc-dialog-min-width: 500px;
     }
   `;
 
@@ -155,6 +160,9 @@ class ChoreBotListCard extends LitElement {
     today.setHours(0, 0, 0, 0);
     this._selectedDate = today;
     this._config = {};
+    this._editDialogOpen = false;
+    this._editingTask = null;
+    this._saving = false;
   }
 
   setConfig(config) {
@@ -166,7 +174,12 @@ class ChoreBotListCard extends LitElement {
     this._config = {
       entity: config.entity,
       title: config.title || "Tasks",
+      show_title: config.show_title !== false,
       show_progress: config.show_progress !== false,
+      show_date_nav: config.show_date_nav !== false,
+      hide_card_background: config.hide_card_background === true,
+      task_background_color: config.task_background_color || "",
+      task_text_color: config.task_text_color || "",
       ...config,
     };
   }
@@ -191,15 +204,17 @@ class ChoreBotListCard extends LitElement {
     const progress = this._calculateProgress(tasks);
 
     return html`
-      <ha-card>
-        <div class="card-header">${this._config.title}</div>
+      <ha-card class="${this._config.hide_card_background ? 'no-background' : ''}">
+        ${this._config.show_title ? html`<div class="card-header">${this._config.title}</div>` : ""}
 
-        ${this._renderDateNavigation()}
+        ${this._config.show_date_nav ? this._renderDateNavigation() : ""}
 
         ${this._config.show_progress ? this._renderProgress(progress) : ""}
 
         <div class="todo-list">${this._renderTasks(tasks, entity)}</div>
       </ha-card>
+
+      ${this._renderEditDialog()}
     `;
   }
 
@@ -240,26 +255,31 @@ class ChoreBotListCard extends LitElement {
     }
 
     return tasks.map(
-      (task) => html`
-        <div class="todo-item">
-          <input
-            type="checkbox"
-            class="todo-checkbox"
-            .checked=${task.status === "completed"}
-            @change=${() => this._toggleTask(task)}
-          />
-          <div class="todo-content">
-            <div
-              class="todo-summary ${task.status === "completed"
-                ? "completed"
-                : ""}"
-            >
-              ${task.summary}
+      (task) => {
+        const isCompleted = task.status === "completed";
+        const bgColor = this._config.task_background_color || "var(--primary-color)";
+        const textColor = this._config.task_text_color || "white";
+
+        return html`
+          <div
+            class="todo-item"
+            style="background: ${bgColor}; color: ${textColor};"
+            @click=${() => this._openEditDialog(task)}
+          >
+            <div class="todo-content">
+              <div class="todo-summary">${task.summary}</div>
+              ${task.due ? html`<div class="todo-due-date">${this._formatDate(new Date(task.due))}</div>` : ""}
             </div>
-            ${this._renderTaskMeta(task, entity)}
+            <div
+              class="completion-circle ${isCompleted ? "completed" : ""}"
+              style="${isCompleted ? `background: ${bgColor};` : ""}"
+              @click=${(e) => this._handleCompletionClick(e, task)}
+            >
+              <ha-icon icon="mdi:check"></ha-icon>
+            </div>
           </div>
-        </div>
-      `
+        `;
+      }
     );
   }
 
@@ -420,6 +440,238 @@ class ChoreBotListCard extends LitElement {
     });
   }
 
+  _handleCompletionClick(e, task) {
+    e.stopPropagation(); // Prevent opening edit dialog
+    this._toggleTask(task);
+  }
+
+  _openEditDialog(task) {
+    // Flatten custom_fields for easier access in the form
+    const flatTask = {
+      ...task,
+      is_all_day: task.is_all_day || task.custom_fields?.is_all_day || false,
+      tags: task.tags || task.custom_fields?.tags || [],
+    };
+    this._editingTask = flatTask;
+    this._editDialogOpen = true;
+  }
+
+  _closeEditDialog() {
+    this._editDialogOpen = false;
+    this._editingTask = null;
+  }
+
+  _renderEditDialog() {
+    if (!this._editDialogOpen || !this._editingTask) {
+      return html``;
+    }
+
+    const task = this._editingTask;
+
+    // Initialize flags if not present
+    const hasDueDate = task.has_due_date !== undefined ? task.has_due_date : !!task.due;
+    const isAllDay = task.is_all_day !== undefined ? task.is_all_day : false;
+
+    // Date/time handling: Separate inputs avoid datetime-local component bugs
+    // Storage is UTC (e.g., "2025-11-10T05:10:00Z"), display is local timezone
+    // Use form state values if present, otherwise parse from task.due on initial load
+    let dateValue = task.due_date || null;
+    let timeValue = task.due_time || null;
+    
+    if (!dateValue && task.due) {
+      const parsed = this._parseUTCToLocal(task.due);
+      dateValue = parsed.date;
+      timeValue = parsed.time;
+    }
+
+    // Build schema dynamically based on flags
+    const schema = [
+      {
+        name: "summary",
+        required: true,
+        selector: { text: {} },
+      },
+      {
+        name: "has_due_date",
+        selector: { boolean: {} },
+      },
+    ];
+
+    // Add due date fields if enabled
+    if (hasDueDate) {
+      schema.push({
+        name: "is_all_day",
+        selector: { boolean: {} },
+      });
+
+      // Always show date selector
+      schema.push({
+        name: "due_date",
+        selector: { date: {} },
+      });
+
+      // Show time selector only if not all-day
+      if (!isAllDay) {
+        schema.push({
+          name: "due_time",
+          selector: { time: {} },
+        });
+      }
+    }
+
+    schema.push({
+      name: "description",
+      selector: { text: { multiline: true } },
+    });
+
+    const data = {
+      summary: task.summary || "",
+      has_due_date: hasDueDate,
+      is_all_day: isAllDay,
+      due_date: dateValue || null,
+      due_time: timeValue || "00:00",
+      description: task.description || "",
+    };
+
+    return html`
+      <ha-dialog
+        open
+        @closed=${this._closeEditDialog}
+        .heading=${"Edit Task"}
+      >
+        <ha-form
+          .hass=${this.hass}
+          .schema=${schema}
+          .data=${data}
+          .computeLabel=${(schema) => {
+            const labels = {
+              summary: "Task Name",
+              has_due_date: "Has Due Date",
+              is_all_day: "All Day",
+              due_date: "Date",
+              due_time: "Time",
+              description: "Description",
+            };
+            return labels[schema.name] || schema.name;
+          }}
+          @value-changed=${this._formValueChanged}
+        ></ha-form>
+        <ha-button
+          slot="primaryAction"
+          @click=${this._saveTask}
+          .disabled=${this._saving}
+        >
+          ${this._saving ? 'Saving...' : 'Save'}
+        </ha-button>
+        <ha-button
+          slot="secondaryAction"
+          @click=${this._closeEditDialog}
+          .disabled=${this._saving}
+        >
+          Cancel
+        </ha-button>
+      </ha-dialog>
+    `;
+  }
+
+  _parseUTCToLocal(utcString) {
+    // Convert UTC timestamp to local date and time components
+    try {
+      const date = new Date(utcString);
+      if (isNaN(date.getTime())) return { date: null, time: null };
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hours}:${minutes}`
+      };
+    } catch (e) {
+      console.error("Date parsing error:", e, utcString);
+      return { date: null, time: null };
+    }
+  }
+
+  _formValueChanged(ev) {
+    const updatedValues = ev.detail.value;
+
+    this._editingTask = {
+      ...this._editingTask,
+      ...updatedValues,
+    };
+
+    // Force re-render if has_due_date or is_all_day changed (schema changes)
+    if ('has_due_date' in updatedValues || 'is_all_day' in updatedValues) {
+      this.requestUpdate();
+    }
+  }
+
+  async _saveTask() {
+    if (!this._editingTask || !this._editingTask.summary?.trim() || this._saving) {
+      return;
+    }
+
+    this._saving = true;
+
+    // Build service data with only defined fields
+    const serviceData = {
+      list_id: this._config.entity,
+      uid: this._editingTask.uid,
+      summary: this._editingTask.summary.trim(),
+    };
+
+    // Handle due date based on has_due_date flag
+    if (this._editingTask.has_due_date && this._editingTask.due_date) {
+      const isAllDay = !!this._editingTask.is_all_day;
+
+      // Combine date and time into a single datetime
+      let dateTimeString;
+      if (isAllDay || !this._editingTask.due_time) {
+        // All-day: use date at midnight
+        dateTimeString = `${this._editingTask.due_date}T00:00:00`;
+      } else {
+        // Combine date and time (add seconds if not present)
+        const timeStr = this._editingTask.due_time.split(':').length === 3
+          ? this._editingTask.due_time 
+          : `${this._editingTask.due_time}:00`;
+        dateTimeString = `${this._editingTask.due_date}T${timeStr}`;
+      }
+
+      // Convert local datetime string to UTC ISO format for storage
+      const dateObj = new Date(dateTimeString);
+      if (isNaN(dateObj.getTime())) {
+        console.error("Invalid date/time combination:", dateTimeString);
+        return;
+      }
+
+      serviceData.due = dateObj.toISOString();
+      serviceData.is_all_day = isAllDay;
+    } else if (this._editingTask.has_due_date === false) {
+      // Explicitly clear the due date
+      serviceData.due = "";
+      serviceData.is_all_day = false;
+    }
+
+    // Only include description if it has a value
+    if (this._editingTask.description) {
+      serviceData.description = this._editingTask.description;
+    }
+
+    try {
+      await this.hass.callService("chorebot", "update_task", serviceData);
+      this._closeEditDialog();
+    } catch (error) {
+      console.error("Error saving task:", error);
+      alert("Failed to save task. Please try again.");
+    } finally {
+      this._saving = false;
+    }
+  }
+
   _previousDay() {
     const newDate = new Date(this._selectedDate);
     newDate.setDate(newDate.getDate() - 1);
@@ -479,142 +731,114 @@ class ChoreBotListCard extends LitElement {
     return normalized;
   }
 
-  static getConfigElement() {
-    return document.createElement("chorebot-list-card-editor");
-  }
-
   static getStubConfig() {
     return {
       entity: "",
       title: "Tasks",
+      show_title: true,
       show_progress: true,
+      show_date_nav: true,
+      hide_card_background: false,
+      task_background_color: "",
+      task_text_color: "",
+    };
+  }
+
+  static getConfigForm() {
+    return {
+      schema: [
+        {
+          name: "entity",
+          required: true,
+          selector: {
+            entity: {
+              filter: { domain: "todo" },
+            },
+          },
+        },
+        {
+          name: "title",
+          default: "Tasks",
+          selector: { text: {} },
+        },
+        {
+          name: "show_title",
+          default: true,
+          selector: { boolean: {} },
+        },
+        {
+          name: "show_progress",
+          default: true,
+          selector: { boolean: {} },
+        },
+        {
+          name: "show_date_nav",
+          default: true,
+          selector: { boolean: {} },
+        },
+        {
+          name: "hide_card_background",
+          default: false,
+          selector: { boolean: {} },
+        },
+        {
+          name: "task_background_color",
+          selector: { text: {} },
+        },
+        {
+          name: "task_text_color",
+          selector: { text: {} },
+        },
+      ],
+      computeLabel: (schema) => {
+        switch (schema.name) {
+          case "entity":
+            return "Todo Entity";
+          case "title":
+            return "Card Title";
+          case "show_title":
+            return "Show Title";
+          case "show_progress":
+            return "Show Progress Bar";
+          case "show_date_nav":
+            return "Show Date Navigation";
+          case "hide_card_background":
+            return "Hide Card Background";
+          case "task_background_color":
+            return "Task Background Color";
+          case "task_text_color":
+            return "Task Text Color";
+          default:
+            return undefined;
+        }
+      },
+      computeHelper: (schema) => {
+        switch (schema.name) {
+          case "entity":
+            return "Select the ChoreBot todo entity to display";
+          case "title":
+            return "Custom title for the card";
+          case "show_title":
+            return "Show the card title";
+          case "show_progress":
+            return "Show daily progress bar with completed/total tasks";
+          case "show_date_nav":
+            return "Show date navigation controls (hides to always show today)";
+          case "hide_card_background":
+            return "Hide the card background and padding for a seamless look";
+          case "task_background_color":
+            return "Background color for task items (hex code or CSS variable like var(--primary-color))";
+          case "task_text_color":
+            return "Text color for task items (hex code or CSS variable)";
+          default:
+            return undefined;
+        }
+      },
     };
   }
 }
 
 customElements.define("chorebot-list-card", ChoreBotListCard);
-
-/**
- * Configuration Editor for ChoreBot List Card
- */
-class ChoreBotListCardEditor extends LitElement {
-  static properties = {
-    hass: { type: Object },
-    _config: { state: true },
-  };
-
-  static styles = css`
-    .card-config {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .config-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .config-row label {
-      font-weight: 500;
-      font-size: 14px;
-    }
-    ha-entity-picker,
-    ha-textfield,
-    ha-switch {
-      width: 100%;
-    }
-  `;
-
-  setConfig(config) {
-    this._config = config;
-  }
-
-  render() {
-    if (!this.hass || !this._config) {
-      return html``;
-    }
-
-    return html`
-      <div class="card-config">
-        <div class="config-row">
-          <label>Entity (required)</label>
-          <ha-entity-picker
-            .hass=${this.hass}
-            .value=${this._config.entity}
-            .includeDomains=${["todo"]}
-            @value-changed=${this._entityChanged}
-            allow-custom-entity
-          ></ha-entity-picker>
-        </div>
-
-        <div class="config-row">
-          <label>Title</label>
-          <ha-textfield
-            .value=${this._config.title || ""}
-            .configValue=${"title"}
-            @input=${this._valueChanged}
-            placeholder="Tasks"
-          ></ha-textfield>
-        </div>
-
-        <div class="config-row">
-          <ha-formfield label="Show progress bar">
-            <ha-switch
-              .checked=${this._config.show_progress !== false}
-              @change=${this._progressChanged}
-            ></ha-switch>
-          </ha-formfield>
-        </div>
-      </div>
-    `;
-  }
-
-  _entityChanged(ev) {
-    if (!this._config || !this.hass) {
-      return;
-    }
-    const newConfig = { ...this._config, entity: ev.detail.value };
-    this._config = newConfig;
-    this._fireConfigChanged(newConfig);
-  }
-
-  _valueChanged(ev) {
-    if (!this._config || !this.hass) {
-      return;
-    }
-    const target = ev.target;
-    const configValue = target.configValue;
-    const value = target.value;
-
-    if (this._config[configValue] === value) {
-      return;
-    }
-
-    const newConfig = { ...this._config, [configValue]: value };
-    this._config = newConfig;
-    this._fireConfigChanged(newConfig);
-  }
-
-  _progressChanged(ev) {
-    if (!this._config || !this.hass) {
-      return;
-    }
-    const newConfig = { ...this._config, show_progress: ev.target.checked };
-    this._config = newConfig;
-    this._fireConfigChanged(newConfig);
-  }
-
-  _fireConfigChanged(config) {
-    const event = new CustomEvent("config-changed", {
-      detail: { config },
-      bubbles: true,
-      composed: true,
-    });
-    this.dispatchEvent(event);
-  }
-}
-
-customElements.define("chorebot-list-card-editor", ChoreBotListCardEditor);
 
 // Register the card with Home Assistant
 window.customCards = window.customCards || [];

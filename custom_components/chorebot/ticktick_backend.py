@@ -299,6 +299,9 @@ class TickTickBackend(SyncBackend):
                             task.is_all_day,
                         )
 
+        # Add status (0 = incomplete, 2 = completed)
+        ticktick_task["status"] = 2 if task.status == "completed" else 0
+
         # Add TickTick ID if exists
         ticktick_id = task.get_sync_id("ticktick")
         if ticktick_id:
@@ -889,9 +892,12 @@ class TickTickBackend(SyncBackend):
                 rrule = rrule[6:]  # Remove "RRULE:" prefix
             local_task.rrule = rrule
 
-        # Check if completed on TickTick
-        if ticktick_task.get("status") == 2:
+        # Update status based on TickTick status (0 = incomplete, 2 = completed)
+        ticktick_status = ticktick_task.get("status", 0)
+        if ticktick_status == 2:
             local_task.status = "completed"
+        else:
+            local_task.status = "needs_action"
 
         # Update modified timestamp
         local_task.update_modified()

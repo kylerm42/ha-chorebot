@@ -69,7 +69,7 @@ UPDATE_TASK_SCHEMA = vol.Schema(
         vol.Required("uid"): cv.string,
         vol.Optional("summary"): cv.string,
         vol.Optional("description"): cv.string,
-        vol.Optional("due"): cv.datetime,
+        vol.Optional("due"): vol.Any(cv.datetime, vol.Equal("")),
         vol.Optional("is_all_day"): cv.boolean,
         vol.Optional("status"): vol.In(["needs_action", "completed"]),
         vol.Optional("tags"): cv.ensure_list,
@@ -256,7 +256,10 @@ async def _handle_update_task(
     due_str = None
     if "due" in call.data:
         due = call.data["due"]
-        if due:
+        if due == "":
+            # Empty string means explicitly clear the due date
+            due_str = ""
+        elif due:
             # Ensure timezone-aware datetime
             if due.tzinfo is None:
                 # Naive datetime - assume system timezone

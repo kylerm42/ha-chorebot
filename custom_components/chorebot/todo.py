@@ -329,7 +329,8 @@ class ChoreBotList(TodoListEntity):
         if description is not None:
             task.description = description
         if due is not None:
-            task.due = due
+            # Empty string means clear the due date
+            task.due = due if due != "" else None
         if status is not None:
             task.status = status
         if tags is not None:
