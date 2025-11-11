@@ -128,15 +128,46 @@ This integration is developed using the [Home Assistant Core devcontainer](https
 
 ### Development Workflow
 
-1. **Edit code** in the `ha-chorebot` directory on your host
-2. **Changes appear instantly** in the container (bind mounts)
-3. **Restart Home Assistant** to pick up backend changes:
+#### Initial Setup (One-Time)
+
+After cloning and setting up the devcontainer:
+
+1. **Install npm dependencies**:
+   ```bash
+   cd ha-chorebot
+   npm install
+   ```
+
+2. **Start TypeScript watch mode** (keep running in a terminal):
+   ```bash
+   npm run watch
+   ```
+   This watches `src/main.ts` and automatically compiles to `dist/chorebot-list-card.js`
+
+#### Day-to-Day Development
+
+**For Backend (Python) Changes:**
+1. Edit files in `custom_components/chorebot/`
+2. Changes appear instantly in the container (bind mount)
+3. Restart Home Assistant to pick up changes:
    ```bash
    # Inside container terminal
    hass -c config
    ```
    Or use Developer Tools → YAML → Restart in HA UI
-4. **Hard refresh browser** (Ctrl+Shift+R) for frontend changes
+
+**For Frontend (TypeScript) Changes:**
+1. Edit files in `src/main.ts`
+2. Rollup auto-compiles (<1s) to `dist/chorebot-list-card.js`
+3. Compiled output syncs to container via bind mount
+4. Hard refresh browser (Ctrl+Shift+R) to see changes
+
+**Build Commands:**
+- `npm run build` - One-time build (production)
+- `npm run watch` - Continuous build (development)
+- `npm run format` - Format code with Prettier
+
+**Note:** The existing `www/chorebot-list-card.js` is the old JavaScript version. The TypeScript version is in `src/main.ts` and compiles to `dist/`. The container mounts `dist/` at `/workspaces/core/config/www/chorebot/`.
 
 ### Benefits
 - Full HA development environment with proper permissions

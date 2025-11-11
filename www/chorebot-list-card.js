@@ -114,7 +114,7 @@ class ChoreBotListCard extends LitElement {
       min-width: 0;
     }
     .todo-summary {
-      font-size: 16px;
+      font-size: 20px;
       font-weight: bold;
       word-wrap: break-word;
     }
@@ -268,7 +268,7 @@ class ChoreBotListCard extends LitElement {
           >
             <div class="todo-content">
               <div class="todo-summary">${task.summary}</div>
-              ${task.due ? html`<div class="todo-due-date">${this._formatDate(new Date(task.due))}</div>` : ""}
+              ${task.due ? html`<div class="todo-due-date" style="color: ${this._isOverdue(task) ? 'var(--error-color)' : 'inherit'}">${this._formatRelativeDate(new Date(task.due), task)}</div>` : ""}
             </div>
             <div
               class="completion-circle ${isCompleted ? "completed" : ""}"
@@ -373,6 +373,11 @@ class ChoreBotListCard extends LitElement {
 
       // Viewing TODAY
       if (isViewingToday) {
+        // Show tasks completed today (regardless of due date)
+        if (isCompleted && completedDate && this._isSameDay(completedDate, new Date())) {
+          return true;
+        }
+
         // Show dateless tasks (always relevant)
         if (!hasDueDate) {
           return true;
@@ -380,11 +385,6 @@ class ChoreBotListCard extends LitElement {
 
         // Show tasks due today
         if (hasDueDate && this._isSameDay(dueDate, this._selectedDate)) {
-          return true;
-        }
-
-        // Show tasks completed today
-        if (isCompleted && completedDate && this._isSameDay(completedDate, new Date())) {
           return true;
         }
 
@@ -715,6 +715,49 @@ class ChoreBotListCard extends LitElement {
       day: "numeric",
       year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
     });
+  }
+
+  _formatRelativeDate(date, task) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const diffTime = targetDate - today;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      // Check if task is all-day
+      const isAllDay = task?.is_all_day || task?.custom_fields?.is_all_day || false;
+      
+      if (!isAllDay) {
+        const originalDate = new Date(date);
+        return originalDate.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+      }
+      return "Today";
+    } else if (diffDays === -1) {
+      return "Yesterday";
+    } else if (diffDays === 1) {
+      return "Tomorrow";
+    } else if (diffDays < -1) {
+      return `${Math.abs(diffDays)} days ago`;
+    } else {
+      return `In ${diffDays} days`;
+    }
+  }
+
+  _isOverdue(task) {
+    if (!task.due || task.status === "completed") {
+      return false;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.due);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
   }
 
   _isSameDay(date1, date2) {

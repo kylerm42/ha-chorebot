@@ -347,6 +347,10 @@ class ChoreBotList(TodoListEntity):
         if status_changed_to_completed and task.is_recurring_instance():
             await self._handle_recurring_instance_completion(task)
         else:
+            # Set last_completed timestamp for any task being marked completed
+            if status_changed_to_completed:
+                task.last_completed = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            
             task.update_modified()
             await self._store.async_update_task(self._list_id, task)
 
