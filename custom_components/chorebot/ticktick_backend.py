@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import json
 import logging
 import re
 from typing import Any
@@ -513,6 +514,27 @@ class TickTickBackend(SyncBackend):
 
                 # Get TickTick tasks for this project
                 project_data = await self._client.get_project_with_tasks(project_id)
+
+                # Debug: Log full project structure including columns (sections)
+                _LOGGER.info(
+                    "TickTick Project Data for list '%s' (project_id: %s):\n%s",
+                    local_list_id,
+                    project_id,
+                    json.dumps(project_data, indent=2, default=str)
+                )
+
+                # Extract and log columns (sections) if available
+                columns = project_data.get("columns", [])
+                if columns:
+                    column_map = {col.get("id"): col.get("name") for col in columns}
+                    _LOGGER.info(
+                        "Project columns/sections mapping (columnId -> name):\n%s",
+                        json.dumps(column_map, indent=2, default=str)
+                    )
+                else:
+                    _LOGGER.info("No columns/sections found in project data")
+                    column_map = {}
+
                 ticktick_tasks = project_data.get("tasks", [])
 
                 # Get local templates and regular tasks (not instances)
@@ -555,18 +577,16 @@ class TickTickBackend(SyncBackend):
                         remote_etag = tt_task.get("etag")
                         last_etag = tt_sync.get("etag")
 
-                        _LOGGER.debug(
-                            "Checking task '%s' - Local etag: %s, Remote etag: %s",
-                            tt_task.get("title"),
-                            last_etag,
-                            remote_etag,
-                        )
-
                         if remote_etag and remote_etag != last_etag:
                             # Remote changed - update local
+                            column_id = tt_task.get("columnId")
+                            column_name = column_map.get(column_id, "Unknown") if column_map else "No column"
                             _LOGGER.info(
-                                "Updating local task '%s' from TickTick (etag changed)",
+                                "UPDATED task from TickTick: '%s' (etag changed) - columnId: %s -> '%s'\nFull object:\n%s",
                                 tt_task["title"],
+                                column_id,
+                                column_name,
+                                json.dumps(tt_task, indent=2, default=str)
                             )
                             await self._update_local_from_ticktick(
                                 local_list_id, local_task, tt_task
@@ -585,10 +605,6 @@ class TickTickBackend(SyncBackend):
                                 local_list_id, local_task
                             )
                             stats["updated"] += 1
-                        else:
-                            _LOGGER.debug(
-                                "Task '%s' unchanged (etag match)", tt_task.get("title")
-                            )
 
                         # Remove from map (processed)
                         del ticktick_id_map[tt_id]
@@ -610,8 +626,14 @@ class TickTickBackend(SyncBackend):
                                     )
                                     continue
 
-                        _LOGGER.debug(
-                            "Importing new task from TickTick: %s", tt_task["title"]
+                        column_id = tt_task.get("columnId")
+                        column_name = column_map.get(column_id, "Unknown") if column_map else "No column"
+                        _LOGGER.info(
+                            "NEW TASK from TickTick: '%s' - columnId: %s -> column/section: '%s'\nFull raw object:\n%s",
+                            tt_task["title"],
+                            column_id,
+                            column_name,
+                            json.dumps(tt_task, indent=2, default=str)
                         )
                         await self._import_ticktick_task(local_list_id, tt_task)
                         stats["created"] += 1
@@ -619,9 +641,10 @@ class TickTickBackend(SyncBackend):
                 # Check for deleted tasks
                 for local_task in ticktick_id_map.values():
                     if not local_task.is_deleted():
-                        _LOGGER.debug(
-                            "Task deleted on TickTick, soft-deleting local: %s",
+                        _LOGGER.info(
+                            "DELETED task on TickTick: '%s' (uid: %s) - soft-deleting locally",
                             local_task.summary,
+                            local_task.uid,
                         )
                         local_task.mark_deleted()
                         await self.store.async_update_task(local_list_id, local_task)
@@ -988,7 +1011,11 @@ class TickTickBackend(SyncBackend):
 
             # Add to store
             await self.store.async_add_task(list_id, template)
-            _LOGGER.info("Template created with uid: %s", template.uid)
+            _LOGGER.info(
+                "Template created with uid: %s - Converted Task object:\n%s",
+                template.uid,
+                json.dumps(template.to_dict(), indent=2, default=str)
+            )
 
             # Create first instance if there's a due date
             if "dueDate" in ticktick_task:
@@ -1010,7 +1037,11 @@ class TickTickBackend(SyncBackend):
                     is_all_day=is_all_day,
                 )
                 await self.store.async_add_task(list_id, first_instance)
-                _LOGGER.info("First instance created with uid: %s", first_instance.uid)
+                _LOGGER.info(
+                    "First instance created with uid: %s - Converted Task object:\n%s",
+                    first_instance.uid,
+                    json.dumps(first_instance.to_dict(), indent=2, default=str)
+                )
 
         else:
             # Create regular task
@@ -1044,3 +1075,8 @@ class TickTickBackend(SyncBackend):
 
             # Add to store
             await self.store.async_add_task(list_id, task)
+            _LOGGER.info(
+                "Regular task created with uid: %s - Converted Task object:\n%s",
+                task.uid,
+                json.dumps(task.to_dict(), indent=2, default=str)
+            )
