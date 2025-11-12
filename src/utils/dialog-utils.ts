@@ -1,0 +1,310 @@
+// ============================================================================
+// Dialog Utility Functions for ChoreBot Cards
+// ============================================================================
+
+import { html, TemplateResult } from "lit";
+import { HomeAssistant, Task, EditingTask, Section } from "./types.js";
+import { parseUTCToLocal } from "./date-utils.js";
+import { parseRrule } from "./rrule-utils.js";
+
+/**
+ * Prepare a task for editing by flattening custom fields and parsing dates/rrule
+ * @param task - Task to prepare for editing
+ * @returns EditingTask with flattened fields
+ */
+export function prepareTaskForEditing(task: Task): EditingTask {
+  const flatTask: EditingTask = {
+    ...task,
+    is_all_day: task.is_all_day || task.custom_fields?.is_all_day || false,
+    tags: task.tags || task.custom_fields?.tags || [],
+    section_id: task.section_id || task.custom_fields?.section_id,
+  };
+
+  // Extract due date/time if present
+  if (task.due) {
+    const parsed = parseUTCToLocal(task.due);
+    flatTask.due_date = parsed.date ?? undefined;
+    flatTask.due_time = parsed.time ?? undefined;
+    flatTask.has_due_date = true;
+  } else {
+    flatTask.has_due_date = false;
+  }
+
+  // Parse existing rrule if present
+  const rrule = task.custom_fields?.rrule;
+  const parsedRrule = parseRrule(rrule);
+
+  if (parsedRrule) {
+    flatTask.has_recurrence = true;
+    flatTask.recurrence_frequency = parsedRrule.frequency!;
+    flatTask.recurrence_interval = parsedRrule.interval;
+    flatTask.recurrence_byweekday = parsedRrule.byweekday;
+    flatTask.recurrence_bymonthday = parsedRrule.bymonthday || 1;
+  } else {
+    flatTask.has_recurrence = false;
+    flatTask.recurrence_frequency = "DAILY";
+    flatTask.recurrence_interval = 1;
+    flatTask.recurrence_byweekday = [];
+    flatTask.recurrence_bymonthday = 1;
+  }
+
+  return flatTask;
+}
+
+/**
+ * Build the schema for the edit dialog form
+ * @param task - Task being edited
+ * @param sections - Available sections from entity
+ * @returns Array of form schema objects
+ */
+export function buildEditDialogSchema(
+  task: EditingTask,
+  sections: Section[],
+): any[] {
+  const hasDueDate =
+    task.has_due_date !== undefined ? task.has_due_date : !!task.due;
+  const isAllDay = task.is_all_day !== undefined ? task.is_all_day : false;
+
+  const schema: any[] = [
+    {
+      name: "summary",
+      required: true,
+      selector: { text: {} },
+    },
+    {
+      name: "description",
+      selector: { text: { multiline: true } },
+    },
+  ];
+
+  // Add section dropdown if sections are available
+  if (sections.length > 0) {
+    schema.push({
+      name: "section_id",
+      selector: {
+        select: {
+          options: sections
+            .sort((a: Section, b: Section) => b.sort_order - a.sort_order)
+            .map((section: Section) => ({
+              label: section.name,
+              value: section.id,
+            })),
+        },
+      },
+    });
+  }
+
+  schema.push({
+    name: "has_due_date",
+    selector: { boolean: {} },
+  });
+
+  if (hasDueDate) {
+    schema.push({
+      name: "due_date",
+      selector: { date: {} },
+    });
+
+    if (!isAllDay) {
+      schema.push({
+        name: "due_time",
+        selector: { time: {} },
+      });
+    }
+
+    schema.push({
+      name: "is_all_day",
+      selector: { boolean: {} },
+    });
+  }
+
+  // Recurrence section - only show if task has a due date
+  if (hasDueDate) {
+    const hasRecurrence =
+      task.has_recurrence !== undefined ? task.has_recurrence : false;
+    const recurrenceFrequency = task.recurrence_frequency || "DAILY";
+
+    // Add recurrence toggle
+    schema.push({
+      name: "has_recurrence",
+      selector: { boolean: {} },
+    });
+
+    // If recurrence is enabled, add recurrence fields
+    if (hasRecurrence) {
+      schema.push({
+        name: "recurrence_frequency",
+        selector: {
+          select: {
+            options: [
+              { label: "Daily", value: "DAILY" },
+              { label: "Weekly", value: "WEEKLY" },
+              { label: "Monthly", value: "MONTHLY" },
+            ],
+          },
+        },
+      });
+
+      schema.push({
+        name: "recurrence_interval",
+        selector: {
+          number: {
+            min: 1,
+            max: 999,
+            mode: "box",
+          },
+        },
+      });
+
+      // Frequency-specific fields
+      if (recurrenceFrequency === "WEEKLY") {
+        schema.push({
+          name: "recurrence_byweekday",
+          selector: {
+            select: {
+              multiple: true,
+              options: [
+                { label: "Monday", value: "MO" },
+                { label: "Tuesday", value: "TU" },
+                { label: "Wednesday", value: "WE" },
+                { label: "Thursday", value: "TH" },
+                { label: "Friday", value: "FR" },
+                { label: "Saturday", value: "SA" },
+                { label: "Sunday", value: "SU" },
+              ],
+            },
+          },
+        });
+      } else if (recurrenceFrequency === "MONTHLY") {
+        schema.push({
+          name: "recurrence_bymonthday",
+          selector: {
+            number: {
+              min: 1,
+              max: 31,
+              mode: "box",
+            },
+          },
+        });
+      }
+    }
+  }
+
+  return schema;
+}
+
+/**
+ * Build the initial data object for the edit dialog form
+ * @param task - Task being edited
+ * @param sections - Available sections from entity
+ * @returns Data object for form initialization
+ */
+export function buildEditDialogData(
+  task: EditingTask,
+  sections: Section[],
+): any {
+  const hasDueDate =
+    task.has_due_date !== undefined ? task.has_due_date : !!task.due;
+  const isAllDay = task.is_all_day !== undefined ? task.is_all_day : false;
+
+  let dateValue = task.due_date || null;
+  let timeValue = task.due_time || null;
+
+  if (!dateValue && task.due) {
+    const parsed = parseUTCToLocal(task.due);
+    dateValue = parsed.date;
+    timeValue = parsed.time;
+  }
+
+  return {
+    summary: task.summary || "",
+    has_due_date: hasDueDate,
+    is_all_day: isAllDay,
+    due_date: dateValue || null,
+    due_time: timeValue || "00:00",
+    description: task.description || "",
+    section_id:
+      task.section_id ||
+      (sections.length > 0
+        ? sections.sort(
+            (a: Section, b: Section) => b.sort_order - a.sort_order,
+          )[0].id
+        : undefined),
+    has_recurrence: hasDueDate ? task.has_recurrence || false : false,
+    recurrence_frequency: task.recurrence_frequency || "DAILY",
+    recurrence_interval: task.recurrence_interval || 1,
+    recurrence_byweekday: task.recurrence_byweekday || [],
+    recurrence_bymonthday: task.recurrence_bymonthday || 1,
+  };
+}
+
+/**
+ * Get label text for form fields
+ * @param schema - Form schema object
+ * @returns Human-readable label
+ */
+export function computeLabel(schema: any): string {
+  const labels: { [key: string]: string } = {
+    summary: "Task Name",
+    has_due_date: "Has Due Date",
+    is_all_day: "All Day",
+    due_date: "Date",
+    due_time: "Time",
+    description: "Description",
+    section_id: "Section",
+    has_recurrence: "Recurring Task",
+    recurrence_frequency: "Frequency",
+    recurrence_interval: "Repeat Every",
+    recurrence_byweekday: "Days of Week",
+    recurrence_bymonthday: "Day of Month",
+  };
+  return labels[schema.name] || schema.name;
+}
+
+/**
+ * Render the edit task dialog
+ * @param isOpen - Whether dialog is open
+ * @param task - Task being edited
+ * @param hass - Home Assistant instance
+ * @param sections - Available sections
+ * @param saving - Whether save is in progress
+ * @param onClose - Callback when dialog closes
+ * @param onValueChanged - Callback when form values change
+ * @param onSave - Callback when save is clicked
+ * @returns Lit HTML template
+ */
+export function renderEditDialog(
+  isOpen: boolean,
+  task: EditingTask | null,
+  hass: HomeAssistant,
+  sections: Section[],
+  saving: boolean,
+  onClose: () => void,
+  onValueChanged: (ev: CustomEvent) => void,
+  onSave: () => void,
+): TemplateResult {
+  if (!isOpen || !task) {
+    return html``;
+  }
+
+  const schema = buildEditDialogSchema(task, sections);
+  const data = buildEditDialogData(task, sections);
+
+  return html`
+    <ha-dialog open @closed=${onClose} .heading=${"Edit Task"}>
+      <ha-form
+        .hass=${hass}
+        .schema=${schema}
+        .data=${data}
+        .computeLabel=${computeLabel}
+        @value-changed=${onValueChanged}
+      ></ha-form>
+      <ha-button slot="primaryAction" @click=${onSave} .disabled=${saving}>
+        ${saving ? "Saving..." : "Save"}
+      </ha-button>
+      <ha-button slot="secondaryAction" @click=${onClose} .disabled=${saving}>
+        Cancel
+      </ha-button>
+    </ha-dialog>
+  `;
+}

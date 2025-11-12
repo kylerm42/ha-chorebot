@@ -9,9 +9,13 @@ import {
   EditingTask,
   ChoreBotBaseConfig,
   Section,
-  Progress,
 } from "./utils/types.js";
-import { filterTodayTasks, calculateProgress } from "./utils/task-utils.js";
+import {
+  filterTodayTasks,
+  calculateProgress,
+  groupTasksByTag,
+  sortTagGroups,
+} from "./utils/task-utils.js";
 import { formatRelativeDate, isOverdue } from "./utils/date-utils.js";
 import { buildRrule } from "./utils/rrule-utils.js";
 import {
@@ -20,28 +24,30 @@ import {
 } from "./utils/dialog-utils.js";
 
 // Card-specific config interface
-interface ChoreBotConfig extends ChoreBotBaseConfig {
-  // List card has all base config options, no additional ones needed
+interface ChoreBotGroupedConfig extends ChoreBotBaseConfig {
+  untagged_header?: string;
+  tag_group_order?: string[];
 }
 
 // ============================================================================
-// ChoreBot List Card (TypeScript)
+// ChoreBot Grouped Card (TypeScript)
 // ============================================================================
 
 /**
- * ChoreBot List Card
+ * ChoreBot Grouped Card
  *
- * Displays todo items from a ChoreBot todo entity with:
+ * Displays todo items grouped by tags with:
+ * - Tag-based grouping (tasks appear in all matching tag groups)
+ * - Per-group progress tracking
  * - Today-focused view (tasks due today + incomplete overdue + completed overdue)
  * - Optional dateless tasks
- * - Progress tracking
- * - Streak display for recurring tasks
  * - Task editing dialog
+ * - Custom tag ordering
  */
-@customElement("chorebot-list-card")
-export class ChoreBotListCard extends LitElement {
+@customElement("chorebot-grouped-card")
+export class ChoreBotGroupedCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
-  @state() private _config?: ChoreBotConfig;
+  @state() private _config?: ChoreBotGroupedConfig;
   @state() private _editDialogOpen = false;
   @state() private _editingTask: EditingTask | null = null;
   @state() private _saving = false;
@@ -64,48 +70,64 @@ export class ChoreBotListCard extends LitElement {
       font-weight: 500;
       margin-bottom: 16px;
     }
-    .progress-bar {
-      margin-bottom: 16px;
-    }
-    .progress-track {
-      width: 100%;
-      height: 8px;
-      background: var(--divider-color);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: var(--primary-color);
-      transition: width 0.3s ease;
-    }
-    .progress-text {
-      font-size: 14px;
-      color: var(--secondary-text-color);
-      margin-top: 4px;
-    }
-    .todo-list {
+
+    /* Tag Group Container */
+    .tag-groups {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding: 0;
-      margin: 0;
+      gap: 16px;
     }
+
+    .tag-group-container {
+      border-radius: var(--ha-card-border-radius, 12px);
+      overflow: hidden;
+    }
+
+    /* Tag Group Header Bar */
+    .tag-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 16px;
+      filter: brightness(0.85);
+    }
+
+    .tag-group-header-title {
+      flex: 1;
+    }
+
+    .tag-group-header-progress {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    /* Tag Group Tasks (rows, not separate cards) */
+    .tag-group-tasks {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
     .todo-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 16px;
-      border-radius: var(--ha-card-border-radius, 12px);
       cursor: pointer;
-      transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
+      transition: filter 0.2s ease;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
+
+    .todo-item:last-child {
+      border-bottom: none;
+    }
+
     .todo-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      filter: brightness(1.1);
     }
+
     .todo-content {
       flex: 1;
       display: flex;
@@ -113,15 +135,18 @@ export class ChoreBotListCard extends LitElement {
       gap: 4px;
       min-width: 0;
     }
+
     .todo-summary {
       font-size: 20px;
       font-weight: bold;
       word-wrap: break-word;
     }
+
     .todo-due-date {
       font-size: 14px;
       font-weight: normal;
     }
+
     .completion-circle {
       width: 48px;
       height: 48px;
@@ -133,27 +158,32 @@ export class ChoreBotListCard extends LitElement {
       flex-shrink: 0;
       transition: all 0.2s ease;
     }
+
     .completion-circle ha-icon {
       --mdi-icon-size: 28px;
       color: #d3d3d3;
     }
+
     .completion-circle.completed {
       filter: brightness(0.7);
     }
+
     .completion-circle.completed ha-icon {
       color: white;
     }
+
     .empty-state {
       text-align: center;
       padding: 32px;
       color: var(--secondary-text-color);
     }
+
     ha-dialog {
       --mdc-dialog-min-width: 500px;
     }
   `;
 
-  setConfig(config: ChoreBotConfig) {
+  setConfig(config: ChoreBotGroupedConfig) {
     if (!config.entity) {
       throw new Error("You need to define an entity");
     }
@@ -161,11 +191,13 @@ export class ChoreBotListCard extends LitElement {
       entity: config.entity,
       title: config.title || "Tasks",
       show_title: config.show_title !== false,
-      show_progress: config.show_progress !== false,
       show_dateless_tasks: config.show_dateless_tasks !== false,
       hide_card_background: config.hide_card_background === true,
       task_background_color: config.task_background_color || "",
       task_text_color: config.task_text_color || "",
+      untagged_header: config.untagged_header || "Untagged",
+      tag_group_order: config.tag_group_order || [],
+      filter_section_id: config.filter_section_id,
     };
   }
 
@@ -186,7 +218,14 @@ export class ChoreBotListCard extends LitElement {
     }
 
     const tasks = this._getFilteredTasks(entity);
-    const progress = calculateProgress(tasks);
+
+    // Group tasks by tag
+    const tagGroups = groupTasksByTag(tasks, this._config.untagged_header);
+    const sortedGroups = sortTagGroups(
+      tagGroups,
+      this._config.tag_group_order,
+      this._config.untagged_header,
+    );
 
     return html`
       <ha-card
@@ -195,41 +234,47 @@ export class ChoreBotListCard extends LitElement {
         ${this._config.show_title
           ? html`<div class="card-header">${this._config.title}</div>`
           : ""}
-        ${this._config.show_progress ? this._renderProgress(progress) : ""}
-
-        <div class="todo-list">${this._renderTasks(tasks)}</div>
+        ${sortedGroups.length === 0
+          ? html`<div class="empty-state">No tasks for today</div>`
+          : html`<div class="tag-groups">
+              ${this._renderTagGroups(sortedGroups)}
+            </div>`}
       </ha-card>
 
       ${this._renderEditDialog()}
     `;
   }
 
-  private _renderProgress(progress: Progress) {
-    const percentage =
-      progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
+  // ============================================================================
+  // Tag Group Rendering
+  // ============================================================================
 
-    return html`
-      <div class="progress-bar">
-        <div class="progress-track">
-          <div class="progress-fill" style="width: ${percentage}%"></div>
-        </div>
-        <div class="progress-text">
-          ${progress.completed} / ${progress.total} tasks completed
-        </div>
-      </div>
-    `;
-  }
-
-  private _renderTasks(tasks: Task[]) {
-    if (tasks.length === 0) {
-      return html`<div class="empty-state">No tasks for today</div>`;
-    }
-
-    return tasks.map((task) => {
-      const isCompleted = task.status === "completed";
+  private _renderTagGroups(groups: Array<[string, Task[]]>) {
+    return groups.map(([tagName, tasks]) => {
+      const progress = calculateProgress(tasks);
       const bgColor =
         this._config!.task_background_color || "var(--primary-color)";
       const textColor = this._config!.task_text_color || "white";
+
+      return html`
+        <div class="tag-group-container" style="background: ${bgColor};">
+          <div class="tag-group-header" style="color: ${textColor};">
+            <div class="tag-group-header-title">${tagName}</div>
+            <div class="tag-group-header-progress">
+              ${progress.completed}/${progress.total}
+            </div>
+          </div>
+          <div class="tag-group-tasks">
+            ${this._renderTasks(tasks, bgColor, textColor)}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  private _renderTasks(tasks: Task[], bgColor: string, textColor: string) {
+    return tasks.map((task) => {
+      const isCompleted = task.status === "completed";
 
       return html`
         <div
@@ -263,7 +308,7 @@ export class ChoreBotListCard extends LitElement {
   }
 
   // ============================================================================
-  // Task Filtering (Simplified - Today-Only View)
+  // Task Filtering
   // ============================================================================
 
   private _getFilteredTasks(entity: HassEntity): Task[] {
@@ -434,12 +479,13 @@ export class ChoreBotListCard extends LitElement {
       entity: "",
       title: "Tasks",
       show_title: true,
-      show_progress: true,
       show_dateless_tasks: true,
       filter_section_id: "",
       hide_card_background: false,
       task_background_color: "",
       task_text_color: "",
+      untagged_header: "Untagged",
+      tag_group_order: [],
     };
   }
 
@@ -466,11 +512,6 @@ export class ChoreBotListCard extends LitElement {
           selector: { boolean: {} },
         },
         {
-          name: "show_progress",
-          default: true,
-          selector: { boolean: {} },
-        },
-        {
           name: "show_dateless_tasks",
           default: true,
           selector: { boolean: {} },
@@ -492,18 +533,34 @@ export class ChoreBotListCard extends LitElement {
           name: "task_text_color",
           selector: { text: {} },
         },
+        {
+          name: "untagged_header",
+          default: "Untagged",
+          selector: { text: {} },
+        },
+        {
+          name: "tag_group_order",
+          selector: {
+            select: {
+              multiple: true,
+              custom_value: true,
+              options: [],
+            },
+          },
+        },
       ],
       computeLabel: (schema: any) => {
         const labels: { [key: string]: string } = {
           entity: "Todo Entity",
           title: "Card Title",
           show_title: "Show Title",
-          show_progress: "Show Progress Bar",
           show_dateless_tasks: "Show Tasks Without Due Date",
           filter_section_id: "Filter by Section",
           hide_card_background: "Hide Card Background",
           task_background_color: "Task Background Color",
           task_text_color: "Task Text Color",
+          untagged_header: "Untagged Tasks Header",
+          tag_group_order: "Tag Display Order",
         };
         return labels[schema.name] || undefined;
       },
@@ -512,7 +569,6 @@ export class ChoreBotListCard extends LitElement {
           entity: "Select the ChoreBot todo entity to display",
           title: "Custom title for the card",
           show_title: "Show the card title",
-          show_progress: "Show daily progress bar with completed/total tasks",
           show_dateless_tasks: "Show tasks that do not have a due date",
           filter_section_id:
             'Enter section name (e.g., "SECOND SECTION"). Leave empty to show all sections.',
@@ -522,6 +578,10 @@ export class ChoreBotListCard extends LitElement {
             "Background color for task items (hex code or CSS variable like var(--primary-color))",
           task_text_color:
             "Text color for task items (hex code or CSS variable)",
+          untagged_header:
+            'Header text for tasks without tags (default: "Untagged")',
+          tag_group_order:
+            "Order to display tag groups. Tags not listed will appear alphabetically after these.",
         };
         return helpers[schema.name] || undefined;
       },
@@ -546,8 +606,8 @@ declare global {
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "chorebot-list-card",
-  name: "ChoreBot List Card",
-  description: "Display and manage ChoreBot tasks with today-focused view",
+  type: "chorebot-grouped-card",
+  name: "ChoreBot Grouped Card",
+  description: "Display and manage ChoreBot tasks grouped by tags",
   preview: true,
 });

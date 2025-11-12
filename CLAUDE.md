@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: 2025-11-12 - Updated frontend build structure: TypeScript + Lit + Rollup
+**Last Updated**: 2025-11-12 - Phase 2 Complete: Added `chorebot-grouped-card` with tag-based grouping + shared utilities architecture
 
 ## Project Overview
 
@@ -324,18 +324,39 @@ Build Configuration:
 
 7. **Frontend Card Implementation**:
    - TypeScript + Lit build system with Rollup bundler
-   - `chorebot-list-card` with today-focused view
-   - Progress tracking and visual indicators
-   - Inline task editing dialog with full field support
+   - Shared utilities architecture for code reuse (`src/utils/`)
+   - `chorebot-list-card` with today-focused flat view
+   - `chorebot-grouped-card` with tag-based grouping (NEW!)
+   - Progress tracking and visual indicators (per-group in grouped card)
+   - Inline task editing dialog with full field support (shared between cards)
    - Section filtering and customization options
    - Recurrence rule creation and editing UI
+
+8. **Shared Utilities Extraction** (Phase 1):
+   - `types.ts` - Shared TypeScript interfaces
+   - `date-utils.ts` - Date formatting & parsing
+   - `task-utils.ts` - Task filtering & grouping
+   - `rrule-utils.ts` - Recurrence rule parsing
+   - `dialog-utils.ts` - Edit dialog rendering
+   - Reduced main.ts from 1030 to 553 lines (~47% reduction)
+
+9. **Tag-Based Grouped Card** (Phase 2):
+   - New `chorebot-grouped-card` with tag grouping
+   - Tasks appear in all matching tag groups
+   - Per-group progress tracking (X/Y format)
+   - Configurable untagged header text
+   - Custom tag display order via `tag_group_order` config
+   - Darker header bars (15% brightness reduction)
+   - Row-based task display (not separate cards)
+   - Auto-hides empty groups
+   - Dual bundle output (32KB list card, 33KB grouped card)
 
 ### 🚧 In Progress / Next Steps
 
 1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution
 2. **Frontend Enhancements**:
+   - Add tags field to edit dialog (currently tasks can have tags but not editable via UI)
    - Streak display for recurring tasks in card UI
-   - Tag-based filtering in card UI
    - Visual effects for task completion (e.g., confetti)
    - Separate "Add Task" button card (optional - currently handled via edit dialog)
 3. **Advanced Features**: Points/rewards system, badges, shop functionality
