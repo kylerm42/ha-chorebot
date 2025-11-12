@@ -47,6 +47,7 @@ interface Task {
     is_all_day?: boolean;
     parent_uid?: string;
     occurrence_index?: number;
+    rrule?: string;
   };
 }
 
@@ -60,6 +61,11 @@ interface EditingTask extends Task {
   has_due_date?: boolean;
   due_date?: string | null;
   due_time?: string;
+  has_recurrence?: boolean;
+  recurrence_frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  recurrence_interval?: number;
+  recurrence_byweekday?: string[];
+  recurrence_bymonthday?: number;
 }
 
 interface Progress {
@@ -378,6 +384,35 @@ export class ChoreBotListCard extends LitElement {
       is_all_day: task.is_all_day || task.custom_fields?.is_all_day || false,
       tags: task.tags || task.custom_fields?.tags || [],
     };
+
+    // Extract due date/time if present
+    if (task.due) {
+      const parsed = this._parseUTCToLocal(task.due);
+      flatTask.due_date = parsed.date ?? undefined;
+      flatTask.due_time = parsed.time ?? undefined;
+      flatTask.has_due_date = true;
+    } else {
+      flatTask.has_due_date = false;
+    }
+
+    // Parse existing rrule if present
+    const rrule = task.custom_fields?.rrule;
+    const parsedRrule = this._parseRrule(rrule);
+
+    if (parsedRrule) {
+      flatTask.has_recurrence = true;
+      flatTask.recurrence_frequency = parsedRrule.frequency!;
+      flatTask.recurrence_interval = parsedRrule.interval;
+      flatTask.recurrence_byweekday = parsedRrule.byweekday;
+      flatTask.recurrence_bymonthday = parsedRrule.bymonthday || 1;
+    } else {
+      flatTask.has_recurrence = false;
+      flatTask.recurrence_frequency = 'DAILY';
+      flatTask.recurrence_interval = 1;
+      flatTask.recurrence_byweekday = [];
+      flatTask.recurrence_bymonthday = 1;
+    }
+
     this._editingTask = flatTask;
     this._editDialogOpen = true;
   }
@@ -412,17 +447,16 @@ export class ChoreBotListCard extends LitElement {
         selector: { text: {} },
       },
       {
+        name: 'description',
+        selector: { text: { multiline: true } },
+      },
+      {
         name: 'has_due_date',
         selector: { boolean: {} },
       },
     ];
 
     if (hasDueDate) {
-      schema.push({
-        name: 'is_all_day',
-        selector: { boolean: {} },
-      });
-
       schema.push({
         name: 'due_date',
         selector: { date: {} },
@@ -434,12 +468,83 @@ export class ChoreBotListCard extends LitElement {
           selector: { time: {} },
         });
       }
+
+      schema.push({
+        name: 'is_all_day',
+        selector: { boolean: {} },
+      });
     }
 
-    schema.push({
-      name: 'description',
-      selector: { text: { multiline: true } },
-    });
+    // Recurrence section - only show if task has a due date
+    if (hasDueDate) {
+      const hasRecurrence = task.has_recurrence !== undefined ? task.has_recurrence : false;
+      const recurrenceFrequency = task.recurrence_frequency || 'DAILY';
+
+      // Add recurrence toggle
+      schema.push({
+        name: 'has_recurrence',
+        selector: { boolean: {} },
+      });
+
+      // If recurrence is enabled, add recurrence fields
+      if (hasRecurrence) {
+      schema.push({
+        name: 'recurrence_frequency',
+        selector: {
+          select: {
+            options: [
+              { label: 'Daily', value: 'DAILY' },
+              { label: 'Weekly', value: 'WEEKLY' },
+              { label: 'Monthly', value: 'MONTHLY' },
+            ],
+          },
+        },
+      });
+
+      schema.push({
+        name: 'recurrence_interval',
+        selector: {
+          number: {
+            min: 1,
+            max: 999,
+            mode: 'box',
+          },
+        },
+      });
+
+      // Frequency-specific fields
+      if (recurrenceFrequency === 'WEEKLY') {
+        schema.push({
+          name: 'recurrence_byweekday',
+          selector: {
+            select: {
+              multiple: true,
+              options: [
+                { label: 'Monday', value: 'MO' },
+                { label: 'Tuesday', value: 'TU' },
+                { label: 'Wednesday', value: 'WE' },
+                { label: 'Thursday', value: 'TH' },
+                { label: 'Friday', value: 'FR' },
+                { label: 'Saturday', value: 'SA' },
+                { label: 'Sunday', value: 'SU' },
+              ],
+            },
+          },
+        });
+      } else if (recurrenceFrequency === 'MONTHLY') {
+        schema.push({
+          name: 'recurrence_bymonthday',
+          selector: {
+            number: {
+              min: 1,
+              max: 31,
+              mode: 'box',
+            },
+          },
+        });
+      }
+      }
+    }
 
     const data = {
       summary: task.summary || '',
@@ -448,6 +553,11 @@ export class ChoreBotListCard extends LitElement {
       due_date: dateValue || null,
       due_time: timeValue || '00:00',
       description: task.description || '',
+      has_recurrence: hasDueDate ? (task.has_recurrence || false) : false,
+      recurrence_frequency: task.recurrence_frequency || 'DAILY',
+      recurrence_interval: task.recurrence_interval || 1,
+      recurrence_byweekday: task.recurrence_byweekday || [],
+      recurrence_bymonthday: task.recurrence_bymonthday || 1,
     };
 
     return html`
@@ -464,6 +574,11 @@ export class ChoreBotListCard extends LitElement {
               due_date: 'Date',
               due_time: 'Time',
               description: 'Description',
+              has_recurrence: 'Recurring Task',
+              recurrence_frequency: 'Frequency',
+              recurrence_interval: 'Repeat Every',
+              recurrence_byweekday: 'Days of Week',
+              recurrence_bymonthday: 'Day of Month',
             };
             return labels[schema.name] || schema.name;
           }}
@@ -508,6 +623,81 @@ export class ChoreBotListCard extends LitElement {
     }
   }
 
+  private _parseRrule(rrule: string | undefined): {
+    frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | null;
+    interval: number;
+    byweekday: string[];
+    bymonthday: number | null;
+  } | null {
+    if (!rrule) {
+      return null;
+    }
+
+    try {
+      const parts = rrule.split(';');
+      let frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | null = null;
+      let interval = 1;
+      const byweekday: string[] = [];
+      let bymonthday: number | null = null;
+
+      for (const part of parts) {
+        const [key, value] = part.split('=');
+
+        if (key === 'FREQ') {
+          if (value === 'DAILY' || value === 'WEEKLY' || value === 'MONTHLY') {
+            frequency = value;
+          }
+        } else if (key === 'INTERVAL') {
+          const parsedInterval = parseInt(value, 10);
+          if (!isNaN(parsedInterval) && parsedInterval > 0) {
+            interval = parsedInterval;
+          }
+        } else if (key === 'BYDAY') {
+          byweekday.push(...value.split(','));
+        } else if (key === 'BYMONTHDAY') {
+          const parsedDay = parseInt(value, 10);
+          if (!isNaN(parsedDay) && parsedDay >= 1 && parsedDay <= 31) {
+            bymonthday = parsedDay;
+          }
+        }
+      }
+
+      if (!frequency) {
+        return null;
+      }
+
+      return { frequency, interval, byweekday, bymonthday };
+    } catch (e) {
+      console.error('rrule parsing error:', e, rrule);
+      return null;
+    }
+  }
+
+  private _buildRrule(): string | null {
+    if (!this._editingTask || !this._editingTask.has_recurrence) {
+      return null;
+    }
+
+    const { recurrence_frequency, recurrence_interval, recurrence_byweekday, recurrence_bymonthday } =
+      this._editingTask;
+
+    if (!recurrence_frequency) {
+      return null;
+    }
+
+    const interval = recurrence_interval || 1;
+    let rrule = `FREQ=${recurrence_frequency};INTERVAL=${interval}`;
+
+    if (recurrence_frequency === 'WEEKLY' && recurrence_byweekday && recurrence_byweekday.length > 0) {
+      rrule += `;BYDAY=${recurrence_byweekday.join(',').toUpperCase()}`;
+    } else if (recurrence_frequency === 'MONTHLY' && recurrence_bymonthday) {
+      const day = Math.max(1, Math.min(31, recurrence_bymonthday));
+      rrule += `;BYMONTHDAY=${day}`;
+    }
+
+    return rrule;
+  }
+
   private _formValueChanged(ev: CustomEvent) {
     const updatedValues = ev.detail.value;
 
@@ -516,7 +706,12 @@ export class ChoreBotListCard extends LitElement {
       ...updatedValues,
     };
 
-    if ('has_due_date' in updatedValues || 'is_all_day' in updatedValues) {
+    if (
+      'has_due_date' in updatedValues ||
+      'is_all_day' in updatedValues ||
+      'has_recurrence' in updatedValues ||
+      'recurrence_frequency' in updatedValues
+    ) {
       this.requestUpdate();
     }
   }
@@ -564,6 +759,23 @@ export class ChoreBotListCard extends LitElement {
 
     if (this._editingTask.description) {
       serviceData.description = this._editingTask.description;
+    }
+
+    // Handle recurrence
+    const rrule = this._buildRrule();
+    if (rrule !== null) {
+      serviceData.rrule = rrule;
+    } else if (this._editingTask.has_recurrence === false) {
+      // User explicitly disabled recurrence, send empty string to clear it
+      serviceData.rrule = '';
+    }
+
+    // For recurring task instances, always apply changes to future instances
+    const isRecurringInstance = !!(
+      this._editingTask.parent_uid || this._editingTask.custom_fields?.parent_uid
+    );
+    if (isRecurringInstance) {
+      serviceData.include_future_occurrences = true;
     }
 
     try {
