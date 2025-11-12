@@ -156,17 +156,46 @@ All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
 
 ### 3.4. Frontend Lovelace Cards
 
-- **List Card (`custom:chorebot-list-card`):**
-  - Displays items from a specified `todo` entity.
-  - Shows completed tasks from today for progress tracking.
-  - Displays daily progress bar (e.g., "5/10 tasks completed today").
-  - Shows streak counters from template metadata.
-  - Includes frontend-only controls for filtering the displayed list by tag, date, completion status, etc.
-  - May include purely cosmetic special effects (e.g., confetti) upon task completion, triggered by the card's JavaScript.
-- **Add Chore Button Card (`custom:chorebot-add-button-card`):**
-  - A custom card that, when tapped, opens a dialog/modal for adding a new task.
-  - The dialog will include fields for all custom data (`summary`, `tags`, `rrule`, etc.).
-  - The "Save" action will call a custom integration service (e.g., `chorebot.add_task`) that can process the full data payload, not the standard `todo.add_item` service.
+The frontend is built with **TypeScript** and **Lit** (Web Components), compiled via **Rollup** to a single JavaScript bundle (`dist/chorebot-list-card.js`).
+
+**Build System:**
+
+- **Source**: `src/main.ts` (single TypeScript source file)
+- **Output**: `dist/chorebot-list-card.js` (ES module bundle)
+- **Build Tools**: Rollup with TypeScript plugin, Terser for minification
+- **Watch Mode**: `npm run watch` for development
+
+**List Card (`custom:chorebot-list-card`):**
+
+- Built with Lit Web Components (LitElement)
+- Displays items from a specified `todo` entity
+- Today-focused view: shows tasks due today, incomplete overdue tasks, and overdue tasks completed today
+- Optional dateless tasks display (configurable via `show_dateless_tasks`)
+- Displays daily progress bar with completion percentage (configurable via `show_progress`)
+- Inline task editing dialog with support for all custom fields:
+  - Task name, description, section assignment
+  - Due date/time with all-day toggle
+  - Recurrence configuration (daily/weekly/monthly with intervals and days)
+- Section filtering support (via `filter_section_id` config option)
+- Visual customization options:
+  - Hide card background for seamless dashboard integration
+  - Custom task background and text colors
+- Recurring task instance editing applies changes to future occurrences
+- Uses native Home Assistant service calls (`todo.update_item` for completion, `chorebot.update_task` for editing)
+
+**Card Configuration:**
+
+- Configured via Lovelace YAML or visual editor (provides `getStubConfig()` and `getConfigForm()`)
+- Configuration options:
+  - `entity`: ChoreBot todo entity to display (required)
+  - `title`: Card title (default: "Tasks")
+  - `show_title`: Display title (default: true)
+  - `show_progress`: Display progress bar (default: true)
+  - `show_dateless_tasks`: Show tasks without due dates (default: true)
+  - `filter_section_id`: Section name to filter by (optional)
+  - `hide_card_background`: Remove card background/padding (default: false)
+  - `task_background_color`: Custom background color for task items
+  - `task_text_color`: Custom text color for task items
 
 ---
 

@@ -2,13 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: 2025-11-06 - Optimized storage structure: two-array model, removed streak duplication, standardized date formats
+**Last Updated**: 2025-11-12 - Updated frontend build structure: TypeScript + Lit + Rollup
 
 ## Project Overview
 
-ChoreBot is a Home Assistant custom integration that provides advanced task management with recurring tasks, streak tracking, tag-based organization, and remote backend synchronization (TickTick, with support for future backends like Todoist, Notion, etc.). The project consists of a Python backend integration and JavaScript frontend Lovelace cards.
+ChoreBot is a Home Assistant custom integration that provides advanced task management with recurring tasks, streak tracking, tag-based organization, and remote backend synchronization (TickTick, with support for future backends like Todoist, Notion, etc.). The project consists of a **Python backend integration** and **TypeScript/Lit frontend Lovelace card**.
 
-**Current Status**: Backend synchronization complete with TickTick implementation. Ready for testing and frontend development. See `spec/chore-bot.md` for the full technical specification.
+**Current Status**: Backend synchronization complete with TickTick implementation. Frontend card implemented with TypeScript/Lit build system. See `spec/chore-bot.md` for the full technical specification.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ The integration follows a **three-layer architecture** with strict separation of
 
 2. **Home Assistant Entity Layer**: `TodoListEntity` proxies that expose lists as standard HA `todo` entities. These provide read/write access to the Data Persistence Layer and ensure compatibility with native HA services.
 
-3. **Lovelace Frontend Layer**: Custom cards (`chorebot-list-card`, `chorebot-add-button-card`) that interact with the Entity Layer via standard HA service calls.
+3. **Lovelace Frontend Layer**: Custom card (`chorebot-list-card`) built with TypeScript and Lit that interacts with the Entity Layer via standard HA service calls.
 
 ### Critical Design Decisions
 
@@ -37,20 +37,42 @@ This integration is developed using the [Home Assistant Core devcontainer](https
 1. Clone the HA core repository: https://github.com/home-assistant/core
 2. Open in VS Code with Dev Containers extension
 3. Add mounts to `core/.devcontainer/devcontainer.json`:
+
 ```json
 "mounts": [
     "source=/path/to/ha-chorebot/custom_components/chorebot,target=${containerWorkspaceFolder}/config/custom_components/chorebot,type=bind",
-    "source=/path/to/ha-chorebot/www,target=${containerWorkspaceFolder}/config/www,type=bind"
+    "source=/path/to/ha-chorebot/dist,target=${containerWorkspaceFolder}/config/www,type=bind"
 ]
 ```
+
 4. Rebuild the devcontainer
 5. Run `hass -c config` to start Home Assistant
 6. Access at http://localhost:8123
 
+### Frontend Development Workflow
+
+The frontend card is built with TypeScript and requires compilation:
+
+1. **Install dependencies**: `npm install` (one-time setup)
+2. **Development mode**: `npm run watch` (auto-recompiles on changes)
+3. **Production build**: `npm run build` (creates minified bundle)
+4. **Output**: Compiled bundle is placed in `dist/chorebot-list-card.js`
+5. **Testing**: The devcontainer mount maps `dist/` to `config/www/`, making the compiled card immediately available in HA
+
+**Build Tools:**
+
+- **Rollup**: Bundles TypeScript source into a single ES module
+- **TypeScript**: Provides type checking and modern JavaScript features
+- **Lit**: Web Components framework for building the card UI
+- **Terser**: Minifies production builds
+
 ### Testing Changes
 
 - **Python changes**: Restart Home Assistant from Developer Tools → Server Controls
-- **Frontend changes**: Hard refresh browser (Ctrl+Shift+R)
+- **Frontend changes**:
+  1. Build: `npm run build` (or `npm run watch` for automatic rebuilding)
+  2. Copy `dist/chorebot-list-card.js` to `config/www/chorebot-list-card.js` in devcontainer
+  3. Hard refresh browser (Ctrl+Shift+R)
 - **Config flow changes**: Remove and re-add the integration
 - **View logs**: `docker logs -f homeassistant` or check `config/home-assistant.log`
 
@@ -102,6 +124,7 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
 ```
 
 **Key Points:**
+
 - All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
 - Templates are in `recurring_templates` array (have `rrule`, `streak_current`, `streak_longest`, `is_template`)
 - Tasks/instances are in `tasks` array (regular tasks and recurring instances)
@@ -110,6 +133,7 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
 ### Recurring Task Model
 
 **Template + Instance Architecture:**
+
 - **Templates** store the `rrule`, default tags, and accumulated streak data. They have `is_template: true`, no `due` date, and are physically stored in the `recurring_templates` array. Hidden from UI.
 - **Instances** are individual occurrences with specific due dates. They have `parent_uid` pointing to their template and `occurrence_index` tracking their sequence. Stored in the `tasks` array alongside regular tasks.
 - **No Streak Duplication**: Instances do NOT store `streak_current` or `streak_longest`. They reference their parent template for current streak values.
@@ -118,6 +142,7 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
 ### Recurring Instance Completion Logic
 
 When a recurring task instance is marked completed:
+
 1. Mark instance as `completed` with `last_completed` timestamp
 2. Get template via `parent_uid`
 3. Check if completed on time (before/on due date)
@@ -167,9 +192,20 @@ custom_components/chorebot/
 ├── services.yaml                # Service definitions (create_list, add_task, sync)
 └── strings.json                 # UI translations
 
-www/
-├── chorebot-list-card.js        # Task display card with filtering
-└── chorebot-add-button-card.js  # Add task dialog with custom fields
+src/
+└── main.ts                      # TypeScript source for chorebot-list-card (Lit Web Component)
+
+dist/
+└── chorebot-list-card.js        # Compiled JavaScript bundle (generated by Rollup)
+
+www/                             # (Legacy JS files - deprecated in favor of src/)
+├── chorebot-list-card.js        # Old JavaScript implementation
+└── chorebot-add-button-card.js  # Old JavaScript implementation
+
+Build Configuration:
+├── package.json                 # NPM dependencies (Lit, Rollup, TypeScript)
+├── tsconfig.json                # TypeScript compiler configuration
+└── rollup.config.mjs            # Rollup bundler configuration
 ```
 
 ## Key Implementation Files
@@ -184,6 +220,15 @@ www/
 - **`ticktick_backend.py`**: TickTick-specific implementation of `SyncBackend`. Handles metadata encoding/decoding, task conversion, TickTick date normalization (`_normalize_ticktick_date()` converts TickTick format to ISO Z), and TickTick API interactions.
 - **`ticktick_api_client.py`**: Lightweight REST API client for TickTick Open API using `aiohttp`. Bearer token authentication.
 - **`oauth_api.py`**: Wrapper for OAuth2Session providing automatic token refresh and access token retrieval.
+- **`src/main.ts`**: TypeScript source for the `chorebot-list-card` Lit Web Component. Includes:
+  - TypeScript interfaces for HA entities and task data
+  - `ChoreBotListCard` class extending `LitElement`
+  - Today-focused task filtering logic
+  - Progress calculation and rendering
+  - Inline task editing dialog with full field support
+  - Recurrence rule parsing and building (`rrule` format)
+  - Date/time formatting and timezone handling (UTC ↔ local conversion)
+  - Card configuration system with visual editor support
 
 ## Remote Backend Synchronization
 
@@ -248,6 +293,7 @@ www/
 ## Implementation Status
 
 ### ✅ Completed
+
 1. **Data Persistence Layer**:
    - Two-array JSON storage structure (`recurring_templates` and `tasks`)
    - Template + instance model with proper separation
@@ -274,10 +320,23 @@ www/
    - Standardized date format (ISO Z / UTC) throughout codebase
    - Date normalization for TickTick sync
 
+### ✅ Completed (Continued)
+
+7. **Frontend Card Implementation**:
+   - TypeScript + Lit build system with Rollup bundler
+   - `chorebot-list-card` with today-focused view
+   - Progress tracking and visual indicators
+   - Inline task editing dialog with full field support
+   - Section filtering and customization options
+   - Recurrence rule creation and editing UI
+
 ### 🚧 In Progress / Next Steps
+
 1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution
-2. **Frontend Cards**:
-   - `chorebot-list-card`: Display with progress tracking, streak counters, filtering by tags/date
-   - `chorebot-add-button-card`: Add dialog with custom fields (tags, rrule, etc.)
+2. **Frontend Enhancements**:
+   - Streak display for recurring tasks in card UI
+   - Tag-based filtering in card UI
+   - Visual effects for task completion (e.g., confetti)
+   - Separate "Add Task" button card (optional - currently handled via edit dialog)
 3. **Advanced Features**: Points/rewards system, badges, shop functionality
 4. **Additional Backends**: Todoist, Notion, or other task management services
