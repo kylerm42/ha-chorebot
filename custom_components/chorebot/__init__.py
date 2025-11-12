@@ -58,6 +58,7 @@ ADD_TASK_SCHEMA = vol.Schema(
         vol.Optional("due"): cv.datetime,
         vol.Optional("is_all_day"): cv.boolean,
         vol.Optional("tags"): cv.ensure_list,
+        vol.Optional("section_id"): cv.string,
         vol.Optional("rrule"): cv.string,
     }
 )
@@ -73,6 +74,7 @@ UPDATE_TASK_SCHEMA = vol.Schema(
         vol.Optional("is_all_day"): cv.boolean,
         vol.Optional("status"): vol.In(["needs_action", "completed"]),
         vol.Optional("tags"): cv.ensure_list,
+        vol.Optional("section_id"): cv.string,
         vol.Optional("points_value"): cv.positive_int,
         vol.Optional("rrule"): cv.string,
         vol.Optional("include_future_occurrences"): cv.boolean,
@@ -187,11 +189,16 @@ async def _handle_add_task(
     is_all_day = call.data.get("is_all_day", False)
     tags = call.data.get("tags", [])
     rrule = call.data.get("rrule")
+    section_id = call.data.get("section_id")
 
     list_id = _extract_list_id_from_entity(hass, entity_id)
     if not list_id:
         _LOGGER.error("Invalid entity_id provided: %s", entity_id)
         return
+
+    # Use default section if not provided
+    if not section_id:
+        section_id = store.get_default_section_id(list_id)
 
     _LOGGER.info("Adding task via service: %s to list %s", summary, list_id)
 
@@ -224,6 +231,7 @@ async def _handle_add_task(
         tags=tags or [],
         rrule=rrule,
         is_all_day=is_all_day,
+        section_id=section_id,
     )
 
 
@@ -283,6 +291,7 @@ async def _handle_update_task(
         status=call.data.get("status"),
         tags=tags,
         is_all_day=call.data.get("is_all_day"),
+        section_id=call.data.get("section_id"),
         points_value=call.data.get("points_value"),
         rrule=call.data.get("rrule"),
         include_future_occurrences=call.data.get("include_future_occurrences", False),

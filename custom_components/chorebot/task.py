@@ -15,6 +15,7 @@ from .const import (
     FIELD_PARENT_UID,
     FIELD_POINTS_VALUE,
     FIELD_RRULE,
+    FIELD_SECTION_ID,
     FIELD_STREAK_CURRENT,
     FIELD_STREAK_LONGEST,
     FIELD_TAGS,
@@ -43,6 +44,7 @@ class Task:
     is_template: bool = False  # True if this is a recurring task template
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
     is_all_day: bool = False  # True if this is an all-day task (no specific time)
+    section_id: str | None = None  # Section/column this task belongs to
     custom_fields: dict[str, Any] = field(default_factory=dict)  # Backend-specific metadata
     sync: dict[str, dict[str, Any]] = field(default_factory=dict)  # Sync metadata per backend
 
@@ -59,6 +61,7 @@ class Task:
         is_template: bool = False,
         occurrence_index: int = 0,
         is_all_day: bool = False,
+        section_id: str | None = None,
     ) -> Task:
         """Create a new task with generated UID and timestamps."""
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -77,6 +80,7 @@ class Task:
             is_template=is_template,
             occurrence_index=occurrence_index,
             is_all_day=is_all_day,
+            section_id=section_id,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,6 +105,8 @@ class Task:
             custom_fields_output[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
         if self.is_all_day:
             custom_fields_output[FIELD_IS_ALL_DAY] = self.is_all_day
+        if self.section_id:
+            custom_fields_output[FIELD_SECTION_ID] = self.section_id
 
         # Merge in any extra custom fields (e.g., backend-specific metadata)
         custom_fields_output.update(self.custom_fields)
@@ -149,6 +155,7 @@ class Task:
             FIELD_IS_TEMPLATE,
             FIELD_OCCURRENCE_INDEX,
             FIELD_IS_ALL_DAY,
+            FIELD_SECTION_ID,
         }
 
         # Extract extra custom fields (backend-specific metadata)
@@ -177,6 +184,7 @@ class Task:
             is_template=template_value,
             occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
             is_all_day=custom_fields.get(FIELD_IS_ALL_DAY, False),
+            section_id=custom_fields.get(FIELD_SECTION_ID),
             custom_fields=extra_custom_fields,
             sync=data.get("sync", {}),
         )

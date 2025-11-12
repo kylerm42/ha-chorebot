@@ -100,16 +100,21 @@ class ChoreBotList(TodoListEntity):
         templates = self._store.get_templates_for_list(self._list_id)
         visible_templates = [t for t in templates if not t.is_deleted()]
 
+        # Get sections for this list
+        sections = self._store.get_sections_for_list(self._list_id)
+
         _LOGGER.debug(
-            "Building extra_state_attributes for %s: %d tasks, %d templates",
+            "Building extra_state_attributes for %s: %d tasks, %d templates, %d sections",
             self._list_id,
             len(visible_tasks),
             len(visible_templates),
+            len(sections),
         )
 
         return {
             "chorebot_tasks": [task.to_dict() for task in visible_tasks],
             "chorebot_templates": [template.to_dict() for template in visible_templates],
+            "chorebot_sections": sections,
         }
 
     def _task_to_todo_item(self, task: Task) -> TodoItem:
@@ -185,6 +190,7 @@ class ChoreBotList(TodoListEntity):
         tags: list[str] | None = None,
         rrule: str | None = None,
         is_all_day: bool = False,
+        section_id: str | None = None,
     ) -> None:
         """Internal method to create task(s) - used by both entity and services.
 
@@ -203,6 +209,7 @@ class ChoreBotList(TodoListEntity):
                 rrule=rrule,
                 is_template=True,
                 is_all_day=is_all_day,
+                section_id=section_id,
             )
 
             first_instance = Task.create_new(
@@ -215,6 +222,7 @@ class ChoreBotList(TodoListEntity):
                 is_template=False,
                 occurrence_index=0,
                 is_all_day=is_all_day,
+                section_id=section_id,
             )
 
             _LOGGER.debug("Creating recurring task template and first instance")
@@ -236,6 +244,7 @@ class ChoreBotList(TodoListEntity):
                 tags=tags or [],
                 rrule=None,
                 is_all_day=is_all_day,
+                section_id=section_id,
             )
 
             await self._store.async_add_task(self._list_id, task)
@@ -257,6 +266,7 @@ class ChoreBotList(TodoListEntity):
         status: str | None = None,
         tags: list[str] | None = None,
         is_all_day: bool | None = None,
+        section_id: str | None = None,
         points_value: int | None = None,
         rrule: str | None = None,
         include_future_occurrences: bool = False,
@@ -315,6 +325,8 @@ class ChoreBotList(TodoListEntity):
                 template.tags = tags
             if is_all_day is not None:
                 template.is_all_day = is_all_day
+            if section_id is not None:
+                template.section_id = section_id
             if points_value is not None:
                 template.points_value = points_value
             if rrule is not None:
@@ -337,6 +349,8 @@ class ChoreBotList(TodoListEntity):
             task.tags = tags
         if is_all_day is not None:
             task.is_all_day = is_all_day
+        if section_id is not None:
+            task.section_id = section_id
         if points_value is not None:
             task.points_value = points_value
 

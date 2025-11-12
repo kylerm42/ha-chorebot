@@ -247,6 +247,10 @@ class TickTickBackend(SyncBackend):
         if task.tags:
             ticktick_task["tags"] = task.tags
 
+        # Add columnId (section_id maps directly to TickTick columnId)
+        if task.section_id:
+            ticktick_task["columnId"] = task.section_id
+
         # Add due date (for instances or regular tasks)
         if task.due and not task.is_template:
             formatted_date, timezone_name = self._format_ticktick_date(task.due)
@@ -531,9 +535,21 @@ class TickTickBackend(SyncBackend):
                         "Project columns/sections mapping (columnId -> name):\n%s",
                         json.dumps(column_map, indent=2, default=str)
                     )
+
+                    # Store sections in local storage
+                    sections = [
+                        {
+                            "id": col.get("id"),
+                            "name": col.get("name"),
+                            "sort_order": col.get("sortOrder", 0),
+                        }
+                        for col in columns
+                    ]
+                    await self.store.async_set_sections(local_list_id, sections)
                 else:
                     _LOGGER.info("No columns/sections found in project data")
                     column_map = {}
+                    await self.store.async_set_sections(local_list_id, [])
 
                 ticktick_tasks = project_data.get("tasks", [])
 
@@ -907,6 +923,13 @@ class TickTickBackend(SyncBackend):
         if "isAllDay" in ticktick_task:
             local_task.is_all_day = ticktick_task["isAllDay"]
 
+        # Update section_id from columnId
+        if "columnId" in ticktick_task:
+            local_task.section_id = ticktick_task["columnId"]
+        elif not local_task.section_id:
+            # Use default section if no columnId specified
+            local_task.section_id = self.store.get_default_section_id(list_id)
+
         # Update recurrence rule (direct property, not custom_fields)
         if "repeatFlag" in ticktick_task:
             # Strip RRULE: prefix for internal storage consistency
@@ -945,6 +968,7 @@ class TickTickBackend(SyncBackend):
                 instance.summary = local_task.summary
                 instance.description = local_task.description
                 instance.tags = local_task.tags.copy() if local_task.tags else []
+                instance.section_id = local_task.section_id
                 instance.update_modified()
 
                 await self.store.async_update_task(list_id, instance)
@@ -959,6 +983,12 @@ class TickTickBackend(SyncBackend):
         # Decode content and metadata
         content = ticktick_task.get("content", "")
         description, metadata = self._decode_metadata(content)
+
+        # Extract section_id from columnId
+        section_id = ticktick_task.get("columnId")
+        if not section_id:
+            # Use default section if no columnId specified
+            section_id = self.store.get_default_section_id(list_id)
 
         # Check if this is a recurring task
         rrule = ticktick_task.get("repeatFlag")
@@ -992,6 +1022,7 @@ class TickTickBackend(SyncBackend):
                 rrule=rrule,
                 is_template=True,
                 is_all_day=is_all_day,
+                section_id=section_id,
             )
 
             # Apply metadata
@@ -1035,6 +1066,7 @@ class TickTickBackend(SyncBackend):
                     is_template=False,
                     occurrence_index=metadata.get("occurrence_index", 0),
                     is_all_day=is_all_day,
+                    section_id=section_id,
                 )
                 await self.store.async_add_task(list_id, first_instance)
                 _LOGGER.info(
@@ -1057,6 +1089,7 @@ class TickTickBackend(SyncBackend):
                 tags=ticktick_task.get("tags", []),
                 rrule=None,
                 is_all_day=is_all_day,
+                section_id=section_id,
             )
 
             # Store TickTick ID in sync metadata

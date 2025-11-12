@@ -17,8 +17,15 @@ interface HassEntity {
     friendly_name?: string;
     chorebot_tasks?: Task[];
     chorebot_templates?: RecurringTemplate[];
+    chorebot_sections?: Section[];
     [key: string]: any;
   };
+}
+
+interface Section {
+  id: string;
+  name: string;
+  sort_order: number;
 }
 
 interface ChoreBotConfig {
@@ -28,6 +35,7 @@ interface ChoreBotConfig {
   show_progress?: boolean;
   hide_card_background?: boolean;
   show_dateless_tasks?: boolean;
+  filter_section_id?: string;
   task_background_color?: string;
   task_text_color?: string;
 }
@@ -42,12 +50,14 @@ interface Task {
   parent_uid?: string;
   tags?: string[];
   is_all_day?: boolean;
+  section_id?: string;
   custom_fields?: {
     tags?: string[];
     is_all_day?: boolean;
     parent_uid?: string;
     occurrence_index?: number;
     rrule?: string;
+    section_id?: string;
   };
 }
 
@@ -311,7 +321,8 @@ export class ChoreBotListCard extends LitElement {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return tasks.filter((task) => {
+    // Apply date/status filtering
+    let filteredTasks = tasks.filter((task) => {
       const hasDueDate = !!task.due;
       const isCompleted = task.status === 'completed';
 
@@ -345,6 +356,27 @@ export class ChoreBotListCard extends LitElement {
 
       return false;
     });
+
+    // Apply section filtering if configured
+    if (this._config?.filter_section_id) {
+      // Resolve section name to section ID
+      const sections: Section[] = entity.attributes.chorebot_sections || [];
+      const filterValue = this._config.filter_section_id;
+
+      // Try to find section by name first
+      const sectionByName = sections.find(
+        (section) => section.name === filterValue
+      );
+
+      // Use the section ID if found by name, otherwise use the filter value as-is (for backward compatibility)
+      const sectionIdToMatch = sectionByName ? sectionByName.id : filterValue;
+
+      filteredTasks = filteredTasks.filter(
+        (task) => task.section_id === sectionIdToMatch
+      );
+    }
+
+    return filteredTasks;
   }
 
   private _calculateProgress(tasks: Task[]): Progress {
@@ -383,6 +415,7 @@ export class ChoreBotListCard extends LitElement {
       ...task,
       is_all_day: task.is_all_day || task.custom_fields?.is_all_day || false,
       tags: task.tags || task.custom_fields?.tags || [],
+      section_id: task.section_id || task.custom_fields?.section_id,
     };
 
     // Extract due date/time if present
@@ -440,6 +473,10 @@ export class ChoreBotListCard extends LitElement {
       timeValue = parsed.time;
     }
 
+    // Get sections from entity attributes
+    const entity = this.hass?.states[this._config!.entity];
+    const sections = entity?.attributes.chorebot_sections || [];
+
     const schema: any[] = [
       {
         name: 'summary',
@@ -450,11 +487,29 @@ export class ChoreBotListCard extends LitElement {
         name: 'description',
         selector: { text: { multiline: true } },
       },
-      {
-        name: 'has_due_date',
-        selector: { boolean: {} },
-      },
     ];
+
+    // Add section dropdown if sections are available
+    if (sections.length > 0) {
+      schema.push({
+        name: 'section_id',
+        selector: {
+          select: {
+            options: sections
+              .sort((a: Section, b: Section) => b.sort_order - a.sort_order)
+              .map((section: Section) => ({
+                label: section.name,
+                value: section.id,
+              })),
+          },
+        },
+      });
+    }
+
+    schema.push({
+      name: 'has_due_date',
+      selector: { boolean: {} },
+    });
 
     if (hasDueDate) {
       schema.push({
@@ -553,6 +608,7 @@ export class ChoreBotListCard extends LitElement {
       due_date: dateValue || null,
       due_time: timeValue || '00:00',
       description: task.description || '',
+      section_id: task.section_id || (sections.length > 0 ? sections.sort((a: Section, b: Section) => b.sort_order - a.sort_order)[0].id : undefined),
       has_recurrence: hasDueDate ? (task.has_recurrence || false) : false,
       recurrence_frequency: task.recurrence_frequency || 'DAILY',
       recurrence_interval: task.recurrence_interval || 1,
@@ -574,6 +630,7 @@ export class ChoreBotListCard extends LitElement {
               due_date: 'Date',
               due_time: 'Time',
               description: 'Description',
+              section_id: 'Section',
               has_recurrence: 'Recurring Task',
               recurrence_frequency: 'Frequency',
               recurrence_interval: 'Repeat Every',
@@ -761,6 +818,10 @@ export class ChoreBotListCard extends LitElement {
       serviceData.description = this._editingTask.description;
     }
 
+    if (this._editingTask.section_id) {
+      serviceData.section_id = this._editingTask.section_id;
+    }
+
     // Handle recurrence
     const rrule = this._buildRrule();
     if (rrule !== null) {
@@ -854,6 +915,7 @@ export class ChoreBotListCard extends LitElement {
       show_title: true,
       show_progress: true,
       show_dateless_tasks: true,
+      filter_section_id: '',
       hide_card_background: false,
       task_background_color: '',
       task_text_color: '',
@@ -893,6 +955,10 @@ export class ChoreBotListCard extends LitElement {
           selector: { boolean: {} },
         },
         {
+          name: 'filter_section_id',
+          selector: { text: {} },
+        },
+        {
           name: 'hide_card_background',
           default: false,
           selector: { boolean: {} },
@@ -913,6 +979,7 @@ export class ChoreBotListCard extends LitElement {
           show_title: 'Show Title',
           show_progress: 'Show Progress Bar',
           show_dateless_tasks: 'Show Tasks Without Due Date',
+          filter_section_id: 'Filter by Section',
           hide_card_background: 'Hide Card Background',
           task_background_color: 'Task Background Color',
           task_text_color: 'Task Text Color',
@@ -926,6 +993,7 @@ export class ChoreBotListCard extends LitElement {
           show_title: 'Show the card title',
           show_progress: 'Show daily progress bar with completed/total tasks',
           show_dateless_tasks: 'Show tasks that do not have a due date',
+          filter_section_id: 'Enter section name (e.g., "SECOND SECTION"). Leave empty to show all sections.',
           hide_card_background: 'Hide the card background and padding for a seamless look',
           task_background_color:
             'Background color for task items (hex code or CSS variable like var(--primary-color))',

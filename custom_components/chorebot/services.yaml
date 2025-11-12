@@ -57,6 +57,13 @@ add_task:
       example: '["Morning", "Chores"]'
       selector:
         object:
+    section_id:
+      name: Section ID
+      description: The section/column ID to place this task in. If not provided, uses the default section.
+      required: false
+      example: "column123"
+      selector:
+        text:
     rrule:
       name: Recurrence Rule
       description: iCalendar RRULE string for recurring tasks (e.g., "FREQ=DAILY;INTERVAL=1" for daily tasks).
@@ -127,6 +134,13 @@ update_task:
       example: '["Morning", "Chores"]'
       selector:
         object:
+    section_id:
+      name: Section ID
+      description: The section/column ID to move this task to.
+      required: false
+      example: "column123"
+      selector:
+        text:
     points_value:
       name: Points
       description: Task point value for gamification.

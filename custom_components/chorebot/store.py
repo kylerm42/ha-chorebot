@@ -28,6 +28,8 @@ class ChoreBotStore:
         self._config_data: dict[str, Any] = {}
         # New two-array structure: templates separate from tasks
         self._tasks_cache: dict[str, dict[str, dict[str, Task]]] = {}
+        # Sections cache: list_id -> list of section dicts
+        self._sections_cache: dict[str, list[dict[str, Any]]] = {}
         self._lock = asyncio.Lock()
 
     async def async_load(self) -> None:
@@ -58,10 +60,12 @@ class ChoreBotStore:
         task_data = await store.async_load()
         if task_data is None:
             self._tasks_cache[list_id] = {"templates": {}, "tasks": {}}
+            self._sections_cache[list_id] = []
         else:
-            # Load two-array structure: {"recurring_templates": [...], "tasks": [...]}
+            # Load two-array structure: {"recurring_templates": [...], "tasks": [...], "sections": [...]}
             templates_data = task_data.get("recurring_templates", [])
             tasks_data = task_data.get("tasks", [])
+            sections_data = task_data.get("sections", [])
 
             templates = [Task.from_dict(t, is_template=True) for t in templates_data]
             tasks = [Task.from_dict(t, is_template=False) for t in tasks_data]
@@ -71,6 +75,8 @@ class ChoreBotStore:
                 "templates": {t.uid: t for t in templates if not t.is_deleted()},
                 "tasks": {t.uid: t for t in tasks if not t.is_deleted()},
             }
+            # Load sections
+            self._sections_cache[list_id] = sections_data
 
     async def async_save_config(self) -> None:
         """Save configuration data. Must be called with lock held."""
@@ -108,10 +114,14 @@ class ChoreBotStore:
         all_templates = {**deleted_templates, **cache["templates"]}
         all_tasks = {**deleted_tasks, **cache["tasks"]}
 
+        # Get sections from cache
+        sections = self._sections_cache.get(list_id, [])
+
         # Save payload only (HA Store will wrap with version/key/data)
         data = {
             "recurring_templates": [t.to_dict() for t in all_templates.values()],
             "tasks": [t.to_dict() for t in all_tasks.values()],
+            "sections": sections,
         }
         await store.async_save(data)
 
@@ -221,6 +231,7 @@ class ChoreBotStore:
 
             # Remove from cache
             self._tasks_cache.pop(list_id, None)
+            self._sections_cache.pop(list_id, None)
             self._task_stores.pop(list_id, None)
 
     def get_tasks_for_list(self, list_id: str) -> list[Task]:
@@ -401,3 +412,45 @@ class ChoreBotStore:
             await archive_store.async_save(archive_data)
 
             return len(to_archive)
+
+    def get_sections_for_list(self, list_id: str) -> list[dict[str, Any]]:
+        """Get all sections for a list.
+
+        Returns:
+            List of section dicts with id, name, and sort_order
+        """
+        return self._sections_cache.get(list_id, [])
+
+    async def async_set_sections(
+        self, list_id: str, sections: list[dict[str, Any]]
+    ) -> None:
+        """Set sections for a list.
+
+        Args:
+            list_id: The list ID
+            sections: List of section dicts with id, name, and sort_order
+        """
+        async with self._lock:
+            if list_id not in self._tasks_cache:
+                _LOGGER.error("Cannot set sections for unknown list: %s", list_id)
+                return
+
+            self._sections_cache[list_id] = sections
+            await self.async_save_tasks(list_id)
+
+    def get_default_section_id(self, list_id: str) -> str | None:
+        """Get the default section ID for a list (highest sort_order).
+
+        Args:
+            list_id: The list ID
+
+        Returns:
+            The section ID with highest sort_order, or None if no sections
+        """
+        sections = self._sections_cache.get(list_id, [])
+        if not sections:
+            return None
+
+        # Find section with highest sort_order
+        default_section = max(sections, key=lambda s: s.get("sort_order", 0))
+        return default_section.get("id")

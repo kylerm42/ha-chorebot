@@ -23,6 +23,7 @@ FIELD_PARENT_UID = "parent_uid"
 FIELD_IS_TEMPLATE = "is_template"
 FIELD_OCCURRENCE_INDEX = "occurrence_index"
 FIELD_IS_ALL_DAY = "is_all_day"
+FIELD_SECTION_ID = "section_id"
 # FIELD_TICKTICK_ID removed - now stored in sync.ticktick.id instead of custom_fields
 
 # Configuration keys
