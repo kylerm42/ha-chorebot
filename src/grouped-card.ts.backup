@@ -51,12 +51,6 @@ export class ChoreBotGroupedCard extends LitElement {
   @state() private _editDialogOpen = false;
   @state() private _editingTask: EditingTask | null = null;
   @state() private _saving = false;
-  @state() private _collapsedGroups = new Set<string>();
-  private _autoCollapseTimeouts = new Map<string, number>();
-  private _previousGroupProgress = new Map<
-    string,
-    { completed: number; total: number }
-  >();
 
   static styles = css`
     :host {
@@ -87,12 +81,7 @@ export class ChoreBotGroupedCard extends LitElement {
     .tag-group-container {
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
-      border: 1px solid var(--divider-color);
-      transition: border-radius 0.3s ease;
-    }
-
-    .tag-group-container.collapsed {
-      border-radius: var(--ha-card-border-radius, 12px);
+      border: 1px solid rgba(128, 128, 128, 0.2);
     }
 
     /* Tag Group Header Bar */
@@ -103,25 +92,11 @@ export class ChoreBotGroupedCard extends LitElement {
       padding: 12px 16px;
       font-weight: 500;
       font-size: 24px;
-      border-bottom: 1px solid var(--divider-color);
-      cursor: pointer;
-      user-select: none;
-      transition:
-        filter 0.2s ease,
-        border-bottom 0.3s ease;
-    }
-
-    .tag-group-header.collapsed {
-      border-bottom: none;
-    }
-
-    .tag-group-header:active {
-      filter: brightness(0.9);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .tag-group-header-title {
       flex: 1;
-      text-transform: capitalize;
     }
 
     .tag-group-header-progress {
@@ -131,21 +106,9 @@ export class ChoreBotGroupedCard extends LitElement {
 
     /* Tag Group Tasks (rows, not separate cards) */
     .tag-group-tasks {
-      display: grid;
-      grid-template-rows: 1fr;
-      transition:
-        grid-template-rows 0.3s ease,
-        opacity 0.3s ease;
-      opacity: 1;
-    }
-
-    .tag-group-tasks.collapsed {
-      grid-template-rows: 0fr;
-      opacity: 0;
-    }
-
-    .tag-group-tasks-inner {
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
 
     .todo-item {
@@ -155,7 +118,7 @@ export class ChoreBotGroupedCard extends LitElement {
       padding: 16px;
       cursor: pointer;
       transition: filter 0.2s ease;
-      border-bottom: 1px solid var(--divider-color);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .todo-item:last-child {
@@ -178,22 +141,11 @@ export class ChoreBotGroupedCard extends LitElement {
       font-size: 20px;
       font-weight: 400;
       word-wrap: break-word;
-      line-height: 1.3;
     }
 
     .todo-due-date {
       font-size: 14px;
       font-weight: normal;
-      opacity: 0.7;
-    }
-
-    .recurring-icon {
-      --mdc-icon-size: 14px;
-      margin-right: 4px;
-      vertical-align: middle;
-      line-height: 1;
-      display: inline-flex;
-      align-items: center;
     }
 
     .completion-circle {
@@ -264,7 +216,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const sortedGroups = sortTagGroups(
       tagGroups,
       this._config.tag_group_order,
-      this._config.untagged_header,
+      this._config.untagged_header
     );
 
     return html`
@@ -393,40 +345,25 @@ export class ChoreBotGroupedCard extends LitElement {
       const lighterColor = this._adjustColorLightness(baseColor, 35);
       const darkerColor = this._adjustColorLightness(baseColor, -20);
 
-      const isCollapsed = this._collapsedGroups.has(tagName);
-      const allComplete = progress.completed === progress.total;
-      const showCheckmark = isCollapsed && allComplete;
-
-      // Auto-collapse logic: check if group just became complete
-      this._checkAutoCollapse(tagName, progress, allComplete, isCollapsed);
-
       return html`
-        <div class="tag-group-container ${isCollapsed ? "collapsed" : ""}">
+        <div class="tag-group-container">
           <div
-            class="tag-group-header ${isCollapsed ? "collapsed" : ""}"
+            class="tag-group-header"
             style="background: ${baseColor}; color: ${textColor};"
-            @click=${() => this._toggleGroup(tagName)}
           >
             <div class="tag-group-header-title">${tagName}</div>
             <div class="tag-group-header-progress">
-              ${showCheckmark
-                ? html`<ha-icon
-                    icon="mdi:check"
-                    style="color: ${textColor}; --mdi-icon-size: 20px;"
-                  ></ha-icon>`
-                : html`${progress.completed}/${progress.total}`}
+              ${progress.completed}/${progress.total}
             </div>
           </div>
-          <div class="tag-group-tasks ${isCollapsed ? "collapsed" : ""}">
-            <div class="tag-group-tasks-inner">
-              ${this._renderTasks(
-                tasks,
-                baseColor,
-                textColor,
-                lighterColor,
-                darkerColor,
-              )}
-            </div>
+          <div class="tag-group-tasks">
+            ${this._renderTasks(
+              tasks,
+              baseColor,
+              textColor,
+              lighterColor,
+              darkerColor
+            )}
           </div>
         </div>
       `;
@@ -438,7 +375,7 @@ export class ChoreBotGroupedCard extends LitElement {
     baseColor: string,
     textColor: string,
     lighterColor: string,
-    darkerColor: string,
+    darkerColor: string
   ) {
     return tasks.map((task) => {
       const isCompleted = task.status === "completed";
@@ -473,12 +410,6 @@ export class ChoreBotGroupedCard extends LitElement {
                     : "inherit"}"
                 >
                   ${formatRelativeDate(new Date(task.due), task)}
-                  ${task.parent_uid || task.custom_fields?.parent_uid
-                    ? html`<ha-icon
-                        icon="mdi:sync"
-                        class="recurring-icon"
-                      ></ha-icon>`
-                    : ""}
                 </div>`
               : ""}
           </div>
@@ -505,65 +436,8 @@ export class ChoreBotGroupedCard extends LitElement {
     return filterTodayTasks(
       entity,
       this._config!.show_dateless_tasks !== false,
-      this._config?.filter_section_id,
+      this._config?.filter_section_id
     );
-  }
-
-  // ============================================================================
-  // Group Collapse/Expand
-  // ============================================================================
-
-  private _toggleGroup(tagName: string) {
-    // Clear any pending auto-collapse timeout for this group
-    if (this._autoCollapseTimeouts.has(tagName)) {
-      clearTimeout(this._autoCollapseTimeouts.get(tagName));
-      this._autoCollapseTimeouts.delete(tagName);
-    }
-
-    if (this._collapsedGroups.has(tagName)) {
-      this._collapsedGroups.delete(tagName);
-    } else {
-      this._collapsedGroups.add(tagName);
-    }
-    this.requestUpdate();
-  }
-
-  private _checkAutoCollapse(
-    tagName: string,
-    progress: { completed: number; total: number },
-    allComplete: boolean,
-    isCollapsed: boolean,
-  ) {
-    const previousProgress = this._previousGroupProgress.get(tagName);
-
-    // Check if group just became complete (wasn't complete before, is complete now)
-    const justCompleted =
-      previousProgress &&
-      previousProgress.completed < previousProgress.total &&
-      allComplete &&
-      !isCollapsed;
-
-    // Update the stored progress for next comparison
-    this._previousGroupProgress.set(tagName, {
-      completed: progress.completed,
-      total: progress.total,
-    });
-
-    if (justCompleted) {
-      // Clear any existing timeout for this group
-      if (this._autoCollapseTimeouts.has(tagName)) {
-        clearTimeout(this._autoCollapseTimeouts.get(tagName));
-      }
-
-      // Set a delay before auto-collapsing (1.5 seconds)
-      const timeoutId = window.setTimeout(() => {
-        this._collapsedGroups.add(tagName);
-        this._autoCollapseTimeouts.delete(tagName);
-        this.requestUpdate();
-      }, 1500);
-
-      this._autoCollapseTimeouts.set(tagName, timeoutId);
-    }
   }
 
   // ============================================================================
@@ -613,7 +487,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
-      () => this._saveTask(),
+      () => this._saveTask()
     );
   }
 

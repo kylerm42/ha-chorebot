@@ -55,6 +55,7 @@ export interface Task {
     occurrence_index?: number;
     rrule?: string;
     section_id?: string;
+    last_completed?: string;
   };
 }
 

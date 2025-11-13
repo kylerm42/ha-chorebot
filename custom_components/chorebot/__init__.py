@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 import logging
 from zoneinfo import ZoneInfo
 
@@ -97,9 +97,7 @@ async def _async_setup_sync_coordinator(
             hass, entry
         )
     )
-    oauth_session = config_entry_oauth2_flow.OAuth2Session(
-        hass, entry, implementation
-    )
+    oauth_session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
 
     # Create auth wrapper
     aiohttp_session = aiohttp_client.async_get_clientsession(hass)
@@ -340,13 +338,26 @@ async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> 
                 "Archived %d old instances from list %s", archived_count, list_id
             )
 
-        # 2. Soft-delete completed recurring instances (hide from UI)
+        # 2. Soft-delete completed recurring instances that weren't completed today
         tasks = store.get_tasks_for_list(list_id)
+        today = datetime.now(UTC).date()
+
         for task in tasks:
             if task.is_recurring_instance() and task.status == "completed":
-                _LOGGER.debug("Soft-deleting completed instance: %s", task.summary)
-                task.mark_deleted()
-                await store.async_update_task(list_id, task)
+                # Only soft-delete if NOT completed today
+                if task.last_completed:
+                    completed_date = datetime.fromisoformat(
+                        task.last_completed.replace("Z", "+00:00")
+                    ).date()
+
+                    if completed_date < today:
+                        _LOGGER.debug(
+                            "Soft-deleting completed instance: %s (completed %s)",
+                            task.summary,
+                            completed_date,
+                        )
+                        task.mark_deleted()
+                        await store.async_update_task(list_id, task)
 
     # 3. Check for overdue instances and reset template streaks
     templates = await store.async_get_all_recurring_templates()

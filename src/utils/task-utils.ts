@@ -7,7 +7,7 @@ import { isSameDay } from "./date-utils.js";
 
 /**
  * Filter tasks for today-focused view
- * Shows: tasks due today, incomplete overdue tasks, overdue tasks completed today, and dateless tasks
+ * Shows: incomplete tasks due today, incomplete overdue tasks, tasks completed today, and dateless tasks
  * @param entity - Home Assistant entity containing tasks
  * @param showDatelessTasks - Whether to show tasks without due dates
  * @param filterSectionId - Optional section ID to filter by
@@ -37,7 +37,21 @@ export function filterTodayTasks(
     const isToday = isSameDay(dueDate, today);
     const isOverdue = dueDate < today;
 
-    // Show tasks due today (completed or not)
+    // If task is completed, check if it was completed today
+    if (isCompleted) {
+      const lastCompleted =
+        task.last_completed || task.custom_fields?.last_completed;
+      if (lastCompleted) {
+        const completedDate = new Date(lastCompleted);
+        if (isSameDay(completedDate, new Date())) {
+          return true; // Show if completed today (regardless of due date)
+        }
+        // If completed but not today, hide it
+        return false;
+      }
+    }
+
+    // Show incomplete tasks due today
     if (isToday) {
       return true;
     }
@@ -45,14 +59,6 @@ export function filterTodayTasks(
     // Show incomplete overdue tasks
     if (isOverdue && !isCompleted) {
       return true;
-    }
-
-    // Show overdue tasks completed today
-    if (isOverdue && isCompleted && task.last_completed) {
-      const completedDate = new Date(task.last_completed);
-      if (isSameDay(completedDate, new Date())) {
-        return true;
-      }
     }
 
     return false;
