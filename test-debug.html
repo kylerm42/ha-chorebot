@@ -1,0 +1,16 @@
+<!-- Paste this in your browser console when viewing the card -->
+<script>
+// Get the entity state
+const entity = hass.states['todo.test'];
+console.log('Entity:', entity);
+console.log('Tasks:', entity?.attributes?.chorebot_tasks);
+console.log('Sections:', entity?.attributes?.chorebot_sections);
+
+// Check filtering
+const tasks = entity?.attributes?.chorebot_tasks || [];
+console.log('Total tasks:', tasks.length);
+console.log('Tasks with Kyle section:', tasks.filter(t => {
+  const sectionId = t.section_id || t.custom_fields?.section_id;
+  return sectionId === '6914ddf84c0c4c7fe64ddd8e';
+}));
+</script>

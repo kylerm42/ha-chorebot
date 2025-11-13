@@ -73,7 +73,9 @@ export function filterTodayTasks(
     const sectionIdToMatch = sectionByName ? sectionByName.id : filterValue;
 
     filteredTasks = filteredTasks.filter(
-      (task) => task.section_id === sectionIdToMatch,
+      (task) =>
+        (task.section_id || task.custom_fields?.section_id) ===
+        sectionIdToMatch,
     );
   }
 

@@ -81,6 +81,7 @@ export class ChoreBotGroupedCard extends LitElement {
     .tag-group-container {
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
+      border: 1px solid rgba(128, 128, 128, 0.2);
     }
 
     /* Tag Group Header Bar */
@@ -89,9 +90,9 @@ export class ChoreBotGroupedCard extends LitElement {
       justify-content: space-between;
       align-items: center;
       padding: 12px 16px;
-      font-weight: 600;
-      font-size: 16px;
-      filter: brightness(0.85);
+      font-weight: 500;
+      font-size: 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .tag-group-header-title {
@@ -99,8 +100,8 @@ export class ChoreBotGroupedCard extends LitElement {
     }
 
     .tag-group-header-progress {
-      font-size: 14px;
-      opacity: 0.9;
+      font-weight: 400;
+      opacity: 0.8;
     }
 
     /* Tag Group Tasks (rows, not separate cards) */
@@ -138,7 +139,7 @@ export class ChoreBotGroupedCard extends LitElement {
 
     .todo-summary {
       font-size: 20px;
-      font-weight: bold;
+      font-weight: 400;
       word-wrap: break-word;
     }
 
@@ -151,25 +152,16 @@ export class ChoreBotGroupedCard extends LitElement {
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: white;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
       transition: all 0.2s ease;
+      box-sizing: border-box;
     }
 
     .completion-circle ha-icon {
       --mdi-icon-size: 28px;
-      color: #d3d3d3;
-    }
-
-    .completion-circle.completed {
-      filter: brightness(0.7);
-    }
-
-    .completion-circle.completed ha-icon {
-      color: white;
     }
 
     .empty-state {
@@ -224,7 +216,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const sortedGroups = sortTagGroups(
       tagGroups,
       this._config.tag_group_order,
-      this._config.untagged_header,
+      this._config.untagged_header
     );
 
     return html`
@@ -246,40 +238,166 @@ export class ChoreBotGroupedCard extends LitElement {
   }
 
   // ============================================================================
+  // Color Manipulation Helpers
+  // ============================================================================
+
+  private _adjustColorLightness(color: string, percent: number): string {
+    // Parse the color and adjust lightness in HSL space
+    // This handles hex, rgb, rgba, and CSS variables
+
+    // For CSS variables, we can't calculate, so return a fallback
+    if (color.startsWith("var(")) {
+      // Use filter as fallback for CSS variables
+      return color;
+    }
+
+    // Convert hex to rgb
+    let r: number, g: number, b: number;
+
+    if (color.startsWith("#")) {
+      const hex = color.replace("#", "");
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    } else if (color.startsWith("rgb")) {
+      const match = color.match(/\d+/g);
+      if (!match) return color;
+      [r, g, b] = match.map(Number);
+    } else {
+      return color;
+    }
+
+    // Convert RGB to HSL
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0,
+      s = 0,
+      l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+      switch (max) {
+        case r:
+          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          break;
+        case g:
+          h = ((b - r) / d + 2) / 6;
+          break;
+        case b:
+          h = ((r - g) / d + 4) / 6;
+          break;
+      }
+    }
+
+    // Adjust lightness (percent is like +35 or -20)
+    // For lighter: move toward white, for darker: move toward black
+    if (percent > 0) {
+      // Lighten: increase lightness but cap the adjustment to avoid going to pure white
+      l = Math.max(0, Math.min(0.95, l + (percent / 100) * (1 - l)));
+    } else {
+      // Darken: decrease lightness proportionally
+      l = Math.max(0.05, l + (percent / 100) * l);
+    }
+
+    // Convert HSL back to RGB
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+
+    let r2: number, g2: number, b2: number;
+
+    if (s === 0) {
+      r2 = g2 = b2 = l;
+    } else {
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r2 = hue2rgb(p, q, h + 1 / 3);
+      g2 = hue2rgb(p, q, h);
+      b2 = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    return `rgb(${Math.round(r2 * 255)}, ${Math.round(g2 * 255)}, ${Math.round(b2 * 255)})`;
+  }
+
+  // ============================================================================
   // Tag Group Rendering
   // ============================================================================
 
   private _renderTagGroups(groups: Array<[string, Task[]]>) {
     return groups.map(([tagName, tasks]) => {
       const progress = calculateProgress(tasks);
-      const bgColor =
+      const baseColor =
         this._config!.task_background_color || "var(--primary-color)";
       const textColor = this._config!.task_text_color || "white";
 
+      // Generate color variants
+      const lighterColor = this._adjustColorLightness(baseColor, 35);
+      const darkerColor = this._adjustColorLightness(baseColor, -20);
+
       return html`
-        <div class="tag-group-container" style="background: ${bgColor};">
-          <div class="tag-group-header" style="color: ${textColor};">
+        <div class="tag-group-container">
+          <div
+            class="tag-group-header"
+            style="background: ${baseColor}; color: ${textColor};"
+          >
             <div class="tag-group-header-title">${tagName}</div>
             <div class="tag-group-header-progress">
               ${progress.completed}/${progress.total}
             </div>
           </div>
           <div class="tag-group-tasks">
-            ${this._renderTasks(tasks, bgColor, textColor)}
+            ${this._renderTasks(
+              tasks,
+              baseColor,
+              textColor,
+              lighterColor,
+              darkerColor
+            )}
           </div>
         </div>
       `;
     });
   }
 
-  private _renderTasks(tasks: Task[], bgColor: string, textColor: string) {
+  private _renderTasks(
+    tasks: Task[],
+    baseColor: string,
+    textColor: string,
+    lighterColor: string,
+    darkerColor: string
+  ) {
     return tasks.map((task) => {
       const isCompleted = task.status === "completed";
+
+      // Task styling based on completion
+      const taskBgColor = isCompleted ? baseColor : "transparent";
+      const taskTextColor = isCompleted
+        ? textColor
+        : "var(--primary-text-color)";
+
+      // Completion circle styling
+      const circleBgColor = isCompleted ? darkerColor : "transparent";
+      const circleIconColor = isCompleted ? "white" : "var(--divider-color)";
+      // const circleBorder = isCompleted ? "none" : `2px solid ${lighterColor}`;
+      const circleBorder = isCompleted
+        ? "none"
+        : `2px solid var(--divider-color)`;
 
       return html`
         <div
           class="todo-item"
-          style="background: ${bgColor}; color: ${textColor};"
+          style="background: ${taskBgColor}; color: ${taskTextColor};"
           @click=${() => this._openEditDialog(task)}
         >
           <div class="todo-content">
@@ -296,11 +414,14 @@ export class ChoreBotGroupedCard extends LitElement {
               : ""}
           </div>
           <div
-            class="completion-circle ${isCompleted ? "completed" : ""}"
-            style="${isCompleted ? `background: ${bgColor};` : ""}"
+            class="completion-circle"
+            style="background: ${circleBgColor}; border: ${circleBorder};"
             @click=${(e: Event) => this._handleCompletionClick(e, task)}
           >
-            <ha-icon icon="mdi:check"></ha-icon>
+            <ha-icon
+              icon="mdi:check"
+              style="color: ${circleIconColor};"
+            ></ha-icon>
           </div>
         </div>
       `;
@@ -315,7 +436,7 @@ export class ChoreBotGroupedCard extends LitElement {
     return filterTodayTasks(
       entity,
       this._config!.show_dateless_tasks !== false,
-      this._config?.filter_section_id,
+      this._config?.filter_section_id
     );
   }
 
@@ -366,7 +487,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
-      () => this._saveTask(),
+      () => this._saveTask()
     );
   }
 
