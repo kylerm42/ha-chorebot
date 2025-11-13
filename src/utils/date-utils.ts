@@ -40,6 +40,39 @@ export function parseUTCToLocal(utcString: string): {
  * @returns Human-readable relative date string
  */
 export function formatRelativeDate(date: Date, task?: Task): string {
+  const isAllDay = task?.is_all_day || task?.custom_fields?.is_all_day || false;
+
+  // For all-day tasks, compare dates in UTC to avoid timezone issues
+  if (isAllDay) {
+    const today = new Date();
+    const todayUTC = Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const targetUTC = Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+    );
+
+    const diffTime = targetUTC - todayUTC;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return "Today";
+    } else if (diffDays === -1) {
+      return "Yesterday";
+    } else if (diffDays === 1) {
+      return "Tomorrow";
+    } else if (diffDays < -1) {
+      return `${Math.abs(diffDays)} days ago`;
+    } else {
+      return `In ${diffDays} days`;
+    }
+  }
+
+  // For timed tasks, use local time comparison
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const targetDate = new Date(date);
@@ -49,17 +82,11 @@ export function formatRelativeDate(date: Date, task?: Task): string {
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
-    const isAllDay =
-      task?.is_all_day || task?.custom_fields?.is_all_day || false;
-
-    if (!isAllDay) {
-      const originalDate = new Date(date);
-      return originalDate.toLocaleTimeString(undefined, {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    }
-    return "Today";
+    const originalDate = new Date(date);
+    return originalDate.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
   } else if (diffDays === -1) {
     return "Yesterday";
   } else if (diffDays === 1) {
@@ -80,11 +107,31 @@ export function isOverdue(task: Task): boolean {
   if (!task.due || task.status === "completed") {
     return false;
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+
+  const isAllDay = task.is_all_day || task.custom_fields?.is_all_day || false;
   const dueDate = new Date(task.due);
-  dueDate.setHours(0, 0, 0, 0);
-  return dueDate < today;
+
+  if (isAllDay) {
+    // For all-day tasks, compare dates in UTC to avoid timezone issues
+    const today = new Date();
+    const todayUTC = Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const dueUTC = Date.UTC(
+      dueDate.getUTCFullYear(),
+      dueDate.getUTCMonth(),
+      dueDate.getUTCDate(),
+    );
+    return dueUTC < todayUTC;
+  } else {
+    // For timed tasks, use local time comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  }
 }
 
 /**

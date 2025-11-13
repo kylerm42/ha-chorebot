@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import confetti from "canvas-confetti";
 
 // Import shared utilities
 import {
@@ -103,12 +104,25 @@ export class ChoreBotGroupedCard extends LitElement {
       padding: 12px 16px;
       font-weight: 500;
       font-size: 24px;
-      border-bottom: 1px solid var(--divider-color);
       cursor: pointer;
       user-select: none;
       transition:
         filter 0.2s ease,
         border-bottom 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tag-group-header::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: var(--darker-color);
+      width: var(--progress-width, 0%);
+      transition: width 0.3s ease;
+      z-index: 0;
     }
 
     .tag-group-header.collapsed {
@@ -122,11 +136,15 @@ export class ChoreBotGroupedCard extends LitElement {
     .tag-group-header-title {
       flex: 1;
       text-transform: capitalize;
+      position: relative;
+      z-index: 1;
     }
 
     .tag-group-header-progress {
       font-weight: 400;
       opacity: 0.8;
+      position: relative;
+      z-index: 1;
     }
 
     /* Tag Group Tasks (rows, not separate cards) */
@@ -264,7 +282,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const sortedGroups = sortTagGroups(
       tagGroups,
       this._config.tag_group_order,
-      this._config.untagged_header,
+      this._config.untagged_header
     );
 
     return html`
@@ -390,12 +408,16 @@ export class ChoreBotGroupedCard extends LitElement {
       const textColor = this._config!.task_text_color || "white";
 
       // Generate color variants
-      const lighterColor = this._adjustColorLightness(baseColor, 35);
-      const darkerColor = this._adjustColorLightness(baseColor, -20);
+      const lighterColor = this._adjustColorLightness(baseColor, 15);
+      const darkerColor = this._adjustColorLightness(baseColor, -15);
 
       const isCollapsed = this._collapsedGroups.has(tagName);
       const allComplete = progress.completed === progress.total;
       const showCheckmark = isCollapsed && allComplete;
+
+      // Calculate progress percentage for progress bar
+      const progressPercent =
+        progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
 
       // Auto-collapse logic: check if group just became complete
       this._checkAutoCollapse(tagName, progress, allComplete, isCollapsed);
@@ -404,7 +426,7 @@ export class ChoreBotGroupedCard extends LitElement {
         <div class="tag-group-container ${isCollapsed ? "collapsed" : ""}">
           <div
             class="tag-group-header ${isCollapsed ? "collapsed" : ""}"
-            style="background: ${baseColor}; color: ${textColor};"
+            style="background: ${lighterColor}; color: ${textColor}; --progress-width: ${progressPercent}%; --darker-color: ${darkerColor};"
             @click=${() => this._toggleGroup(tagName)}
           >
             <div class="tag-group-header-title">${tagName}</div>
@@ -424,7 +446,7 @@ export class ChoreBotGroupedCard extends LitElement {
                 baseColor,
                 textColor,
                 lighterColor,
-                darkerColor,
+                darkerColor
               )}
             </div>
           </div>
@@ -438,7 +460,7 @@ export class ChoreBotGroupedCard extends LitElement {
     baseColor: string,
     textColor: string,
     lighterColor: string,
-    darkerColor: string,
+    darkerColor: string
   ) {
     return tasks.map((task) => {
       const isCompleted = task.status === "completed";
@@ -505,7 +527,7 @@ export class ChoreBotGroupedCard extends LitElement {
     return filterTodayTasks(
       entity,
       this._config!.show_dateless_tasks !== false,
-      this._config?.filter_section_id,
+      this._config?.filter_section_id
     );
   }
 
@@ -532,7 +554,7 @@ export class ChoreBotGroupedCard extends LitElement {
     tagName: string,
     progress: { completed: number; total: number },
     allComplete: boolean,
-    isCollapsed: boolean,
+    isCollapsed: boolean
   ) {
     const previousProgress = this._previousGroupProgress.get(tagName);
 
@@ -570,7 +592,10 @@ export class ChoreBotGroupedCard extends LitElement {
   // Task Completion
   // ============================================================================
 
-  private async _toggleTask(task: Task) {
+  private async _toggleTask(
+    task: Task,
+    confettiOrigin?: { x: number; y: number }
+  ) {
     const newStatus =
       task.status === "completed" ? "needs_action" : "completed";
 
@@ -579,11 +604,44 @@ export class ChoreBotGroupedCard extends LitElement {
       item: task.uid,
       status: newStatus,
     });
+
+    // Play confetti animation when completing a task
+    if (newStatus === "completed" && confettiOrigin) {
+      this._playCompletionConfetti(confettiOrigin);
+    }
   }
 
   private _handleCompletionClick(e: Event, task: Task) {
     e.stopPropagation();
-    this._toggleTask(task);
+
+    // Capture the position NOW before the async call
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const origin = {
+      x: (rect.left + rect.width / 2) / window.innerWidth,
+      y: (rect.top + rect.height / 2) / window.innerHeight,
+    };
+
+    this._toggleTask(task, origin);
+  }
+
+  private _playCompletionConfetti(origin: { x: number; y: number }) {
+    // Small burst of confetti from the checkbox
+    confetti({
+      particleCount: 30,
+      spread: 70,
+      startVelocity: 25,
+      origin,
+      colors: [
+        "#ff0000",
+        "#00ff00",
+        "#0000ff",
+        "#ffff00",
+        "#ff00ff",
+        "#00ffff",
+      ],
+      disableForReducedMotion: true,
+    });
   }
 
   // ============================================================================
@@ -613,7 +671,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
-      () => this._saveTask(),
+      () => this._saveTask()
     );
   }
 

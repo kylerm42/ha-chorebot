@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import confetti from "canvas-confetti";
 
 // Import shared utilities
 import {
@@ -278,7 +279,10 @@ export class ChoreBotListCard extends LitElement {
   // Task Completion
   // ============================================================================
 
-  private async _toggleTask(task: Task) {
+  private async _toggleTask(
+    task: Task,
+    confettiOrigin?: { x: number; y: number },
+  ) {
     const newStatus =
       task.status === "completed" ? "needs_action" : "completed";
 
@@ -287,11 +291,44 @@ export class ChoreBotListCard extends LitElement {
       item: task.uid,
       status: newStatus,
     });
+
+    // Play confetti animation when completing a task
+    if (newStatus === "completed" && confettiOrigin) {
+      this._playCompletionConfetti(confettiOrigin);
+    }
   }
 
   private _handleCompletionClick(e: Event, task: Task) {
     e.stopPropagation();
-    this._toggleTask(task);
+
+    // Capture the position NOW before the async call
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const origin = {
+      x: (rect.left + rect.width / 2) / window.innerWidth,
+      y: (rect.top + rect.height / 2) / window.innerHeight,
+    };
+
+    this._toggleTask(task, origin);
+  }
+
+  private _playCompletionConfetti(origin: { x: number; y: number }) {
+    // Small burst of confetti from the checkbox
+    confetti({
+      particleCount: 30,
+      spread: 70,
+      startVelocity: 25,
+      origin,
+      colors: [
+        "#ff0000",
+        "#00ff00",
+        "#0000ff",
+        "#ffff00",
+        "#ff00ff",
+        "#00ffff",
+      ],
+      disableForReducedMotion: true,
+    });
   }
 
   // ============================================================================

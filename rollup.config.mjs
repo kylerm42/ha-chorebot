@@ -1,6 +1,7 @@
 import typescript from "@rollup/plugin-typescript";
 import resolve from "@rollup/plugin-node-resolve";
 import terser from "@rollup/plugin-terser";
+import commonjs from "@rollup/plugin-commonjs";
 
 const production = !process.env.ROLLUP_WATCH;
 
@@ -14,7 +15,12 @@ export default [
       format: "es",
       sourcemap: !production,
     },
-    plugins: [resolve(), typescript(), production && terser()],
+    plugins: [
+      resolve({ browser: true }),
+      commonjs(),
+      typescript(),
+      production && terser(),
+    ],
   },
   // ChoreBot Grouped Card (new)
   {
@@ -24,6 +30,11 @@ export default [
       format: "es",
       sourcemap: !production,
     },
-    plugins: [resolve(), typescript(), production && terser()],
+    plugins: [
+      resolve({ browser: true }),
+      commonjs(),
+      typescript(),
+      production && terser(),
+    ],
   },
 ];
