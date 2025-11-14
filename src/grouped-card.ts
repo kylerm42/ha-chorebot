@@ -13,6 +13,7 @@ import {
 import {
   filterTodayTasks,
   calculateProgress,
+  calculateDatedTasksProgress,
   groupTasksByTag,
   sortTagGroups,
 } from "./utils/task-utils.js";
@@ -615,12 +616,20 @@ export class ChoreBotGroupedCard extends LitElement {
       // 1. Always play completion burst
       this._playCompletionConfetti(confettiOrigin);
 
-      // 2. Check for completion effects (prioritize all-tasks over group)
-      if (this._areAllTasksComplete()) {
-        // All tasks complete - play star shower (skip group fireworks)
+      // 2. Check for completion effects with two-tier system
+      const allTasksComplete = this._areAllTasksComplete();
+      const allDatedTasksComplete = this._areAllDatedTasksComplete();
+      const taskHasDueDate = !!task.due;
+
+      if (allTasksComplete) {
+        // Everything complete (including dateless) - play star shower
         this._playAllCompleteStarShower();
+      } else if (allDatedTasksComplete && taskHasDueDate) {
+        // All dated tasks complete AND the just-completed task had a due date
+        // This means we just completed the final dated task - play fireworks!
+        this._playDatedTasksFireworks();
       } else if (this._isGroupComplete(task)) {
-        // Group complete but not all tasks - play fireworks
+        // Just this group complete - play group fireworks
         this._playGroupFireworks();
       }
     }
@@ -694,7 +703,27 @@ export class ChoreBotGroupedCard extends LitElement {
     return progress.total > 0 && progress.completed === progress.total;
   }
 
+  /**
+   * Check if all tasks with due dates are 100% complete (excludes dateless tasks)
+   */
+  private _areAllDatedTasksComplete(): boolean {
+    const entity = this.hass?.states[this._config!.entity];
+    if (!entity) return false;
+
+    const tasks = this._getFilteredTasks(entity);
+    const progress = calculateDatedTasksProgress(tasks);
+
+    return progress.total > 0 && progress.completed === progress.total;
+  }
+
   private _playGroupFireworks() {
+    const baseColor =
+      this._config!.task_background_color || "var(--primary-color)";
+    const colors = extractColorVariants(baseColor);
+    playFireworks(colors);
+  }
+
+  private _playDatedTasksFireworks() {
     const baseColor =
       this._config!.task_background_color || "var(--primary-color)";
     const colors = extractColorVariants(baseColor);

@@ -102,6 +102,21 @@ export function calculateProgress(tasks: Task[]): Progress {
 }
 
 /**
+ * Calculate progress for only tasks with due dates (excludes dateless tasks)
+ * @param tasks - Array of tasks to calculate progress for
+ * @returns Object with completed and total counts for dated tasks only
+ */
+export function calculateDatedTasksProgress(tasks: Task[]): Progress {
+  // Filter to only tasks with due dates
+  const datedTasks = tasks.filter((t) => !!t.due);
+  const completed = datedTasks.filter((t) => t.status === "completed").length;
+  return {
+    completed,
+    total: datedTasks.length,
+  };
+}
+
+/**
  * Group tasks by their tags
  * Tasks with multiple tags will appear in each tag group
  * @param tasks - Array of tasks to group
