@@ -320,6 +320,19 @@ async def _handle_sync(
     stats = await sync_coordinator.async_pull_changes(list_id)
     _LOGGER.info("Sync completed: %s", stats)
 
+    # Notify entities to update their state immediately
+    entities = hass.data[DOMAIN].get("entities", {})
+    if list_id:
+        # Update specific list
+        if entity := entities.get(list_id):
+            entity.async_write_ha_state()
+            _LOGGER.debug("Updated entity state for list: %s", list_id)
+    else:
+        # Update all entities
+        for entity in entities.values():
+            entity.async_write_ha_state()
+        _LOGGER.debug("Updated state for all %d entities", len(entities))
+
 
 async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> None:
     """Daily maintenance: archive old instances, hide completed instances, check streaks."""
@@ -419,7 +432,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async def periodic_sync(now):
             """Periodically pull changes from remote backend."""
             _LOGGER.debug("Running periodic sync")
-            await sync_coordinator.async_pull_changes()
+            stats = await sync_coordinator.async_pull_changes()
+
+            # Notify all entities to update their state if changes were made
+            if (
+                stats
+                and (
+                    stats.get("created", 0)
+                    + stats.get("updated", 0)
+                    + stats.get("deleted", 0)
+                )
+                > 0
+            ):
+                entities = hass.data[DOMAIN].get("entities", {})
+                for entity in entities.values():
+                    entity.async_write_ha_state()
+                _LOGGER.debug(
+                    "Updated state for all %d entities after periodic sync",
+                    len(entities),
+                )
 
         hass.data[DOMAIN]["periodic_sync"] = async_track_time_interval(
             hass, periodic_sync, timedelta(minutes=sync_interval_minutes)

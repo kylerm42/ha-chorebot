@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import confetti from "canvas-confetti";
 
 // Import shared utilities
 import {
@@ -23,6 +22,12 @@ import {
   prepareTaskForEditing,
   renderEditDialog,
 } from "./utils/dialog-utils.js";
+import {
+  extractColorVariants,
+  playCompletionBurst,
+  playFireworks,
+  playStarShower,
+} from "./utils/confetti-utils.js";
 
 // Card-specific config interface
 interface ChoreBotGroupedConfig extends ChoreBotBaseConfig {
@@ -282,7 +287,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const sortedGroups = sortTagGroups(
       tagGroups,
       this._config.tag_group_order,
-      this._config.untagged_header
+      this._config.untagged_header,
     );
 
     return html`
@@ -446,7 +451,7 @@ export class ChoreBotGroupedCard extends LitElement {
                 baseColor,
                 textColor,
                 lighterColor,
-                darkerColor
+                darkerColor,
               )}
             </div>
           </div>
@@ -460,7 +465,7 @@ export class ChoreBotGroupedCard extends LitElement {
     baseColor: string,
     textColor: string,
     lighterColor: string,
-    darkerColor: string
+    darkerColor: string,
   ) {
     return tasks.map((task) => {
       const isCompleted = task.status === "completed";
@@ -527,7 +532,7 @@ export class ChoreBotGroupedCard extends LitElement {
     return filterTodayTasks(
       entity,
       this._config!.show_dateless_tasks !== false,
-      this._config?.filter_section_id
+      this._config?.filter_section_id,
     );
   }
 
@@ -554,7 +559,7 @@ export class ChoreBotGroupedCard extends LitElement {
     tagName: string,
     progress: { completed: number; total: number },
     allComplete: boolean,
-    isCollapsed: boolean
+    isCollapsed: boolean,
   ) {
     const previousProgress = this._previousGroupProgress.get(tagName);
 
@@ -594,7 +599,7 @@ export class ChoreBotGroupedCard extends LitElement {
 
   private async _toggleTask(
     task: Task,
-    confettiOrigin?: { x: number; y: number }
+    confettiOrigin?: { x: number; y: number },
   ) {
     const newStatus =
       task.status === "completed" ? "needs_action" : "completed";
@@ -605,9 +610,19 @@ export class ChoreBotGroupedCard extends LitElement {
       status: newStatus,
     });
 
-    // Play confetti animation when completing a task
+    // Play confetti animations when completing a task
     if (newStatus === "completed" && confettiOrigin) {
+      // 1. Always play completion burst
       this._playCompletionConfetti(confettiOrigin);
+
+      // 2. Check for completion effects (prioritize all-tasks over group)
+      if (this._areAllTasksComplete()) {
+        // All tasks complete - play star shower (skip group fireworks)
+        this._playAllCompleteStarShower();
+      } else if (this._isGroupComplete(task)) {
+        // Group complete but not all tasks - play fireworks
+        this._playGroupFireworks();
+      }
     }
   }
 
@@ -626,22 +641,71 @@ export class ChoreBotGroupedCard extends LitElement {
   }
 
   private _playCompletionConfetti(origin: { x: number; y: number }) {
-    // Small burst of confetti from the checkbox
-    confetti({
-      particleCount: 30,
-      spread: 70,
-      startVelocity: 25,
-      origin,
-      colors: [
-        "#ff0000",
-        "#00ff00",
-        "#0000ff",
-        "#ffff00",
-        "#ff00ff",
-        "#00ffff",
-      ],
-      disableForReducedMotion: true,
-    });
+    // Get base color from config
+    const baseColor =
+      this._config!.task_background_color || "var(--primary-color)";
+
+    // Extract color variants (lighter and darker shades)
+    const colors = extractColorVariants(baseColor);
+
+    // Small burst of confetti from the checkbox with themed colors
+    playCompletionBurst(origin, colors);
+  }
+
+  /**
+   * Check if the group(s) that this task belongs to are 100% complete
+   */
+  private _isGroupComplete(task: Task): boolean {
+    const entity = this.hass?.states[this._config!.entity];
+    if (!entity) return false;
+
+    const tasks = this._getFilteredTasks(entity);
+    const untaggedHeader = this._config!.untagged_header || "Untagged";
+    const tagGroups = groupTasksByTag(tasks, untaggedHeader);
+
+    // Get tags for the completed task
+    const taskTags = task.tags || task.custom_fields?.tags || [];
+    const tagsToCheck = taskTags.length > 0 ? taskTags : [untaggedHeader];
+
+    // Check if any of the task's groups are now complete
+    for (const tagName of tagsToCheck) {
+      const groupTasks = tagGroups.get(tagName);
+      if (!groupTasks) continue;
+
+      const progress = calculateProgress(groupTasks);
+      if (progress.total > 0 && progress.completed === progress.total) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if all visible tasks are 100% complete
+   */
+  private _areAllTasksComplete(): boolean {
+    const entity = this.hass?.states[this._config!.entity];
+    if (!entity) return false;
+
+    const tasks = this._getFilteredTasks(entity);
+    const progress = calculateProgress(tasks);
+
+    return progress.total > 0 && progress.completed === progress.total;
+  }
+
+  private _playGroupFireworks() {
+    const baseColor =
+      this._config!.task_background_color || "var(--primary-color)";
+    const colors = extractColorVariants(baseColor);
+    playFireworks(colors);
+  }
+
+  private _playAllCompleteStarShower() {
+    const baseColor =
+      this._config!.task_background_color || "var(--primary-color)";
+    const colors = extractColorVariants(baseColor);
+    playStarShower(colors);
   }
 
   // ============================================================================
@@ -671,7 +735,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
-      () => this._saveTask()
+      () => this._saveTask(),
     );
   }
 

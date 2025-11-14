@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import confetti from "canvas-confetti";
 
 // Import shared utilities
 import {
@@ -19,6 +18,11 @@ import {
   prepareTaskForEditing,
   renderEditDialog,
 } from "./utils/dialog-utils.js";
+import {
+  extractColorVariants,
+  playCompletionBurst,
+  playStarShower,
+} from "./utils/confetti-utils.js";
 
 // Card-specific config interface
 interface ChoreBotConfig extends ChoreBotBaseConfig {
@@ -292,9 +296,15 @@ export class ChoreBotListCard extends LitElement {
       status: newStatus,
     });
 
-    // Play confetti animation when completing a task
+    // Play confetti animations when completing a task
     if (newStatus === "completed" && confettiOrigin) {
+      // 1. Always play completion burst
       this._playCompletionConfetti(confettiOrigin);
+
+      // 2. Check if all tasks are now complete
+      if (this._areAllTasksComplete()) {
+        this._playAllCompleteStarShower();
+      }
     }
   }
 
@@ -313,22 +323,35 @@ export class ChoreBotListCard extends LitElement {
   }
 
   private _playCompletionConfetti(origin: { x: number; y: number }) {
-    // Small burst of confetti from the checkbox
-    confetti({
-      particleCount: 30,
-      spread: 70,
-      startVelocity: 25,
-      origin,
-      colors: [
-        "#ff0000",
-        "#00ff00",
-        "#0000ff",
-        "#ffff00",
-        "#ff00ff",
-        "#00ffff",
-      ],
-      disableForReducedMotion: true,
-    });
+    // Get base color from config
+    const baseColor =
+      this._config!.task_background_color || "var(--primary-color)";
+
+    // Extract color variants (lighter and darker shades)
+    const colors = extractColorVariants(baseColor);
+
+    // Small burst of confetti from the checkbox with themed colors
+    playCompletionBurst(origin, colors);
+  }
+
+  /**
+   * Check if all visible tasks are 100% complete
+   */
+  private _areAllTasksComplete(): boolean {
+    const entity = this.hass?.states[this._config!.entity];
+    if (!entity) return false;
+
+    const tasks = this._getFilteredTasks(entity);
+    const progress = calculateProgress(tasks);
+
+    return progress.total > 0 && progress.completed === progress.total;
+  }
+
+  private _playAllCompleteStarShower() {
+    const baseColor =
+      this._config!.task_background_color || "var(--primary-color)";
+    const colors = extractColorVariants(baseColor);
+    playStarShower(colors);
   }
 
   // ============================================================================
