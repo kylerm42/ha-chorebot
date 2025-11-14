@@ -21,7 +21,7 @@ import { formatRelativeDate, isOverdue } from "./utils/date-utils.js";
 import { buildRrule } from "./utils/rrule-utils.js";
 import {
   prepareTaskForEditing,
-  renderEditDialog,
+  renderTaskDialog,
 } from "./utils/dialog-utils.js";
 import {
   extractColorVariants,
@@ -757,7 +757,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const sections = entity?.attributes.chorebot_sections || [];
     const availableTags = entity?.attributes.chorebot_tags || [];
 
-    return renderEditDialog(
+    return renderTaskDialog(
       this._editDialogOpen,
       this._editingTask,
       this.hass!,

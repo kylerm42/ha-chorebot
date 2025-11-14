@@ -5,7 +5,7 @@ import commonjs from "@rollup/plugin-commonjs";
 
 const production = !process.env.ROLLUP_WATCH;
 
-// Build both cards
+// Build all three cards
 export default [
   // ChoreBot List Card (original)
   {
@@ -22,11 +22,26 @@ export default [
       production && terser(),
     ],
   },
-  // ChoreBot Grouped Card (new)
+  // ChoreBot Grouped Card
   {
     input: "src/grouped-card.ts",
     output: {
       file: "dist/chorebot-grouped-card.js",
+      format: "es",
+      sourcemap: !production,
+    },
+    plugins: [
+      resolve({ browser: true }),
+      commonjs(),
+      typescript(),
+      production && terser(),
+    ],
+  },
+  // ChoreBot Add Task Card
+  {
+    input: "src/add-task-card.ts",
+    output: {
+      file: "dist/chorebot-add-task-card.js",
       format: "es",
       sourcemap: !production,
     },

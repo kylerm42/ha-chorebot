@@ -281,9 +281,9 @@ export function computeLabel(schema: any): string {
 }
 
 /**
- * Render the edit task dialog
+ * Render the task dialog (for editing or creating tasks)
  * @param isOpen - Whether dialog is open
- * @param task - Task being edited
+ * @param task - Task being edited/created
  * @param hass - Home Assistant instance
  * @param sections - Available sections
  * @param availableTags - Available tags from entity
@@ -291,9 +291,10 @@ export function computeLabel(schema: any): string {
  * @param onClose - Callback when dialog closes
  * @param onValueChanged - Callback when form values change
  * @param onSave - Callback when save is clicked
+ * @param dialogTitle - Optional dialog title (defaults to "Edit Task")
  * @returns Lit HTML template
  */
-export function renderEditDialog(
+export function renderTaskDialog(
   isOpen: boolean,
   task: EditingTask | null,
   hass: HomeAssistant,
@@ -303,6 +304,7 @@ export function renderEditDialog(
   onClose: () => void,
   onValueChanged: (ev: CustomEvent) => void,
   onSave: () => void,
+  dialogTitle: string = "Edit Task",
 ): TemplateResult {
   if (!isOpen || !task) {
     return html``;
@@ -312,7 +314,7 @@ export function renderEditDialog(
   const data = buildEditDialogData(task, sections);
 
   return html`
-    <ha-dialog open @closed=${onClose} .heading=${"Edit Task"}>
+    <ha-dialog open @closed=${onClose} .heading=${dialogTitle}>
       <ha-form
         .hass=${hass}
         .schema=${schema}
