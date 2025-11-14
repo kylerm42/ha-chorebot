@@ -524,7 +524,7 @@ class TickTickBackend(SyncBackend):
                     "TickTick Project Data for list '%s' (project_id: %s):\n%s",
                     local_list_id,
                     project_id,
-                    json.dumps(project_data, indent=2, default=str)
+                    json.dumps(project_data, indent=2, default=str),
                 )
 
                 # Extract and log columns (sections) if available
@@ -533,7 +533,7 @@ class TickTickBackend(SyncBackend):
                     column_map = {col.get("id"): col.get("name") for col in columns}
                     _LOGGER.info(
                         "Project columns/sections mapping (columnId -> name):\n%s",
-                        json.dumps(column_map, indent=2, default=str)
+                        json.dumps(column_map, indent=2, default=str),
                     )
 
                     # Store sections in local storage
@@ -596,13 +596,17 @@ class TickTickBackend(SyncBackend):
                         if remote_etag and remote_etag != last_etag:
                             # Remote changed - update local
                             column_id = tt_task.get("columnId")
-                            column_name = column_map.get(column_id, "Unknown") if column_map else "No column"
+                            column_name = (
+                                column_map.get(column_id, "Unknown")
+                                if column_map
+                                else "No column"
+                            )
                             _LOGGER.info(
                                 "UPDATED task from TickTick: '%s' (etag changed) - columnId: %s -> '%s'\nFull object:\n%s",
                                 tt_task["title"],
                                 column_id,
                                 column_name,
-                                json.dumps(tt_task, indent=2, default=str)
+                                json.dumps(tt_task, indent=2, default=str),
                             )
                             await self._update_local_from_ticktick(
                                 local_list_id, local_task, tt_task
@@ -643,28 +647,99 @@ class TickTickBackend(SyncBackend):
                                     continue
 
                         column_id = tt_task.get("columnId")
-                        column_name = column_map.get(column_id, "Unknown") if column_map else "No column"
+                        column_name = (
+                            column_map.get(column_id, "Unknown")
+                            if column_map
+                            else "No column"
+                        )
                         _LOGGER.info(
                             "NEW TASK from TickTick: '%s' - columnId: %s -> column/section: '%s'\nFull raw object:\n%s",
                             tt_task["title"],
                             column_id,
                             column_name,
-                            json.dumps(tt_task, indent=2, default=str)
+                            json.dumps(tt_task, indent=2, default=str),
                         )
                         await self._import_ticktick_task(local_list_id, tt_task)
                         stats["created"] += 1
 
-                # Check for deleted tasks
+                # Check for missing tasks (could be deleted OR completed)
+                # TickTick's get_project_with_tasks endpoint doesn't return completed tasks,
+                # so we need to individually check each missing task to determine if it was
+                # completed or actually deleted.
+                # OPTIMIZATION: Skip tasks that are already marked as completed locally to avoid
+                # unnecessary API calls on every sync.
                 for local_task in ticktick_id_map.values():
-                    if not local_task.is_deleted():
-                        _LOGGER.info(
-                            "DELETED task on TickTick: '%s' (uid: %s) - soft-deleting locally",
+                    if local_task.is_deleted():
+                        # Already deleted locally, skip
+                        continue
+
+                    if local_task.status == "completed":
+                        # Already completed locally, no need to check TickTick
+                        # (TickTick doesn't return completed tasks in bulk query)
+                        _LOGGER.debug(
+                            "Skipping completed task '%s' - already marked complete locally",
                             local_task.summary,
-                            local_task.uid,
                         )
-                        local_task.mark_deleted()
-                        await self.store.async_update_task(local_list_id, local_task)
-                        stats["deleted"] += 1
+                        continue
+
+                    ticktick_id = local_task.get_sync_id("ticktick")
+                    if ticktick_id:
+                        # Task is incomplete locally but missing from TickTick sync
+                        # Check if it was completed or deleted by fetching individual task
+                        try:
+                            tt_task = await self._client.get_task(
+                                project_id, ticktick_id
+                            )
+                            # Task exists on TickTick - it's likely completed, update locally
+                            _LOGGER.info(
+                                "COMPLETED task on TickTick: '%s' (uid: %s) - updating locally",
+                                local_task.summary,
+                                local_task.uid,
+                            )
+                            await self._update_local_from_ticktick(
+                                local_list_id, local_task, tt_task
+                            )
+                            # Update sync metadata
+                            local_task.sync["ticktick"].update(
+                                {
+                                    "status": "synced",
+                                    "etag": tt_task.get("etag"),
+                                    "last_synced_at": datetime.now(UTC)
+                                    .isoformat()
+                                    .replace("+00:00", "Z"),
+                                }
+                            )
+                            await self.store.async_update_task(
+                                local_list_id, local_task
+                            )
+                            stats["updated"] += 1
+                        except Exception as err:  # noqa: BLE001
+                            # If 404 or task not found, it was deleted
+                            error_str = str(err)
+                            if "404" in error_str or "not found" in error_str.lower():
+                                _LOGGER.info(
+                                    "DELETED task on TickTick: '%s' (uid: %s) - soft-deleting locally",
+                                    local_task.summary,
+                                    local_task.uid,
+                                )
+                                local_task.mark_deleted()
+                                await self.store.async_update_task(
+                                    local_list_id, local_task
+                                )
+                                stats["deleted"] += 1
+                            else:
+                                # Some other error - log it but don't modify task
+                                _LOGGER.error(
+                                    "Error checking task '%s' on TickTick: %s - skipping",
+                                    local_task.summary,
+                                    err,
+                                )
+                    else:
+                        # No TickTick ID means it was never synced
+                        _LOGGER.warning(
+                            "Task '%s' has no TickTick ID but was in sync map - skipping",
+                            local_task.summary,
+                        )
 
             _LOGGER.info("Pull sync completed: %s", stats)
 
@@ -672,7 +747,6 @@ class TickTickBackend(SyncBackend):
             _LOGGER.error("Error during pull sync: %s", err)
 
         return stats
-
 
     async def _handle_remote_completion(
         self, list_id: str, template: Task, ticktick_task: dict[str, Any]
@@ -880,7 +954,9 @@ class TickTickBackend(SyncBackend):
 
             if last_synced_index is not None:
                 # Find the instance with this occurrence_index
-                instances = self.store.get_instances_for_template(list_id, local_task.uid)
+                instances = self.store.get_instances_for_template(
+                    list_id, local_task.uid
+                )
                 last_synced_instance = None
                 for instance in instances:
                     if instance.occurrence_index == last_synced_index:
@@ -894,7 +970,9 @@ class TickTickBackend(SyncBackend):
 
                     # Normalize TickTick date for comparison
                     if current_ticktick_due:
-                        current_ticktick_due = self._normalize_ticktick_date(current_ticktick_due)
+                        current_ticktick_due = self._normalize_ticktick_date(
+                            current_ticktick_due
+                        )
 
                     due_date_changed = (
                         current_ticktick_due
@@ -910,7 +988,9 @@ class TickTickBackend(SyncBackend):
                             current_ticktick_due,
                         )
                         # Handle the completion (mark old instance complete, create new instance)
-                        await self._handle_remote_completion(list_id, local_task, ticktick_task)
+                        await self._handle_remote_completion(
+                            list_id, local_task, ticktick_task
+                        )
 
         # Update tags (direct property, not custom_fields)
         local_task.tags = ticktick_task.get("tags", [])
@@ -1045,7 +1125,7 @@ class TickTickBackend(SyncBackend):
             _LOGGER.info(
                 "Template created with uid: %s - Converted Task object:\n%s",
                 template.uid,
-                json.dumps(template.to_dict(), indent=2, default=str)
+                json.dumps(template.to_dict(), indent=2, default=str),
             )
 
             # Create first instance if there's a due date
@@ -1072,7 +1152,7 @@ class TickTickBackend(SyncBackend):
                 _LOGGER.info(
                     "First instance created with uid: %s - Converted Task object:\n%s",
                     first_instance.uid,
-                    json.dumps(first_instance.to_dict(), indent=2, default=str)
+                    json.dumps(first_instance.to_dict(), indent=2, default=str),
                 )
 
         else:
@@ -1111,5 +1191,5 @@ class TickTickBackend(SyncBackend):
             _LOGGER.info(
                 "Regular task created with uid: %s - Converted Task object:\n%s",
                 task.uid,
-                json.dumps(task.to_dict(), indent=2, default=str)
+                json.dumps(task.to_dict(), indent=2, default=str),
             )

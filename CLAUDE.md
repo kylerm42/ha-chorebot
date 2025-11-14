@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: 2025-11-12 - Phase 2 Complete: Added `chorebot-grouped-card` with tag-based grouping + shared utilities architecture
+**Last Updated**: 2025-11-14 - Bug Fix: Fixed sync logic to correctly handle completed tasks from TickTick
 
 ## Project Overview
 
@@ -262,6 +262,11 @@ Build Configuration:
   - Local template `deleted_at` → permanently delete on remote backend
   - Remote deletion → soft-delete local template (hides all instances)
   - Archived instances never affect remote backend
+- **Completed Task Handling**:
+  - TickTick's `/project/{id}/data` endpoint does NOT return completed tasks
+  - During pull sync, missing tasks are checked individually via `/project/{id}/task/{task_id}` to distinguish between completed vs deleted
+  - If 404/not found → task was deleted, soft-delete locally
+  - If task found with status=2 → task was completed, update locally
 - **Extensibility**: Adding new backends (Todoist, Notion, etc.) only requires:
   1. Implement `SyncBackend` interface
   2. Create backend-specific API client
