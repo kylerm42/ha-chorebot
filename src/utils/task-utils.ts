@@ -2,7 +2,7 @@
 // Task Utility Functions for ChoreBot Cards
 // ============================================================================
 
-import { Task, HassEntity, Section, Progress } from "./types.js";
+import { Task, HassEntity, Section, Progress, GroupState } from "./types.js";
 import { isSameDay } from "./date-utils.js";
 
 /**
@@ -194,4 +194,183 @@ export function sortTagGroups(
     if (b[0] === untaggedHeader) return -1;
     return a[0].localeCompare(b[0]);
   });
+}
+
+/**
+ * Sort groups by custom order (works with GroupState[])
+ * @param groups - Array of GroupState objects
+ * @param tagOrder - Optional array specifying desired tag order
+ * @param untaggedHeader - Header text for untagged tasks (placed last if not in tagOrder)
+ * @param upcomingHeader - Header text for upcoming tasks (always placed last)
+ * @returns Sorted array of GroupState objects
+ */
+export function sortGroups(
+  groups: GroupState[],
+  tagOrder?: string[],
+  untaggedHeader: string = "Untagged",
+  upcomingHeader: string = "Upcoming",
+): GroupState[] {
+  return groups.sort((a, b) => {
+    // Always put Upcoming at the end
+    if (a.name === upcomingHeader) return 1;
+    if (b.name === upcomingHeader) return -1;
+
+    if (!tagOrder || tagOrder.length === 0) {
+      // No custom order - sort alphabetically, with untagged last
+      if (a.name === untaggedHeader) return 1;
+      if (b.name === untaggedHeader) return -1;
+      return a.name.localeCompare(b.name);
+    }
+
+    // Sort by custom order
+    const indexA = tagOrder.indexOf(a.name);
+    const indexB = tagOrder.indexOf(b.name);
+
+    // If both are in the order list, sort by their position
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+
+    // If only one is in the order list, it comes first
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+
+    // If neither is in the order list, put untagged last and sort others alphabetically
+    if (a.name === untaggedHeader) return 1;
+    if (b.name === untaggedHeader) return -1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Filter and group tasks in a single pass for efficiency
+ * Returns array of GroupState objects including tag groups and optional Upcoming group
+ * @param entity - Home Assistant entity containing tasks
+ * @param showDatelessTasks - Whether to show tasks without due dates
+ * @param showFutureTasks - Whether to include future tasks in Upcoming group
+ * @param untaggedHeader - Header text for tasks without tags
+ * @param upcomingHeader - Header text for future tasks group
+ * @param filterSectionId - Optional section ID to filter by
+ * @returns Array of GroupState objects with tasks grouped
+ */
+export function filterAndGroupTasks(
+  entity: HassEntity,
+  showDatelessTasks: boolean = true,
+  showFutureTasks: boolean = false,
+  untaggedHeader: string = "Untagged",
+  upcomingHeader: string = "Upcoming",
+  filterSectionId?: string,
+): GroupState[] {
+  const allTasks = entity.attributes.chorebot_tasks || [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(today);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const tagGroups = new Map<string, Task[]>();
+  const futureTasks: Task[] = [];
+
+  // Resolve section filter once
+  let sectionIdToMatch: string | undefined;
+  if (filterSectionId) {
+    const sections: Section[] = entity.attributes.chorebot_sections || [];
+    const sectionByName = sections.find((s) => s.name === filterSectionId);
+    sectionIdToMatch = sectionByName ? sectionByName.id : filterSectionId;
+  }
+
+  // Single pass through all tasks
+  for (const task of allTasks) {
+    // Apply section filter first (if applicable)
+    if (sectionIdToMatch) {
+      const taskSectionId = task.section_id || task.custom_fields?.section_id;
+      if (taskSectionId !== sectionIdToMatch) {
+        continue; // Skip this task
+      }
+    }
+
+    const hasDueDate = !!task.due;
+    const isCompleted = task.status === "completed";
+
+    // Determine which group this task belongs to
+    let isTodayTask = false;
+    let isFutureTask = false;
+
+    if (!hasDueDate) {
+      // Dateless task
+      isTodayTask = showDatelessTasks;
+    } else if (task.due) {
+      const dueDate = new Date(task.due);
+
+      // Check if future task (after end of today)
+      if (showFutureTasks && dueDate > endOfToday) {
+        isFutureTask = true;
+      } else {
+        // Check if today task
+        const dueDateOnly = new Date(dueDate);
+        dueDateOnly.setHours(0, 0, 0, 0);
+        const isToday = isSameDay(dueDateOnly, today);
+        const isOverdue = dueDateOnly < today;
+
+        if (isCompleted) {
+          const lastCompleted =
+            task.last_completed || task.custom_fields?.last_completed;
+          if (typeof lastCompleted === "string") {
+            if (isSameDay(new Date(lastCompleted), new Date())) {
+              isTodayTask = true; // Show if completed today (regardless of due date)
+            }
+          }
+        } else if (isToday || isOverdue) {
+          isTodayTask = true;
+        }
+      }
+    }
+
+    // Add to appropriate group
+    if (isTodayTask) {
+      // Add to tag groups
+      const tags = task.tags || task.custom_fields?.tags || [];
+      if (tags.length === 0) {
+        if (!tagGroups.has(untaggedHeader)) {
+          tagGroups.set(untaggedHeader, []);
+        }
+        tagGroups.get(untaggedHeader)!.push(task);
+      } else {
+        for (const tag of tags) {
+          if (!tagGroups.has(tag)) {
+            tagGroups.set(tag, []);
+          }
+          tagGroups.get(tag)!.push(task);
+        }
+      }
+    } else if (isFutureTask) {
+      futureTasks.push(task);
+    }
+  }
+
+  // Sort future tasks by due date (earliest first)
+  futureTasks.sort((a, b) => {
+    const dateA = new Date(a.due!).getTime();
+    const dateB = new Date(b.due!).getTime();
+    return dateA - dateB;
+  });
+
+  // Convert Map to GroupState array
+  const groups: GroupState[] = Array.from(tagGroups.entries()).map(
+    ([name, tasks]) => ({
+      name,
+      tasks,
+      isCollapsed: false, // Default collapsed state (will be overridden by component)
+    }),
+  );
+
+  // Add Upcoming group if enabled and has tasks
+  if (showFutureTasks && futureTasks.length > 0) {
+    groups.push({
+      name: upcomingHeader,
+      tasks: futureTasks,
+      isCollapsed: false, // Default collapsed state (will be overridden by component)
+    });
+  }
+
+  return groups;
 }

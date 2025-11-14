@@ -81,3 +81,9 @@ export interface Progress {
   completed: number;
   total: number;
 }
+
+export interface GroupState {
+  name: string;
+  tasks: Task[];
+  isCollapsed: boolean;
+}

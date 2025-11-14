@@ -9,6 +9,7 @@ import {
   EditingTask,
   ChoreBotBaseConfig,
   Section,
+  GroupState,
 } from "./utils/types.js";
 import {
   filterTodayTasks,
@@ -16,6 +17,8 @@ import {
   calculateDatedTasksProgress,
   groupTasksByTag,
   sortTagGroups,
+  filterAndGroupTasks,
+  sortGroups,
 } from "./utils/task-utils.js";
 import { formatRelativeDate, isOverdue } from "./utils/date-utils.js";
 import { buildRrule } from "./utils/rrule-utils.js";
@@ -24,16 +27,23 @@ import {
   renderTaskDialog,
 } from "./utils/dialog-utils.js";
 import {
+  calculateColorShades,
+  ColorShades,
+  shadesToCssVars,
+} from "./utils/color-utils.js";
+import {
   extractColorVariants,
   playCompletionBurst,
   playFireworks,
   playStarShower,
 } from "./utils/confetti-utils.js";
+import { adjustColorLightness } from "./utils/color-utils.js";
 
 // Card-specific config interface
 interface ChoreBotGroupedConfig extends ChoreBotBaseConfig {
   untagged_header?: string;
   tag_group_order?: string[];
+  show_future_tasks?: boolean;
 }
 
 // ============================================================================
@@ -58,7 +68,7 @@ export class ChoreBotGroupedCard extends LitElement {
   @state() private _editDialogOpen = false;
   @state() private _editingTask: EditingTask | null = null;
   @state() private _saving = false;
-  @state() private _collapsedGroups = new Set<string>();
+  @state() private _groups: GroupState[] = [];
   private _autoCollapseTimeouts = new Map<string, number>();
   private _previousGroupProgress = new Map<
     string,
@@ -261,12 +271,58 @@ export class ChoreBotGroupedCard extends LitElement {
       task_text_color: config.task_text_color || "",
       untagged_header: config.untagged_header || "Untagged",
       tag_group_order: config.tag_group_order || [],
+      show_future_tasks: config.show_future_tasks === true,
       filter_section_id: config.filter_section_id,
     };
   }
 
   getCardSize() {
     return 3;
+  }
+
+  willUpdate(changedProperties: Map<string, any>) {
+    // Rebuild groups when hass or config changes
+    if (changedProperties.has("hass") || changedProperties.has("_config")) {
+      this._updateGroups();
+    }
+  }
+
+  private _updateGroups() {
+    if (!this.hass || !this._config) return;
+
+    const entity = this.hass.states[this._config.entity];
+    if (!entity) return;
+
+    // Get new groups from filterAndGroupTasks
+    let newGroups = filterAndGroupTasks(
+      entity,
+      this._config.show_dateless_tasks !== false,
+      this._config.show_future_tasks === true,
+      this._config.untagged_header || "Untagged",
+      "Upcoming",
+      this._config.filter_section_id,
+    );
+
+    // Sort groups
+    newGroups = sortGroups(
+      newGroups,
+      this._config.tag_group_order,
+      this._config.untagged_header,
+      "Upcoming",
+    );
+
+    // Preserve collapse state from existing groups
+    this._groups = newGroups.map((newGroup) => ({
+      ...newGroup,
+      isCollapsed: this._findExistingCollapseState(newGroup.name),
+    }));
+  }
+
+  private _findExistingCollapseState(groupName: string): boolean {
+    const existing = this._groups.find((g) => g.name === groupName);
+    if (existing !== undefined) return existing.isCollapsed;
+    // Default: Upcoming starts collapsed, others start expanded
+    return groupName === "Upcoming";
   }
 
   render() {
@@ -281,16 +337,6 @@ export class ChoreBotGroupedCard extends LitElement {
       </ha-card>`;
     }
 
-    const tasks = this._getFilteredTasks(entity);
-
-    // Group tasks by tag
-    const tagGroups = groupTasksByTag(tasks, this._config.untagged_header);
-    const sortedGroups = sortTagGroups(
-      tagGroups,
-      this._config.tag_group_order,
-      this._config.untagged_header,
-    );
-
     return html`
       <ha-card
         class="${this._config.hide_card_background ? "no-background" : ""}"
@@ -298,10 +344,10 @@ export class ChoreBotGroupedCard extends LitElement {
         ${this._config.show_title
           ? html`<div class="card-header">${this._config.title}</div>`
           : ""}
-        ${sortedGroups.length === 0
-          ? html`<div class="empty-state">No tasks for today</div>`
+        ${this._groups.length === 0
+          ? html`<div class="empty-state">No tasks</div>`
           : html`<div class="tag-groups">
-              ${this._renderTagGroups(sortedGroups)}
+              ${this._renderAllGroups(this._groups)}
             </div>`}
       </ha-card>
 
@@ -310,114 +356,21 @@ export class ChoreBotGroupedCard extends LitElement {
   }
 
   // ============================================================================
-  // Color Manipulation Helpers
-  // ============================================================================
-
-  private _adjustColorLightness(color: string, percent: number): string {
-    // Parse the color and adjust lightness in HSL space
-    // This handles hex, rgb, rgba, and CSS variables
-
-    // For CSS variables, we can't calculate, so return a fallback
-    if (color.startsWith("var(")) {
-      // Use filter as fallback for CSS variables
-      return color;
-    }
-
-    // Convert hex to rgb
-    let r: number, g: number, b: number;
-
-    if (color.startsWith("#")) {
-      const hex = color.replace("#", "");
-      r = parseInt(hex.substring(0, 2), 16);
-      g = parseInt(hex.substring(2, 4), 16);
-      b = parseInt(hex.substring(4, 6), 16);
-    } else if (color.startsWith("rgb")) {
-      const match = color.match(/\d+/g);
-      if (!match) return color;
-      [r, g, b] = match.map(Number);
-    } else {
-      return color;
-    }
-
-    // Convert RGB to HSL
-    r /= 255;
-    g /= 255;
-    b /= 255;
-
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0,
-      s = 0,
-      l = (max + min) / 2;
-
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-
-      switch (max) {
-        case r:
-          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-          break;
-        case g:
-          h = ((b - r) / d + 2) / 6;
-          break;
-        case b:
-          h = ((r - g) / d + 4) / 6;
-          break;
-      }
-    }
-
-    // Adjust lightness (percent is like +35 or -20)
-    // For lighter: move toward white, for darker: move toward black
-    if (percent > 0) {
-      // Lighten: increase lightness but cap the adjustment to avoid going to pure white
-      l = Math.max(0, Math.min(0.95, l + (percent / 100) * (1 - l)));
-    } else {
-      // Darken: decrease lightness proportionally
-      l = Math.max(0.05, l + (percent / 100) * l);
-    }
-
-    // Convert HSL back to RGB
-    const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-
-    let r2: number, g2: number, b2: number;
-
-    if (s === 0) {
-      r2 = g2 = b2 = l;
-    } else {
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      r2 = hue2rgb(p, q, h + 1 / 3);
-      g2 = hue2rgb(p, q, h);
-      b2 = hue2rgb(p, q, h - 1 / 3);
-    }
-
-    return `rgb(${Math.round(r2 * 255)}, ${Math.round(g2 * 255)}, ${Math.round(b2 * 255)})`;
-  }
-
-  // ============================================================================
   // Tag Group Rendering
   // ============================================================================
 
-  private _renderTagGroups(groups: Array<[string, Task[]]>) {
-    return groups.map(([tagName, tasks]) => {
-      const progress = calculateProgress(tasks);
+  private _renderAllGroups(groups: GroupState[]) {
+    return groups.map((group) => {
+      const progress = calculateProgress(group.tasks);
       const baseColor =
         this._config!.task_background_color || "var(--primary-color)";
       const textColor = this._config!.task_text_color || "white";
 
       // Generate color variants
-      const lighterColor = this._adjustColorLightness(baseColor, 15);
-      const darkerColor = this._adjustColorLightness(baseColor, -15);
+      const lighterColor = `#${adjustColorLightness(baseColor, 15)}`;
+      const darkerColor = `#${adjustColorLightness(baseColor, -15)}`;
 
-      const isCollapsed = this._collapsedGroups.has(tagName);
+      const isCollapsed = group.isCollapsed;
       const allComplete = progress.completed === progress.total;
       const showCheckmark = isCollapsed && allComplete;
 
@@ -426,16 +379,16 @@ export class ChoreBotGroupedCard extends LitElement {
         progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
 
       // Auto-collapse logic: check if group just became complete
-      this._checkAutoCollapse(tagName, progress, allComplete, isCollapsed);
+      this._checkAutoCollapse(group.name, progress, allComplete, isCollapsed);
 
       return html`
         <div class="tag-group-container ${isCollapsed ? "collapsed" : ""}">
           <div
             class="tag-group-header ${isCollapsed ? "collapsed" : ""}"
             style="background: ${lighterColor}; color: ${textColor}; --progress-width: ${progressPercent}%; --darker-color: ${darkerColor};"
-            @click=${() => this._toggleGroup(tagName)}
+            @click=${() => this._toggleGroup(group.name)}
           >
-            <div class="tag-group-header-title">${tagName}</div>
+            <div class="tag-group-header-title">${group.name}</div>
             <div class="tag-group-header-progress">
               ${showCheckmark
                 ? html`<ha-icon
@@ -448,7 +401,7 @@ export class ChoreBotGroupedCard extends LitElement {
           <div class="tag-group-tasks ${isCollapsed ? "collapsed" : ""}">
             <div class="tag-group-tasks-inner">
               ${this._renderTasks(
-                tasks,
+                group.tasks,
                 baseColor,
                 textColor,
                 lighterColor,
@@ -480,7 +433,6 @@ export class ChoreBotGroupedCard extends LitElement {
       // Completion circle styling
       const circleBgColor = isCompleted ? darkerColor : "transparent";
       const circleIconColor = isCompleted ? "white" : "var(--divider-color)";
-      // const circleBorder = isCompleted ? "none" : `2px solid ${lighterColor}`;
       const circleBorder = isCompleted
         ? "none"
         : `2px solid var(--divider-color)`;
@@ -541,19 +493,19 @@ export class ChoreBotGroupedCard extends LitElement {
   // Group Collapse/Expand
   // ============================================================================
 
-  private _toggleGroup(tagName: string) {
+  private _toggleGroup(groupName: string) {
     // Clear any pending auto-collapse timeout for this group
-    if (this._autoCollapseTimeouts.has(tagName)) {
-      clearTimeout(this._autoCollapseTimeouts.get(tagName));
-      this._autoCollapseTimeouts.delete(tagName);
+    if (this._autoCollapseTimeouts.has(groupName)) {
+      clearTimeout(this._autoCollapseTimeouts.get(groupName));
+      this._autoCollapseTimeouts.delete(groupName);
     }
 
-    if (this._collapsedGroups.has(tagName)) {
-      this._collapsedGroups.delete(tagName);
-    } else {
-      this._collapsedGroups.add(tagName);
+    // Find the group and toggle its isCollapsed state
+    const group = this._groups.find((g) => g.name === groupName);
+    if (group) {
+      group.isCollapsed = !group.isCollapsed;
+      this.requestUpdate();
     }
-    this.requestUpdate();
   }
 
   private _checkAutoCollapse(
@@ -585,9 +537,12 @@ export class ChoreBotGroupedCard extends LitElement {
 
       // Set a delay before auto-collapsing (1.5 seconds)
       const timeoutId = window.setTimeout(() => {
-        this._collapsedGroups.add(tagName);
+        const group = this._groups.find((g) => g.name === tagName);
+        if (group) {
+          group.isCollapsed = true;
+          this.requestUpdate();
+        }
         this._autoCollapseTimeouts.delete(tagName);
-        this.requestUpdate();
       }, 1500);
 
       this._autoCollapseTimeouts.set(tagName, timeoutId);
@@ -650,12 +605,19 @@ export class ChoreBotGroupedCard extends LitElement {
   }
 
   private _playCompletionConfetti(origin: { x: number; y: number }) {
-    // Get base color from config
+    // Get base color from config and calculate shades
     const baseColor =
       this._config!.task_background_color || "var(--primary-color)";
+    const shades = calculateColorShades(baseColor);
 
-    // Extract color variants (lighter and darker shades)
-    const colors = extractColorVariants(baseColor);
+    // Convert shades to array format expected by confetti
+    const colors = [
+      shades.lighter,
+      shades.light,
+      shades.base,
+      shades.dark,
+      shades.darker,
+    ];
 
     // Small burst of confetti from the checkbox with themed colors
     playCompletionBurst(origin, colors);
@@ -719,21 +681,42 @@ export class ChoreBotGroupedCard extends LitElement {
   private _playGroupFireworks() {
     const baseColor =
       this._config!.task_background_color || "var(--primary-color)";
-    const colors = extractColorVariants(baseColor);
+    const shades = calculateColorShades(baseColor);
+    const colors = [
+      shades.lighter,
+      shades.light,
+      shades.base,
+      shades.dark,
+      shades.darker,
+    ];
     playFireworks(colors);
   }
 
   private _playDatedTasksFireworks() {
     const baseColor =
       this._config!.task_background_color || "var(--primary-color)";
-    const colors = extractColorVariants(baseColor);
+    const shades = calculateColorShades(baseColor);
+    const colors = [
+      shades.lighter,
+      shades.light,
+      shades.base,
+      shades.dark,
+      shades.darker,
+    ];
     playFireworks(colors);
   }
 
   private _playAllCompleteStarShower() {
     const baseColor =
       this._config!.task_background_color || "var(--primary-color)";
-    const colors = extractColorVariants(baseColor);
+    const shades = calculateColorShades(baseColor);
+    const colors = [
+      shades.lighter,
+      shades.light,
+      shades.base,
+      shades.dark,
+      shades.darker,
+    ];
     playStarShower(colors);
   }
 
@@ -885,6 +868,7 @@ export class ChoreBotGroupedCard extends LitElement {
       title: "Tasks",
       show_title: true,
       show_dateless_tasks: true,
+      show_future_tasks: false,
       filter_section_id: "",
       hide_card_background: false,
       task_background_color: "",
@@ -919,6 +903,11 @@ export class ChoreBotGroupedCard extends LitElement {
         {
           name: "show_dateless_tasks",
           default: true,
+          selector: { boolean: {} },
+        },
+        {
+          name: "show_future_tasks",
+          default: false,
           selector: { boolean: {} },
         },
         {
@@ -960,6 +949,7 @@ export class ChoreBotGroupedCard extends LitElement {
           title: "Card Title",
           show_title: "Show Title",
           show_dateless_tasks: "Show Tasks Without Due Date",
+          show_future_tasks: "Show Future Tasks",
           filter_section_id: "Filter by Section",
           hide_card_background: "Hide Card Background",
           task_background_color: "Task Background Color",
@@ -975,6 +965,8 @@ export class ChoreBotGroupedCard extends LitElement {
           title: "Custom title for the card",
           show_title: "Show the card title",
           show_dateless_tasks: "Show tasks that do not have a due date",
+          show_future_tasks:
+            "Show tasks with future due dates in a collapsible 'Upcoming' section (collapsed by default)",
           filter_section_id:
             'Enter section name (e.g., "SECOND SECTION"). Leave empty to show all sections.',
           hide_card_background:
