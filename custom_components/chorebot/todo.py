@@ -1,4 +1,5 @@
 """Todo platform for ChoreBot integration."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -84,7 +85,11 @@ class ChoreBotList(TodoListEntity):
         # Filter out soft-deleted tasks
         visible_tasks = [t for t in tasks if not t.is_deleted()]
 
-        _LOGGER.debug("Building todo_items for %s: %d visible tasks", self._list_id, len(visible_tasks))
+        _LOGGER.debug(
+            "Building todo_items for %s: %d visible tasks",
+            self._list_id,
+            len(visible_tasks),
+        )
 
         # Convert our Task objects to HA's TodoItem format
         return [self._task_to_todo_item(task) for task in visible_tasks]
@@ -103,18 +108,31 @@ class ChoreBotList(TodoListEntity):
         # Get sections for this list
         sections = self._store.get_sections_for_list(self._list_id)
 
+        # Extract all unique tags from tasks and templates
+        all_tags = set()
+        for task in visible_tasks:
+            if task.tags:
+                all_tags.update(task.tags)
+        for template in visible_templates:
+            if template.tags:
+                all_tags.update(template.tags)
+
         _LOGGER.debug(
-            "Building extra_state_attributes for %s: %d tasks, %d templates, %d sections",
+            "Building extra_state_attributes for %s: %d tasks, %d templates, %d sections, %d tags",
             self._list_id,
             len(visible_tasks),
             len(visible_templates),
             len(sections),
+            len(all_tags),
         )
 
         return {
             "chorebot_tasks": [task.to_dict() for task in visible_tasks],
-            "chorebot_templates": [template.to_dict() for template in visible_templates],
+            "chorebot_templates": [
+                template.to_dict() for template in visible_templates
+            ],
             "chorebot_sections": sections,
+            "chorebot_tags": sorted(list(all_tags)),
         }
 
     def _task_to_todo_item(self, task: Task) -> TodoItem:
@@ -169,7 +187,12 @@ class ChoreBotList(TodoListEntity):
             elif isinstance(item.due, date):
                 # Date only - all-day task
                 # Convert to datetime at midnight UTC
-                due_str = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+                due_str = (
+                    datetime.combine(item.due, datetime.min.time())
+                    .replace(tzinfo=UTC)
+                    .isoformat()
+                    .replace("+00:00", "Z")
+                )
                 is_all_day = True
 
         # Use internal method to create task
@@ -197,7 +220,9 @@ class ChoreBotList(TodoListEntity):
         This is the single source of truth for task creation.
         Handles regular tasks and recurring tasks (template + instance).
         """
-        _LOGGER.info("Creating task internally: %s (recurring=%s)", summary, bool(rrule))
+        _LOGGER.info(
+            "Creating task internally: %s (recurring=%s)", summary, bool(rrule)
+        )
 
         if rrule and due:
             # Create recurring task: template + first instance
@@ -250,7 +275,9 @@ class ChoreBotList(TodoListEntity):
             await self._store.async_add_task(self._list_id, task)
 
             # Write state immediately
-            _LOGGER.debug("Writing HA state immediately after creating task: %s", task.summary)
+            _LOGGER.debug(
+                "Writing HA state immediately after creating task: %s", task.summary
+            )
             self.async_write_ha_state()
 
             # Push to remote backend if sync is enabled
@@ -281,7 +308,11 @@ class ChoreBotList(TodoListEntity):
             All other fields: Optional - only provided fields are updated
             include_future_occurrences: For recurring instances, update template too
         """
-        _LOGGER.info("Updating task internally: %s (include_future=%s)", uid, include_future_occurrences)
+        _LOGGER.info(
+            "Updating task internally: %s (include_future=%s)",
+            uid,
+            include_future_occurrences,
+        )
 
         # Get existing task
         task = self._store.get_task(self._list_id, uid)
@@ -291,7 +322,9 @@ class ChoreBotList(TodoListEntity):
 
         # Prevent updating templates directly (must update via instances)
         if task.is_recurring_template():
-            _LOGGER.error("Cannot update recurring templates directly - update via an instance")
+            _LOGGER.error(
+                "Cannot update recurring templates directly - update via an instance"
+            )
             return
 
         # Track old status for completion logic
@@ -304,7 +337,7 @@ class ChoreBotList(TodoListEntity):
                 _LOGGER.error(
                     "Can only update future occurrences from the latest incomplete instance. "
                     "Task %s is not the latest.",
-                    uid
+                    uid,
                 )
                 return
 
@@ -355,7 +388,9 @@ class ChoreBotList(TodoListEntity):
             task.points_value = points_value
 
         # Check if status changed to completed
-        status_changed_to_completed = old_status == "needs_action" and task.status == "completed"
+        status_changed_to_completed = (
+            old_status == "needs_action" and task.status == "completed"
+        )
 
         # Handle recurring instance completion
         if status_changed_to_completed and task.is_recurring_instance():
@@ -363,8 +398,10 @@ class ChoreBotList(TodoListEntity):
         else:
             # Set last_completed timestamp for any task being marked completed
             if status_changed_to_completed:
-                task.last_completed = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-            
+                task.last_completed = (
+                    datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                )
+
             task.update_modified()
             await self._store.async_update_task(self._list_id, task)
 
@@ -395,11 +432,18 @@ class ChoreBotList(TodoListEntity):
             elif isinstance(item.due, date):
                 # Date only - all-day task
                 # Convert to datetime at midnight UTC
-                due_str = datetime.combine(item.due, datetime.min.time()).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+                due_str = (
+                    datetime.combine(item.due, datetime.min.time())
+                    .replace(tzinfo=UTC)
+                    .isoformat()
+                    .replace("+00:00", "Z")
+                )
                 is_all_day = True
 
         # Convert status
-        status = "completed" if item.status == TodoItemStatus.COMPLETED else "needs_action"
+        status = (
+            "completed" if item.status == TodoItemStatus.COMPLETED else "needs_action"
+        )
 
         # Use internal method - single source of truth!
         await self.async_update_task_internal(
@@ -444,7 +488,9 @@ class ChoreBotList(TodoListEntity):
         # Update streak on template (strict consecutive)
         if completed_on_time:
             template.streak_current += 1
-            template.streak_longest = max(template.streak_longest, template.streak_current)
+            template.streak_longest = max(
+                template.streak_longest, template.streak_current
+            )
             _LOGGER.info(
                 "Streak incremented for template %s: current=%d, longest=%d",
                 template.summary,
@@ -452,7 +498,9 @@ class ChoreBotList(TodoListEntity):
                 template.streak_longest,
             )
         else:
-            _LOGGER.info("Instance completed late, resetting streak for: %s", template.summary)
+            _LOGGER.info(
+                "Instance completed late, resetting streak for: %s", template.summary
+            )
             template.streak_current = 0
 
         # Mark instance as completed
@@ -463,10 +511,15 @@ class ChoreBotList(TodoListEntity):
         # Check if next instance already exists (e.g., if this was uncompleted then re-completed)
         next_occurrence_index = instance.occurrence_index + 1
         instances = self._store.get_instances_for_template(self._list_id, template.uid)
-        next_instance_exists = any(inst.occurrence_index == next_occurrence_index for inst in instances)
+        next_instance_exists = any(
+            inst.occurrence_index == next_occurrence_index for inst in instances
+        )
 
         if next_instance_exists:
-            _LOGGER.info("Next instance already exists for occurrence_index %d, skipping creation", next_occurrence_index)
+            _LOGGER.info(
+                "Next instance already exists for occurrence_index %d, skipping creation",
+                next_occurrence_index,
+            )
             # Just save the completed instance and updated template
             await self._store.async_update_task(self._list_id, instance)
             template.update_modified()
@@ -476,7 +529,9 @@ class ChoreBotList(TodoListEntity):
             self.async_write_ha_state()
         else:
             # Calculate next due date from template
-            next_due = self._calculate_next_due_date_from_template(template, instance.due)
+            next_due = self._calculate_next_due_date_from_template(
+                template, instance.due
+            )
 
             if next_due:
                 # Create new instance from template
@@ -511,10 +566,14 @@ class ChoreBotList(TodoListEntity):
                         self._list_id, template
                     )
                     # Push updated template (with new streaks and metadata)
-                    await self._sync_coordinator.async_push_task(self._list_id, template)
+                    await self._sync_coordinator.async_push_task(
+                        self._list_id, template
+                    )
 
             else:
-                _LOGGER.warning("Could not calculate next occurrence for template: %s", template.uid)
+                _LOGGER.warning(
+                    "Could not calculate next occurrence for template: %s", template.uid
+                )
                 # Just save the completed instance
                 await self._store.async_update_task(self._list_id, instance)
 
@@ -526,7 +585,9 @@ class ChoreBotList(TodoListEntity):
                     await self._sync_coordinator.async_complete_task(
                         self._list_id, template
                     )
-                    await self._sync_coordinator.async_push_task(self._list_id, template)
+                    await self._sync_coordinator.async_push_task(
+                        self._list_id, template
+                    )
 
     def _calculate_next_due_date_from_template(
         self, template: Task, current_due_str: str | None
@@ -548,7 +609,9 @@ class ChoreBotList(TodoListEntity):
             # Get next occurrence after current due date
             return rule.after(current_due)
         except (ValueError, TypeError, AttributeError) as e:
-            _LOGGER.error("Error calculating next due date for template %s: %s", template.uid, e)
+            _LOGGER.error(
+                "Error calculating next due date for template %s: %s", template.uid, e
+            )
             return None
 
     def _is_latest_incomplete_instance(self, task: Task) -> bool:
@@ -560,8 +623,12 @@ class ChoreBotList(TodoListEntity):
         if not task.is_recurring_instance():
             return False
 
-        instances = self._store.get_instances_for_template(self._list_id, task.parent_uid)
-        incomplete_instances = [i for i in instances if i.status == "needs_action" and not i.is_deleted()]
+        instances = self._store.get_instances_for_template(
+            self._list_id, task.parent_uid
+        )
+        incomplete_instances = [
+            i for i in instances if i.status == "needs_action" and not i.is_deleted()
+        ]
 
         if not incomplete_instances:
             return False

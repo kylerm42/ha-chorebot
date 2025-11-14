@@ -55,11 +55,13 @@ export function prepareTaskForEditing(task: Task): EditingTask {
  * Build the schema for the edit dialog form
  * @param task - Task being edited
  * @param sections - Available sections from entity
+ * @param availableTags - Available tags from entity
  * @returns Array of form schema objects
  */
 export function buildEditDialogSchema(
   task: EditingTask,
   sections: Section[],
+  availableTags: string[],
 ): any[] {
   const hasDueDate =
     task.has_due_date !== undefined ? task.has_due_date : !!task.due;
@@ -93,6 +95,21 @@ export function buildEditDialogSchema(
       },
     });
   }
+
+  // Add tags multi-select
+  schema.push({
+    name: "tags",
+    selector: {
+      select: {
+        multiple: true,
+        custom_value: true,
+        options: availableTags.map((tag: string) => ({
+          label: tag,
+          value: tag,
+        })),
+      },
+    },
+  });
 
   schema.push({
     name: "has_due_date",
@@ -230,6 +247,7 @@ export function buildEditDialogData(
             (a: Section, b: Section) => b.sort_order - a.sort_order,
           )[0].id
         : undefined),
+    tags: task.tags || [],
     has_recurrence: hasDueDate ? task.has_recurrence || false : false,
     recurrence_frequency: task.recurrence_frequency || "DAILY",
     recurrence_interval: task.recurrence_interval || 1,
@@ -252,6 +270,7 @@ export function computeLabel(schema: any): string {
     due_time: "Time",
     description: "Description",
     section_id: "Section",
+    tags: "Tags",
     has_recurrence: "Recurring Task",
     recurrence_frequency: "Frequency",
     recurrence_interval: "Repeat Every",
@@ -267,6 +286,7 @@ export function computeLabel(schema: any): string {
  * @param task - Task being edited
  * @param hass - Home Assistant instance
  * @param sections - Available sections
+ * @param availableTags - Available tags from entity
  * @param saving - Whether save is in progress
  * @param onClose - Callback when dialog closes
  * @param onValueChanged - Callback when form values change
@@ -278,6 +298,7 @@ export function renderEditDialog(
   task: EditingTask | null,
   hass: HomeAssistant,
   sections: Section[],
+  availableTags: string[],
   saving: boolean,
   onClose: () => void,
   onValueChanged: (ev: CustomEvent) => void,
@@ -287,7 +308,7 @@ export function renderEditDialog(
     return html``;
   }
 
-  const schema = buildEditDialogSchema(task, sections);
+  const schema = buildEditDialogSchema(task, sections, availableTags);
   const data = buildEditDialogData(task, sections);
 
   return html`

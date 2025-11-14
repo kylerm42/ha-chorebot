@@ -15,6 +15,7 @@ export interface HassEntity {
     chorebot_tasks?: Task[];
     chorebot_templates?: RecurringTemplate[];
     chorebot_sections?: Section[];
+    chorebot_tags?: string[];
     [key: string]: any;
   };
 }

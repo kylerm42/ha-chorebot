@@ -752,15 +752,17 @@ export class ChoreBotGroupedCard extends LitElement {
   }
 
   private _renderEditDialog() {
-    // Get sections from entity attributes
+    // Get sections and tags from entity attributes
     const entity = this.hass?.states[this._config!.entity];
     const sections = entity?.attributes.chorebot_sections || [];
+    const availableTags = entity?.attributes.chorebot_tags || [];
 
     return renderEditDialog(
       this._editDialogOpen,
       this._editingTask,
       this.hass!,
       sections,
+      availableTags,
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
@@ -837,6 +839,11 @@ export class ChoreBotGroupedCard extends LitElement {
 
     if (this._editingTask.section_id) {
       serviceData.section_id = this._editingTask.section_id;
+    }
+
+    // Handle tags
+    if (this._editingTask.tags !== undefined) {
+      serviceData.tags = this._editingTask.tags;
     }
 
     // Handle recurrence
