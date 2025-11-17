@@ -9,6 +9,14 @@ create_list:
       example: "Work Tasks"
       selector:
         text:
+    person_id:
+      name: Person
+      description: Assign a default person to this list (tasks in this list will award points to this person unless overridden by section).
+      required: false
+      example: "person.kid1"
+      selector:
+        entity:
+          domain: person
 
 add_task:
   name: Add Task
@@ -282,3 +290,107 @@ adjust_points:
       example: "Birthday bonus"
       selector:
         text:
+
+update_list:
+  name: Update List
+  description: Update a ChoreBot list's metadata (name, person assignment, etc.).
+  fields:
+    list_id:
+      name: List
+      description: The ChoreBot list entity to update.
+      required: true
+      selector:
+        entity:
+          integration: chorebot
+          domain: todo
+    name:
+      name: Name
+      description: New display name for the list.
+      required: false
+      example: "Family Chores"
+      selector:
+        text:
+    person_id:
+      name: Person
+      description: Assign a default person to this list (tasks in this list will award points to this person unless overridden by section).
+      required: false
+      example: "person.kid1"
+      selector:
+        entity:
+          domain: person
+    clear_person:
+      name: Clear Person Assignment
+      description: Remove person assignment from this list.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+sync_people:
+  name: Sync People
+  description: Sync people records with Home Assistant person entities. Creates missing people with 0 points.
+
+manage_section:
+  name: Manage Section
+  description: Create, update, or delete a section in a ChoreBot list.
+  fields:
+    list_id:
+      name: List
+      description: The ChoreBot list entity containing the section.
+      required: true
+      selector:
+        entity:
+          integration: chorebot
+          domain: todo
+    action:
+      name: Action
+      description: Operation to perform.
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Create Section"
+              value: "create"
+            - label: "Update Section"
+              value: "update"
+            - label: "Delete Section"
+              value: "delete"
+    section_id:
+      name: Section ID
+      description: For update/delete - the section ID to modify. For create - optionally specify a custom ID (otherwise auto-generated from name).
+      required: false
+      example: "6914de074c0c4c7fe64ddd9a"
+      selector:
+        text:
+    name:
+      name: Name
+      description: Section display name (required for create, optional for update).
+      required: false
+      example: "Morning Tasks"
+      selector:
+        text:
+    person_id:
+      name: Person
+      description: Assign a person to this section (overrides list's person assignment).
+      required: false
+      example: "person.mom"
+      selector:
+        entity:
+          domain: person
+    clear_person:
+      name: Clear Person Assignment
+      description: Remove person assignment from this section.
+      required: false
+      default: false
+      selector:
+        boolean:
+    sort_order:
+      name: Sort Order
+      description: Numeric sort order (higher = displayed first). Optional - defaults to 0.
+      required: false
+      example: 100
+      selector:
+        number:
+          min: 0
+          max: 9999999999999
+          mode: box

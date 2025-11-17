@@ -30,6 +30,8 @@ class ChoreBotStore:
         self._tasks_cache: dict[str, dict[str, dict[str, Task]]] = {}
         # Sections cache: list_id -> list of section dicts
         self._sections_cache: dict[str, list[dict[str, Any]]] = {}
+        # Metadata cache: list_id -> dict with person_id, etc.
+        self._metadata_cache: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     async def async_load(self) -> None:
@@ -49,23 +51,27 @@ class ChoreBotStore:
 
     async def _load_tasks_for_list(self, list_id: str) -> None:
         """Load tasks for a specific list."""
-        # Initialize main task store
-        store = Store(self.hass, STORAGE_VERSION, f"{DOMAIN}_{list_id}")
+        # Initialize main task store with chorebot_list_ prefix
+        store = Store(self.hass, STORAGE_VERSION, f"{DOMAIN}_list_{list_id}")
         self._task_stores[list_id] = store
 
-        # Initialize archive store
-        archive_store = Store(self.hass, STORAGE_VERSION, f"{DOMAIN}_{list_id}_archive")
+        # Initialize archive store with chorebot_list_ prefix
+        archive_store = Store(
+            self.hass, STORAGE_VERSION, f"{DOMAIN}_list_{list_id}_archive"
+        )
         self._archive_stores[list_id] = archive_store
 
         task_data = await store.async_load()
         if task_data is None:
             self._tasks_cache[list_id] = {"templates": {}, "tasks": {}}
             self._sections_cache[list_id] = []
+            self._metadata_cache[list_id] = {}
         else:
-            # Load two-array structure: {"recurring_templates": [...], "tasks": [...], "sections": [...]}
+            # Load two-array structure: {"recurring_templates": [...], "tasks": [...], "sections": [...], "metadata": {...}}
             templates_data = task_data.get("recurring_templates", [])
             tasks_data = task_data.get("tasks", [])
             sections_data = task_data.get("sections", [])
+            metadata = task_data.get("metadata", {})
 
             templates = [Task.from_dict(t, is_template=True) for t in templates_data]
             tasks = [Task.from_dict(t, is_template=False) for t in tasks_data]
@@ -77,6 +83,8 @@ class ChoreBotStore:
             }
             # Load sections
             self._sections_cache[list_id] = sections_data
+            # Load metadata (person_id, etc.)
+            self._metadata_cache[list_id] = metadata
 
     async def async_save_config(self) -> None:
         """Save configuration data. Must be called with lock held."""
@@ -117,11 +125,15 @@ class ChoreBotStore:
         # Get sections from cache
         sections = self._sections_cache.get(list_id, [])
 
+        # Get metadata from cache
+        metadata = self._metadata_cache.get(list_id, {})
+
         # Save payload only (HA Store will wrap with version/key/data)
         data = {
             "recurring_templates": [t.to_dict() for t in all_templates.values()],
             "tasks": [t.to_dict() for t in all_tasks.values()],
             "sections": sections,
+            "metadata": metadata,
         }
         await store.async_save(data)
 
@@ -130,29 +142,80 @@ class ChoreBotStore:
         return self._config_data.get("lists", [])
 
     def get_list(self, list_id: str) -> dict[str, Any] | None:
-        """Get a specific list configuration."""
-        for list_config in self._config_data.get("lists", []):
-            if list_config["id"] == list_id:
-                return list_config
-        return None
+        """Get a specific list configuration.
+
+        Merges data from global config (name, sync) and list-specific metadata (person_id).
+        """
+        # Get base config from global registry
+        list_config = None
+        for config in self._config_data.get("lists", []):
+            if config["id"] == list_id:
+                list_config = config.copy()
+                break
+
+        if not list_config:
+            return None
+
+        # Remove person_id if it was manually added to global config (should never happen)
+        if "person_id" in list_config:
+            _LOGGER.warning(
+                "person_id found in global config for list %s - ignoring (should be in metadata)",
+                list_id,
+            )
+            del list_config["person_id"]
+
+        # Merge in list-specific metadata (person_id, etc.)
+        metadata = self._metadata_cache.get(list_id, {})
+        list_config.update(metadata)
+
+        return list_config
 
     async def async_update_list(self, list_id: str, updates: dict[str, Any]) -> bool:
-        """Update a list's metadata (including sync info).
+        """Update a list's metadata.
 
         Args:
             list_id: The list ID to update
-            updates: Dictionary of fields to update (e.g., {"name": "New Name", "sync": {...}})
+            updates: Dictionary of fields to update
+                - "name" and "sync": saved to global config
+                - "person_id": saved to list-specific metadata
 
         Returns:
             bool: True if successful, False if list not found
         """
         async with self._lock:
-            for list_config in self._config_data.get("lists", []):
-                if list_config["id"] == list_id:
-                    list_config.update(updates)
-                    await self.async_save_config()
-                    return True
-            return False
+            # Check if list exists
+            list_exists = any(
+                config["id"] == list_id for config in self._config_data.get("lists", [])
+            )
+            if not list_exists:
+                return False
+
+            # Split updates into global config vs list-specific metadata
+            global_updates = {}
+            metadata_updates = {}
+
+            for key, value in updates.items():
+                if key in ("name", "sync"):
+                    global_updates[key] = value
+                elif key == "person_id":
+                    metadata_updates[key] = value
+
+            # Update global config if needed
+            if global_updates:
+                for list_config in self._config_data.get("lists", []):
+                    if list_config["id"] == list_id:
+                        list_config.update(global_updates)
+                        await self.async_save_config()
+                        break
+
+            # Update list-specific metadata if needed
+            if metadata_updates:
+                if list_id not in self._metadata_cache:
+                    self._metadata_cache[list_id] = {}
+                self._metadata_cache[list_id].update(metadata_updates)
+                await self.async_save_tasks(list_id)
+
+            return True
 
     def get_list_sync_info(self, list_id: str, backend: str) -> dict[str, Any] | None:
         """Get sync information for a list and backend.
@@ -202,8 +265,20 @@ class ChoreBotStore:
     async def async_create_list(
         self, list_id: str, name: str, **kwargs: Any
     ) -> dict[str, Any]:
-        """Create a new list."""
+        """Create a new list.
+
+        Args:
+            list_id: The list ID
+            name: The list name
+            **kwargs: Additional fields
+                - "sync": saved to global config
+                - "person_id": saved to list-specific metadata
+        """
         async with self._lock:
+            # Separate person_id from other kwargs
+            person_id = kwargs.pop("person_id", None)
+
+            # Create global config entry (without person_id)
             list_config = {"id": list_id, "name": name, **kwargs}
             # Initialize sync dict if not provided
             if "sync" not in list_config:
@@ -214,7 +289,11 @@ class ChoreBotStore:
             # Initialize task storage for new list
             await self._load_tasks_for_list(list_id)
 
-            # Create the storage file immediately with empty tasks
+            # Store person_id in list-specific metadata if provided
+            if person_id:
+                self._metadata_cache[list_id] = {"person_id": person_id}
+
+            # Create the storage file immediately with empty tasks (and metadata)
             await self.async_save_tasks(list_id)
 
             return list_config
@@ -232,6 +311,7 @@ class ChoreBotStore:
             # Remove from cache
             self._tasks_cache.pop(list_id, None)
             self._sections_cache.pop(list_id, None)
+            self._metadata_cache.pop(list_id, None)
             self._task_stores.pop(list_id, None)
 
     def get_tasks_for_list(self, list_id: str) -> list[Task]:
@@ -376,7 +456,8 @@ class ChoreBotStore:
 
             # Find instances to archive (completed recurring instances older than cutoff)
             to_archive = [
-                task for task in all_tasks
+                task
+                for task in all_tasks
                 if task.is_recurring_instance()
                 and task.status == "completed"
                 and task.modified < cutoff_str

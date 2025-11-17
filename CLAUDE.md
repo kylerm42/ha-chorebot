@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: 2025-11-14 - Bug Fix: Fixed sync logic to correctly handle completed tasks from TickTick
+**Last Updated**: 2025-11-17 - Storage Optimization: Split storage files for better performance and namespace isolation
 
 ## Project Overview
 
@@ -14,7 +14,7 @@ ChoreBot is a Home Assistant custom integration that provides advanced task mana
 
 The integration follows a **three-layer architecture** with strict separation of concerns:
 
-1. **Data Persistence Layer**: JSON-based storage in `.storage/chorebot_*.json` files. This is the absolute source of truth for all task data, lists, and metadata.
+1. **Data Persistence Layer**: JSON-based storage in `.storage/chorebot_*.json` files. This is the absolute source of truth for all task data, lists, and metadata. See "Storage Architecture" section below for detailed file structure.
 
 2. **Home Assistant Entity Layer**: `TodoListEntity` proxies that expose lists as standard HA `todo` entities. These provide read/write access to the Data Persistence Layer and ensure compatibility with native HA services.
 
@@ -27,7 +27,9 @@ The integration follows a **three-layer architecture** with strict separation of
 - **Soft Deletes**: Tasks are never permanently deleted from local storage. Set `deleted_at` timestamp instead.
 - **Instance-Based Recurrence**: Recurring tasks use a template + instance model. Templates (hidden from UI) store the `rrule` and streak data. Instances are individual occurrences with specific due dates. **Instances do NOT duplicate streak data** - they reference their parent template.
 - **Date Format Standardization**: All dates use ISO 8601 format in UTC with Z suffix (`YYYY-MM-DDTHH:MM:SSZ`). TickTick dates are normalized on import.
-- **Archive Storage**: Completed instances older than 30 days are moved to `chorebot_{list_id}_archive.json` to preserve history without bloating active storage.
+- **Archive Storage**: Completed instances older than 30 days are moved to `chorebot_list_{list_id}_archive.json` to preserve history without bloating active storage.
+- **Split Storage Files**: People, rewards, transactions, and redemptions are stored in separate files to optimize performance (hot data vs cold audit trails).
+- **Namespace Isolation**: List files use `chorebot_list_` prefix to prevent conflicts with global storage files.
 - **Progress Tracking**: Completed instances remain visible until midnight, enabling daily progress tracking.
 
 ## Development Environment
@@ -76,11 +78,51 @@ The frontend card is built with TypeScript and requires compilation:
 - **Config flow changes**: Remove and re-add the integration
 - **View logs**: `docker logs -f homeassistant` or check `config/home-assistant.log`
 
+## Storage Architecture
+
+ChoreBot uses a **split storage model** with separate files optimized for different access patterns:
+
+### File Structure
+
+```
+.storage/
+├── chorebot_config                    # Global: list registry
+├── chorebot_people                    # Hot: person points balances only
+├── chorebot_rewards                   # Hot: rewards catalog
+├── chorebot_transactions              # Cold: audit trail (rarely read, append-only)
+├── chorebot_redemptions               # Cold: redemption history (rarely read, append-only)
+├── chorebot_list_{list_id}            # List data: tasks, templates, sections, list_metadata
+└── chorebot_list_{list_id}_archive    # Archived completed instances (30+ days old)
+```
+
+### Design Rationale
+
+**Namespace Isolation (`chorebot_list_` prefix):**
+
+- Prevents collisions: A list named "people" won't conflict with `chorebot_people`
+- Clear semantic meaning: Immediately identifies list data files
+- Future-proof: Safe to add new global stores without naming conflicts
+
+**Split People Data (4 separate files):**
+
+- **Performance**: Only load what you need (most operations only need people/rewards)
+- **Scalability**: Transaction log can grow to 100K+ entries without impacting startup
+- **Hot vs Cold data**:
+  - `chorebot_people` & `chorebot_rewards`: Read/written frequently (every task completion, reward redemption)
+  - `chorebot_transactions` & `chorebot_redemptions`: Written frequently, read rarely (audit trails)
+
+**Data Access Patterns:**
+
+- **Task completion**: Read/write `chorebot_people` + append to `chorebot_transactions`
+- **Reward redemption**: Read `chorebot_rewards` + update `chorebot_people` + append to `chorebot_redemptions` + append to `chorebot_transactions`
+- **Sensor updates**: Read `chorebot_people` + `chorebot_rewards` only (NOT transactions/redemptions)
+- **Transaction history view**: Read `chorebot_transactions` (only when explicitly requested)
+
 ## Data Model
 
 ### Task Schema (JSON Storage)
 
-Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array structure**:
+Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array structure with metadata**:
 
 ```json
 {
@@ -88,6 +130,9 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
   "minor_version": 1,
   "key": "chorebot_list_id",
   "data": {
+    "metadata": {
+      "person_id": "person.kyle"
+    },
     "recurring_templates": [
       {
         "uid": "template_id",
@@ -118,6 +163,14 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
           "occurrence_index": 0
         }
       }
+    ],
+    "sections": [
+      {
+        "id": "section_id",
+        "name": "Campbell's Tasks",
+        "sort_order": 100,
+        "person_id": "person.campbell"
+      }
     ]
   }
 }
@@ -126,8 +179,10 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
 **Key Points:**
 
 - All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
+- **Metadata** (person_id) is stored in the same file as tasks/sections for logical grouping
 - Templates are in `recurring_templates` array (have `rrule`, `streak_current`, `streak_longest`, `is_template`)
 - Tasks/instances are in `tasks` array (regular tasks and recurring instances)
+- Sections are in `sections` array (can have optional `person_id` that overrides list's person_id)
 - **Instances do NOT store streak data** - they reference their parent template via `parent_uid`
 
 ### Recurring Task Model
@@ -137,7 +192,7 @@ Tasks are stored in `.storage/chorebot_{list_id}.json` using a **two-array struc
 - **Templates** store the `rrule`, default tags, and accumulated streak data. They have `is_template: true`, no `due` date, and are physically stored in the `recurring_templates` array. Hidden from UI.
 - **Instances** are individual occurrences with specific due dates. They have `parent_uid` pointing to their template and `occurrence_index` tracking their sequence. Stored in the `tasks` array alongside regular tasks.
 - **No Streak Duplication**: Instances do NOT store `streak_current` or `streak_longest`. They reference their parent template for current streak values.
-- **Archive Storage**: `chorebot_{list_id}_archive.json` stores completed instances older than 30 days.
+- **Archive Storage**: `chorebot_list_{list_id}_archive.json` stores completed instances older than 30 days.
 
 ### Recurring Instance Completion Logic
 
@@ -202,12 +257,14 @@ Day 8: Complete NEXT scheduled instance
 - **Cache structure**: Two-dictionary model: `{"templates": {uid: Task}, "tasks": {uid: Task}}`
 - **Templates cache**: Contains recurring task templates (hidden from UI)
 - **Tasks cache**: Contains regular tasks and recurring instances
+- **Metadata cache**: Contains list-specific settings (person_id) stored in each list's file
 - **Storage contains**: Everything in cache PLUS soft-deleted tasks and archived instances
 - **UI filtering**: Templates are automatically excluded in `todo.py`'s `todo_items` property (uses `get_tasks_for_list()` which only returns tasks)
 - **Store methods**:
   - `get_tasks_for_list(list_id)` - Returns only tasks (excludes templates)
   - `get_templates_for_list(list_id)` - Returns only templates
   - `get_instances_for_template(list_id, template_uid)` - Returns instances for a template
+  - `get_list(list_id)` - Returns merged config (global registry + list-specific metadata)
 
 ## File Structure
 
@@ -248,7 +305,7 @@ Build Configuration:
 ## Key Implementation Files
 
 - **`task.py`**: Task data model with `parent_uid`, `is_template`, `occurrence_index`, `ticktick_id` fields. Includes `is_recurring_template()`, `is_recurring_instance()` helper methods. All date formatting uses ISO Z format (UTC).
-- **`store.py`**: Storage management with two-array structure (`recurring_templates` and `tasks`), cache as two-dictionary model, archive handling, and query methods (`get_tasks_for_list()`, `get_templates_for_list()`, `get_instances_for_template()`, `async_archive_old_instances()`).
+- **`store.py`**: Storage management with two-array structure (`recurring_templates` and `tasks`), cache as two-dictionary model, archive handling, and query methods (`get_tasks_for_list()`, `get_templates_for_list()`, `get_instances_for_template()`, `async_archive_old_instances()`). Uses `chorebot_list_{list_id}` prefix for list files.
 - **`todo.py`**: TodoListEntity implementation. Filters templates from UI. Completion logic creates new instances and checks for duplicates. Triggers sync coordinator for push operations.
 - **`__init__.py`**: Entry point with OAuth2 setup, backend initialization, service handlers (`create_list`, `add_task`, `sync`). Daily maintenance job handles archival, soft-deletion, and streak resets. Sets up periodic pull sync.
 - **`config_flow.py`**: OAuth2 configuration flow using `AbstractOAuth2FlowHandler`. Integrates with HA's native `application_credentials` system.
@@ -312,13 +369,69 @@ Build Configuration:
 
 ## Custom Services
 
-- `chorebot.create_list`: Create a new task list (auto-generates list_id from name). If sync enabled, auto-creates remote list/project.
+- `chorebot.create_list`: Create a new task list (auto-generates list_id from name). Optionally assign `person_id` for default person. If sync enabled, auto-creates remote list/project.
+- `chorebot.update_list`: Update list metadata including name and person assignment. Use `clear_person: true` to remove person assignment.
 - `chorebot.add_task`: Add task with full custom field support (tags, rrule, etc.). When `rrule` is provided, creates both template and first instance.
+- `chorebot.manage_section`: Create, update, or delete sections with person assignment. Supports CRUD operations for organizing tasks within lists.
 - `chorebot.sync`: Manually trigger pull sync from remote backend. Optional `list_id` parameter to sync specific list (otherwise syncs all).
 - `chorebot.manage_reward`: Create or update a reward in the points system
 - `chorebot.redeem_reward`: Redeem a reward for a person (deducts points)
 - `chorebot.delete_reward`: Delete a reward from the system
 - `chorebot.adjust_points`: Manually adjust points for a person (admin use)
+- `chorebot.sync_people`: Sync people records with HA person entities (creates missing people with 0 points, automatically runs on integration setup)
+
+### Person Assignment Services
+
+**chorebot.create_list** - Create list with optional person assignment:
+
+```yaml
+service: chorebot.create_list
+data:
+  name: "Kyle's Chores"
+  person_id: person.kyle
+```
+
+**chorebot.update_list** - Update list person assignment:
+
+```yaml
+service: chorebot.update_list
+data:
+  list_id: todo.chorebot_test
+  person_id: person.kyle
+```
+
+**chorebot.manage_section** - Create section with person:
+
+```yaml
+service: chorebot.manage_section
+data:
+  list_id: todo.chorebot_test
+  action: create
+  name: "Campbell's Tasks"
+  person_id: person.campbell
+  sort_order: 100
+```
+
+**chorebot.manage_section** - Update section person:
+
+```yaml
+service: chorebot.manage_section
+data:
+  list_id: todo.chorebot_test
+  action: update
+  section_id: "6914de074c0c4c7fe64ddd9a"
+  person_id: person.kyle
+```
+
+**chorebot.manage_section** - Delete section:
+
+```yaml
+service: chorebot.manage_section
+data:
+  list_id: todo.chorebot_test
+  action: delete
+  section_id: "6914de074c0c4c7fe64ddd9a"
+```
 
 ## Important Reminders
 
@@ -334,6 +447,8 @@ Build Configuration:
 - **Completed instances stay visible** until midnight when daily maintenance job soft-deletes them
 - **Streak tracking is strict consecutive** - late completion resets streak to 0
 - Daily maintenance job runs at midnight: archives old instances, soft-deletes completed instances, resets streaks for overdue instances
+- **Storage file naming**: List files use `chorebot_list_{list_id}` prefix to avoid namespace collisions. Archive files use `chorebot_list_{list_id}_archive`.
+- **People data optimization**: Use specific save methods (`async_save_people()`, `async_save_rewards()`, etc.) instead of `async_save()` to avoid writing all 4 files on every operation.
 
 ## Implementation Status
 
@@ -364,6 +479,8 @@ Build Configuration:
    - Eliminated redundant streak data on instances
    - Standardized date format (ISO Z / UTC) throughout codebase
    - Date normalization for TickTick sync
+   - **NEW (2025-11-17)**: Namespace isolation with `chorebot_list_` prefix for list files
+   - **NEW (2025-11-17)**: Split people data into 4 files (people, rewards, transactions, redemptions) for performance
 
 ### ✅ Completed (Continued)
 
@@ -402,9 +519,10 @@ Build Configuration:
     - Extended Task model with `streak_bonus_points` and `streak_bonus_interval` fields
     - Points award logic in `todo.py` with person ID resolution (section > list > none)
     - Automatic streak bonus awards at configurable intervals for recurring tasks
-    - Four new services: `manage_reward`, `redeem_reward`, `delete_reward`, `adjust_points`
+    - Five new services: `manage_reward`, `redeem_reward`, `delete_reward`, `adjust_points`, `sync_people`
+    - **NEW (2025-11-17)**: `sync_people` service automatically syncs HA person entities with storage, creating missing people with 0 points. Runs automatically on integration setup and can be called manually.
     - `sensor.chorebot_points` entity exposing people balances, rewards, and transaction history
-    - Storage: `.storage/chorebot_people.json` for all points/rewards data
+    - Storage: Split into 4 files for performance: `chorebot_people` (hot: balances), `chorebot_rewards` (hot: catalog), `chorebot_transactions` (cold: audit trail), `chorebot_redemptions` (cold: history).
     - Full transaction audit trail with type-specific metadata
     - Person assignment: Lists and sections can have optional `person_id` field (section overrides list)
     - **Anti-Farming Protection**: Uncompleting a recurring task disassociates it from the template (sets `parent_uid=None`), preventing streak/bonus farming while allowing future occurrences to continue normally

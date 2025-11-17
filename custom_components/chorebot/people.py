@@ -166,33 +166,81 @@ class PeopleStore:
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the people store."""
         self.hass = hass
-        self._store = Store(hass, STORAGE_VERSION, f"{DOMAIN}_people")
+        # Split into separate stores for better performance
+        self._people_store = Store(hass, STORAGE_VERSION, f"{DOMAIN}_people")
+        self._rewards_store = Store(hass, STORAGE_VERSION, f"{DOMAIN}_rewards")
+        self._transactions_store = Store(
+            hass, STORAGE_VERSION, f"{DOMAIN}_transactions"
+        )
+        self._redemptions_store = Store(hass, STORAGE_VERSION, f"{DOMAIN}_redemptions")
         self._data: dict[str, Any] = {}
         self._lock = asyncio.Lock()
 
     async def async_load(self) -> None:
         """Load people data from storage."""
         async with self._lock:
-            data = await self._store.async_load()
-            if data is None:
-                self._data = {
-                    "people": {},
-                    "transactions": [],
-                    "rewards": [],
-                    "redemptions": [],
-                }
-            else:
-                self._data = data
+            # Load from split files
+            people_data = await self._people_store.async_load()
+            rewards_data = await self._rewards_store.async_load()
+            transactions_data = await self._transactions_store.async_load()
+            redemptions_data = await self._redemptions_store.async_load()
+
+            self._data = {
+                "people": people_data.get("people", {}) if people_data else {},
+                "rewards": rewards_data.get("rewards", []) if rewards_data else [],
+                "transactions": transactions_data.get("transactions", [])
+                if transactions_data
+                else [],
+                "redemptions": redemptions_data.get("redemptions", [])
+                if redemptions_data
+                else [],
+            }
+
             _LOGGER.info(
-                "Loaded people data: %d people, %d transactions, %d rewards",
+                "Loaded people data: %d people, %d transactions, %d rewards, %d redemptions",
                 len(self._data.get("people", {})),
                 len(self._data.get("transactions", [])),
                 len(self._data.get("rewards", [])),
+                len(self._data.get("redemptions", [])),
             )
 
     async def async_save(self) -> None:
-        """Save people data to storage. Must be called with lock held."""
-        await self._store.async_save(self._data)
+        """Save all people data to storage. Must be called with lock held.
+
+        WARNING: This saves all 4 files. For performance, prefer the specific save methods:
+        - async_save_people() for people balances
+        - async_save_rewards() for rewards catalog
+        - async_save_transactions() for transaction log
+        - async_save_redemptions() for redemption history
+        """
+        await self._people_store.async_save({"people": self._data.get("people", {})})
+        await self._rewards_store.async_save({"rewards": self._data.get("rewards", [])})
+        await self._transactions_store.async_save(
+            {"transactions": self._data.get("transactions", [])}
+        )
+        await self._redemptions_store.async_save(
+            {"redemptions": self._data.get("redemptions", [])}
+        )
+
+    async def async_save_people(self) -> None:
+        """Save only people balances. Must be called with lock held."""
+        await self._people_store.async_save({"people": self._data.get("people", {})})
+
+    async def async_save_rewards(self) -> None:
+        """Save only rewards catalog. Must be called with lock held."""
+        await self._rewards_store.async_save({"rewards": self._data.get("rewards", [])})
+
+    async def async_save_transactions(self) -> None:
+        """Save only transaction log. Must be called with lock held."""
+        await self._transactions_store.async_save(
+            {"transactions": self._data.get("transactions", [])}
+        )
+
+    async def async_save_redemptions(self) -> None:
+        """Save only redemption history. Must be called with lock held."""
+        await self._redemptions_store.async_save(
+            {"redemptions": self._data.get("redemptions", [])}
+        )
 
     # ==================== Person Points Methods ====================
 
@@ -271,8 +319,9 @@ class PeopleStore:
             }
             transactions.append(transaction)
 
-            # Save to storage
-            await self.async_save()
+            # Save only the affected files for performance
+            await self.async_save_people()
+            await self.async_save_transactions()
 
             _LOGGER.info(
                 "Points transaction: %s %+d pts (%d -> %d) [%s]",
@@ -376,7 +425,7 @@ class PeopleStore:
                 rewards.append(reward)
                 _LOGGER.info("Created reward: %s (cost: %d pts)", name, cost)
 
-            await self.async_save()
+            await self.async_save_rewards()
             return reward_id
 
     async def async_update_reward(
@@ -408,7 +457,7 @@ class PeopleStore:
                         datetime.now(UTC).isoformat().replace("+00:00", "Z")
                     )
 
-                    await self.async_save()
+                    await self.async_save_rewards()
                     _LOGGER.info("Updated reward %s: %s", reward_id, updates)
                     return True
 
@@ -432,7 +481,7 @@ class PeopleStore:
             self._data["rewards"] = [r for r in rewards if r["id"] != reward_id]
 
             if len(self._data["rewards"]) < initial_count:
-                await self.async_save()
+                await self.async_save_rewards()
                 _LOGGER.info("Deleted reward: %s", reward_id)
                 return True
 
@@ -524,7 +573,10 @@ class PeopleStore:
             }
             redemptions.append(redemption)
 
-            await self.async_save()
+            # Save only affected files for performance
+            await self.async_save_people()
+            await self.async_save_transactions()
+            await self.async_save_redemptions()
 
             _LOGGER.info(
                 "Reward redeemed: %s by %s (cost: %d pts)",
@@ -585,6 +637,42 @@ class PeopleStore:
         transactions.append(transaction)
 
         return transaction_id
+
+    async def async_sync_people(self, person_entity_ids: list[str]) -> int:
+        """Sync people records with HA person entities.
+
+        Creates missing people with 0 points. Does not remove people who no longer have entities.
+
+        Args:
+            person_entity_ids: List of HA person entity IDs
+
+        Returns:
+            Number of people created
+        """
+        async with self._lock:
+            people = self._data.setdefault("people", {})
+            now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            created_count = 0
+
+            for person_id in person_entity_ids:
+                if person_id not in people:
+                    # Create new person with 0 points
+                    people[person_id] = {
+                        "entity_id": person_id,
+                        "points_balance": 0,
+                        "lifetime_points": 0,
+                        "last_updated": now,
+                    }
+                    created_count += 1
+                    _LOGGER.info("Created person record: %s", person_id)
+
+            if created_count > 0:
+                await self.async_save_people()
+                _LOGGER.info("Synced %d new people records", created_count)
+            else:
+                _LOGGER.debug("All person entities already have records")
+
+            return created_count
 
     def async_get_redemptions(
         self,

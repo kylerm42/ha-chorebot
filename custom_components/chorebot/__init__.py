@@ -34,6 +34,7 @@ from .const import (
     SERVICE_MANAGE_REWARD,
     SERVICE_REDEEM_REWARD,
     SERVICE_SYNC,
+    SERVICE_SYNC_PEOPLE,
     SERVICE_UPDATE_TASK,
 )
 from .oauth_api import AsyncConfigEntryAuth
@@ -51,6 +52,7 @@ PLATFORMS: list[Platform] = [Platform.TODO, Platform.SENSOR]
 CREATE_LIST_SCHEMA = vol.Schema(
     {
         vol.Required("name"): cv.string,
+        vol.Optional("person_id"): cv.entity_id,
     }
 )
 
@@ -123,6 +125,29 @@ ADJUST_POINTS_SCHEMA = vol.Schema(
     }
 )
 
+# Service schema for chorebot.update_list
+UPDATE_LIST_SCHEMA = vol.Schema(
+    {
+        vol.Required("list_id"): cv.entity_id,
+        vol.Optional("name"): cv.string,
+        vol.Optional("person_id"): cv.entity_id,
+        vol.Optional("clear_person"): cv.boolean,
+    }
+)
+
+# Service schema for chorebot.manage_section
+MANAGE_SECTION_SCHEMA = vol.Schema(
+    {
+        vol.Required("list_id"): cv.entity_id,
+        vol.Required("action"): vol.In(["create", "update", "delete"]),
+        vol.Optional("section_id"): cv.string,
+        vol.Optional("name"): cv.string,
+        vol.Optional("person_id"): cv.entity_id,
+        vol.Optional("clear_person"): cv.boolean,
+        vol.Optional("sort_order"): cv.positive_int,
+    }
+)
+
 
 async def _async_setup_sync_coordinator(
     hass: HomeAssistant, entry: ConfigEntry, store: ChoreBotStore
@@ -186,6 +211,7 @@ async def _handle_create_list(
 ) -> None:
     """Handle the chorebot.create_list service."""
     name = call.data["name"]
+    person_id = call.data.get("person_id")
     list_id = slugify(name)
 
     _LOGGER.info("Creating list via service: %s (id: %s)", name, list_id)
@@ -196,7 +222,18 @@ async def _handle_create_list(
         )
         return
 
-    await store.async_create_list(list_id, name)
+    # Validate person entity if provided
+    if person_id and person_id not in hass.states.async_entity_ids("person"):
+        _LOGGER.error("Person entity not found: %s", person_id)
+        raise ValueError(f"Person entity not found: {person_id}")
+
+    # Create list with person_id if provided
+    kwargs = {}
+    if person_id:
+        kwargs["person_id"] = person_id
+        _LOGGER.info("Assigning person %s to new list: %s", person_id, list_id)
+
+    await store.async_create_list(list_id, name, **kwargs)
 
     # Auto-create remote list if sync is enabled
     if sync_coordinator and sync_coordinator.enabled:
@@ -472,6 +509,193 @@ async def _handle_adjust_points(
     _LOGGER.info("Points adjusted successfully for %s", person_id)
 
 
+async def _handle_sync_people(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    people_store: PeopleStore,
+) -> None:
+    """Handle the chorebot.sync_people service."""
+    # Get all person entity IDs
+    person_entity_ids = list(hass.states.async_entity_ids("person"))
+
+    if not person_entity_ids:
+        _LOGGER.warning("No person entities found in Home Assistant")
+        return
+
+    _LOGGER.info("Syncing %d person entities with storage", len(person_entity_ids))
+
+    created_count = await people_store.async_sync_people(person_entity_ids)
+
+    if created_count > 0:
+        _LOGGER.info("Sync complete: created %d new people records", created_count)
+    else:
+        _LOGGER.info("Sync complete: all person entities already exist")
+
+
+async def _handle_update_list(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    store: ChoreBotStore,
+) -> None:
+    """Handle the chorebot.update_list service."""
+    entity_id = call.data["list_id"]
+    list_id = _extract_list_id_from_entity(hass, entity_id)
+    if not list_id:
+        _LOGGER.error("Invalid entity_id provided: %s", entity_id)
+        raise ValueError(f"Invalid entity_id: {entity_id}")
+
+    updates = {}
+
+    # Handle name update
+    if "name" in call.data:
+        updates["name"] = call.data["name"]
+
+    # Handle person_id update
+    if call.data.get("clear_person"):
+        updates["person_id"] = None
+        _LOGGER.info("Clearing person assignment from list: %s", list_id)
+    elif "person_id" in call.data:
+        person_id = call.data["person_id"]
+        # Validate person exists
+        if person_id not in hass.states.async_entity_ids("person"):
+            _LOGGER.error("Person entity not found: %s", person_id)
+            raise ValueError(f"Person entity not found: {person_id}")
+        updates["person_id"] = person_id
+        _LOGGER.info("Assigning person %s to list: %s", person_id, list_id)
+
+    if not updates:
+        _LOGGER.warning("No updates provided for list: %s", list_id)
+        return
+
+    success = await store.async_update_list(list_id, updates)
+    if not success:
+        _LOGGER.error("Failed to update list: %s", list_id)
+        raise ValueError(f"List not found: {list_id}")
+
+    _LOGGER.info("List updated successfully: %s", list_id)
+
+
+async def _handle_manage_section(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    store: ChoreBotStore,
+) -> None:
+    """Handle the chorebot.manage_section service."""
+    entity_id = call.data["list_id"]
+    action = call.data["action"]
+
+    list_id = _extract_list_id_from_entity(hass, entity_id)
+    if not list_id:
+        _LOGGER.error("Invalid entity_id provided: %s", entity_id)
+        raise ValueError(f"Invalid entity_id: {entity_id}")
+
+    # Get current sections
+    sections = store.get_sections_for_list(list_id)
+
+    if action == "create":
+        # Validate name is provided
+        if "name" not in call.data:
+            _LOGGER.error("Section name is required for create action")
+            raise ValueError("Section name is required for create action")
+
+        name = call.data["name"]
+        section_id = call.data.get("section_id") or slugify(name)
+
+        # Check if section_id already exists
+        if any(s["id"] == section_id for s in sections):
+            _LOGGER.error("Section ID already exists: %s", section_id)
+            raise ValueError(f"Section ID already exists: {section_id}")
+
+        # Build new section
+        new_section = {
+            "id": section_id,
+            "name": name,
+            "sort_order": call.data.get("sort_order", 0),
+        }
+
+        # Handle person_id
+        if "person_id" in call.data:
+            person_id = call.data["person_id"]
+            if person_id not in hass.states.async_entity_ids("person"):
+                _LOGGER.error("Person entity not found: %s", person_id)
+                raise ValueError(f"Person entity not found: {person_id}")
+            new_section["person_id"] = person_id
+
+        sections.append(new_section)
+        _LOGGER.info(
+            "Created section '%s' (id: %s) in list: %s", name, section_id, list_id
+        )
+
+    elif action == "update":
+        # Validate section_id is provided
+        if "section_id" not in call.data:
+            _LOGGER.error("Section ID is required for update action")
+            raise ValueError("Section ID is required for update action")
+
+        section_id = call.data["section_id"]
+
+        # Find section
+        section = next((s for s in sections if s["id"] == section_id), None)
+        if not section:
+            _LOGGER.error("Section not found: %s", section_id)
+            raise ValueError(f"Section not found: {section_id}")
+
+        # Update fields
+        if "name" in call.data:
+            section["name"] = call.data["name"]
+        if "sort_order" in call.data:
+            section["sort_order"] = call.data["sort_order"]
+
+        # Handle person_id
+        if call.data.get("clear_person"):
+            section.pop("person_id", None)
+            _LOGGER.info("Cleared person assignment from section: %s", section_id)
+        elif "person_id" in call.data:
+            person_id = call.data["person_id"]
+            if person_id not in hass.states.async_entity_ids("person"):
+                _LOGGER.error("Person entity not found: %s", person_id)
+                raise ValueError(f"Person entity not found: {person_id}")
+            section["person_id"] = person_id
+            _LOGGER.info("Assigned person %s to section: %s", person_id, section_id)
+
+        _LOGGER.info("Updated section: %s", section_id)
+
+    elif action == "delete":
+        # Validate section_id is provided
+        if "section_id" not in call.data:
+            _LOGGER.error("Section ID is required for delete action")
+            raise ValueError("Section ID is required for delete action")
+
+        section_id = call.data["section_id"]
+
+        # Check if section exists
+        section = next((s for s in sections if s["id"] == section_id), None)
+        if not section:
+            _LOGGER.error("Section not found: %s", section_id)
+            raise ValueError(f"Section not found: {section_id}")
+
+        # Check if any tasks reference this section
+        tasks = store.get_tasks_for_list(list_id)
+        tasks_in_section = [t for t in tasks if t.section_id == section_id]
+        if tasks_in_section:
+            _LOGGER.warning(
+                "Deleting section '%s' with %d tasks. Tasks will become orphaned.",
+                section_id,
+                len(tasks_in_section),
+            )
+
+        # Remove section
+        sections = [s for s in sections if s["id"] != section_id]
+        _LOGGER.info("Deleted section: %s", section_id)
+
+    else:
+        _LOGGER.error("Invalid action: %s", action)
+        raise ValueError(f"Invalid action: {action}")
+
+    # Save updated sections
+    await store.async_set_sections(list_id, sections)
+
+
 async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> None:
     """Daily maintenance: archive old instances, hide completed instances, check streaks."""
     _LOGGER.debug("Running daily maintenance job")
@@ -552,6 +776,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await people_store.async_load()
     hass.data[DOMAIN]["people_store"] = people_store
     _LOGGER.info("People store initialized")
+
+    # Automatically sync people with HA person entities on setup
+    person_entity_ids = list(hass.states.async_entity_ids("person"))
+    if person_entity_ids:
+        created_count = await people_store.async_sync_people(person_entity_ids)
+        _LOGGER.info(
+            "Auto-sync on setup: %d person entities, %d new records created",
+            len(person_entity_ids),
+            created_count,
+        )
+    else:
+        _LOGGER.warning("No person entities found during setup")
 
     # Initialize sync coordinator if sync is enabled
     sync_coordinator = await _async_setup_sync_coordinator(hass, entry, store)
@@ -705,6 +941,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             schema=ADJUST_POINTS_SCHEMA,
         )
         _LOGGER.info("Service registered: %s", SERVICE_ADJUST_POINTS)
+
+    # Register chorebot.sync_people service
+    if people_store:
+
+        async def handle_sync_people(call: ServiceCall) -> None:
+            await _handle_sync_people(call, hass, people_store)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SYNC_PEOPLE,
+            handle_sync_people,
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_SYNC_PEOPLE)
+
+    # Register chorebot.update_list service
+    async def handle_update_list(call: ServiceCall) -> None:
+        await _handle_update_list(call, hass, store)
+
+    hass.services.async_register(
+        DOMAIN, "update_list", handle_update_list, schema=UPDATE_LIST_SCHEMA
+    )
+    _LOGGER.info("Service registered: update_list")
+
+    # Register chorebot.manage_section service
+    async def handle_manage_section(call: ServiceCall) -> None:
+        await _handle_manage_section(call, hass, store)
+
+    hass.services.async_register(
+        DOMAIN, "manage_section", handle_manage_section, schema=MANAGE_SECTION_SCHEMA
+    )
+    _LOGGER.info("Service registered: manage_section")
 
     # Forward to TODO platform
     _LOGGER.info("Forwarding setup to platforms: %s", PLATFORMS)
