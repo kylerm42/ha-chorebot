@@ -154,6 +154,43 @@ When a recurring task instance is marked completed:
 9. Completed instance stays visible until midnight
 10. Daily maintenance job soft-deletes completed instances at midnight
 
+### Recurring Instance Uncomplete Logic (Anti-Farming Protection)
+
+When a recurring task instance is marked incomplete (uncompleted):
+
+1. Points are deducted (base points only, NOT streak bonuses)
+2. **Instance is disassociated from template**: `parent_uid` set to `None`, `occurrence_index` set to `0`
+3. Instance becomes a regular one-time task (orphaned)
+4. Template and streak remain unchanged
+5. Next scheduled instance (already created) remains linked to template
+6. Recurring schedule continues normally
+
+**Why Disassociation?**
+
+- Prevents streak farming: Re-completing the orphaned instance won't increment streak
+- Prevents bonus farming: No bonus checks run on orphaned instances
+- Simple implementation: No need to track "already processed" state
+- TickTick-proven approach: Battle-tested by millions of users
+
+**Example Flow:**
+
+```
+Day 7: Complete recurring task
+  → +10 points, streak 6→7, +50 bonus (at milestone), next instance created
+
+Later: Uncomplete same task
+  → -10 points, parent_uid set to None (orphaned)
+  → Streak stays at 7, bonus stays at +50
+
+Re-complete orphaned task:
+  → +10 points only
+  → NO streak change (it's orphaned)
+  → NO bonus (it's orphaned)
+
+Day 8: Complete NEXT scheduled instance
+  → +10 points, streak 7→8, continues normally
+```
+
 ### Streak Tracking (Strict Consecutive)
 
 - **Increment**: When instance completed on or before its `due` date, template's `streak_current` is incremented
@@ -278,7 +315,10 @@ Build Configuration:
 - `chorebot.create_list`: Create a new task list (auto-generates list_id from name). If sync enabled, auto-creates remote list/project.
 - `chorebot.add_task`: Add task with full custom field support (tags, rrule, etc.). When `rrule` is provided, creates both template and first instance.
 - `chorebot.sync`: Manually trigger pull sync from remote backend. Optional `list_id` parameter to sync specific list (otherwise syncs all).
-- `chorebot.redeem_item`: Subtract points from user data (post-MVP)
+- `chorebot.manage_reward`: Create or update a reward in the points system
+- `chorebot.redeem_reward`: Redeem a reward for a person (deducts points)
+- `chorebot.delete_reward`: Delete a reward from the system
+- `chorebot.adjust_points`: Manually adjust points for a person (admin use)
 
 ## Important Reminders
 
@@ -356,13 +396,38 @@ Build Configuration:
    - Auto-hides empty groups
    - Dual bundle output (32KB list card, 33KB grouped card)
 
+10. **Points & Rewards System - Phase 1: Backend Foundation** (Completed 2025-01-14):
+    - Created `people.py` with `PeopleStore` class for managing points, transactions, and rewards
+    - Data models: `PersonPoints`, `Transaction`, `Reward`, `Redemption`
+    - Extended Task model with `streak_bonus_points` and `streak_bonus_interval` fields
+    - Points award logic in `todo.py` with person ID resolution (section > list > none)
+    - Automatic streak bonus awards at configurable intervals for recurring tasks
+    - Four new services: `manage_reward`, `redeem_reward`, `delete_reward`, `adjust_points`
+    - `sensor.chorebot_points` entity exposing people balances, rewards, and transaction history
+    - Storage: `.storage/chorebot_people.json` for all points/rewards data
+    - Full transaction audit trail with type-specific metadata
+    - Person assignment: Lists and sections can have optional `person_id` field (section overrides list)
+    - **Anti-Farming Protection**: Uncompleting a recurring task disassociates it from the template (sets `parent_uid=None`), preventing streak/bonus farming while allowing future occurrences to continue normally
+    - **Implementation Notes**:
+      - Storage configuration already supported `person_id` on lists/sections (no code changes needed)
+      - Streak bonuses checked AFTER streak increment (e.g., bonus at 7 days means streak_current=7)
+      - Points deducted on task uncomplete, but streak bonuses are NOT deducted
+      - Rewards are persistent (not one-time use) and can be disabled without deletion
+      - Disassociation approach inspired by TickTick's behavior - elegant and simple solution
+
 ### 🚧 In Progress / Next Steps
 
 1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution
-2. **Frontend Enhancements**:
+2. **Points System Testing**:
+   - Test points award/deduction on task completion/uncomplete
+   - Test streak bonus awards at correct intervals (7, 14, 21 days)
+   - Test reward redemption with validation (sufficient points, enabled rewards)
+3. **Frontend Enhancements**:
    - Add tags field to edit dialog (currently tasks can have tags but not editable via UI)
    - Streak display for recurring tasks in card UI
-   - Visual effects for task completion (e.g., confetti)
+   - Points badge display on task cards (`show_points` config option)
+   - Points fields in edit dialog (points_value, streak_bonus_points, streak_bonus_interval)
+   - Rewards card for displaying people balances and available rewards
+   - Visual effects for task completion and reward redemption (e.g., confetti)
    - Separate "Add Task" button card (optional - currently handled via edit dialog)
-3. **Advanced Features**: Points/rewards system, badges, shop functionality
 4. **Additional Backends**: Todoist, Notion, or other task management services

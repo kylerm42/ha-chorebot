@@ -176,3 +176,109 @@ sync:
         entity:
           integration: chorebot
           domain: todo
+
+manage_reward:
+  name: Manage Reward
+  description: Create or update a reward in the points system.
+  fields:
+    reward_id:
+      name: Reward ID
+      description: Reward ID (omit to auto-generate for new reward).
+      required: false
+      example: "reward1"
+      selector:
+        text:
+    name:
+      name: Name
+      description: Reward name.
+      required: true
+      example: "Extra Screen Time (30min)"
+      selector:
+        text:
+    cost:
+      name: Cost
+      description: Point cost.
+      required: true
+      example: 50
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+    icon:
+      name: Icon
+      description: MDI icon.
+      required: true
+      example: "mdi:television"
+      selector:
+        icon:
+    description:
+      name: Description
+      description: Reward description.
+      required: false
+      example: "Get 30 extra minutes of screen time"
+      selector:
+        text:
+          multiline: true
+
+redeem_reward:
+  name: Redeem Reward
+  description: Redeem a reward for a person.
+  fields:
+    person_id:
+      name: Person
+      description: Home Assistant Person entity.
+      required: true
+      example: "person.kid1"
+      selector:
+        entity:
+          domain: person
+    reward_id:
+      name: Reward ID
+      description: Reward ID to redeem.
+      required: true
+      example: "reward1"
+      selector:
+        text:
+
+delete_reward:
+  name: Delete Reward
+  description: Delete a reward from the system.
+  fields:
+    reward_id:
+      name: Reward ID
+      description: Reward ID to delete.
+      required: true
+      example: "reward1"
+      selector:
+        text:
+
+adjust_points:
+  name: Adjust Points
+  description: Manually adjust points for a person (admin use).
+  fields:
+    person_id:
+      name: Person
+      description: Home Assistant Person entity.
+      required: true
+      example: "person.mom"
+      selector:
+        entity:
+          domain: person
+    amount:
+      name: Amount
+      description: Points to add (negative to subtract).
+      required: true
+      example: 100
+      selector:
+        number:
+          min: -10000
+          max: 10000
+          mode: box
+    reason:
+      name: Reason
+      description: Reason for adjustment.
+      required: true
+      example: "Birthday bonus"
+      selector:
+        text:

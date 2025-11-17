@@ -1,7 +1,7 @@
 # ChoreBot Points & Rewards System Specification
 
-**Version**: 1.0  
-**Status**: Draft  
+**Version**: 1.0
+**Status**: Draft
 **Last Updated**: 2025-01-14
 
 ## Overview
@@ -1332,7 +1332,7 @@ export function renderTaskDialog(/* ... */) {
 
 ## Implementation Phases
 
-### Phase 1: Backend Foundation (High Priority)
+### Phase 1: Backend Foundation ✅ COMPLETED (2025-01-14)
 
 1. ✅ Create `people.py` with `PeopleStore` class
 2. ✅ Extend `Task` model with `streak_bonus_points` and `streak_bonus_interval`
@@ -1342,7 +1342,16 @@ export function renderTaskDialog(/* ... */) {
 6. ✅ Create `sensor.chorebot_points` entity
 7. ✅ Update `__init__.py` to initialize `PeopleStore`
 
-### Phase 2: Frontend Display (Medium Priority)
+**Implementation Notes:**
+
+- Storage already supported arbitrary fields on lists/sections, no schema changes needed
+- Streak bonuses calculated AFTER streak increment (bonus at 7 = streak_current reaches 7)
+- Person ID resolution: section.person_id > list.person_id > None
+- Transaction audit trail includes all point changes with metadata
+- Rewards are persistent (not consumed on redemption)
+- **Anti-Farming Protection**: Uncompleting a recurring task disassociates it from template (parent_uid=None), preventing repeated complete/uncomplete farming of streaks and bonuses. Inspired by TickTick's approach.
+
+### Phase 2: Frontend Display
 
 1. ✅ Update `types.ts` with points fields
 2. ✅ Add points badge to list and grouped cards
@@ -1350,13 +1359,13 @@ export function renderTaskDialog(/* ... */) {
 4. ✅ Create `rewards-card.ts` component
 5. ✅ Add rewards card to build system
 
-### Phase 3: Edit Dialog Enhancement (Low Priority)
+### Phase 3: Edit Dialog Enhancement
 
 1. ✅ Add points fields to edit dialog
 2. ✅ Add streak bonus fields (only for recurring tasks)
 3. ✅ Add validation and helper text
 
-### Phase 4: Polish & Testing (Low Priority)
+### Phase 4: Polish & Testing
 
 1. ✅ Add redemption success animation (confetti)
 2. ✅ Add transaction history view (future enhancement)

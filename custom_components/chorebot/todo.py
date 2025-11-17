@@ -392,6 +392,11 @@ class ChoreBotList(TodoListEntity):
             old_status == "needs_action" and task.status == "completed"
         )
 
+        # Handle points logic (only if status changed)
+        new_status = task.status
+        if old_status != new_status:
+            await self._handle_points_for_status_change(task, old_status, new_status)
+
         # Handle recurring instance completion
         if status_changed_to_completed and task.is_recurring_instance():
             await self._handle_recurring_instance_completion(task)
@@ -456,6 +461,119 @@ class ChoreBotList(TodoListEntity):
             # TodoItem doesn't support tags, points, rrule, etc.
             # Those can only be updated via chorebot.update_task service
         )
+
+    async def _handle_points_for_status_change(
+        self,
+        task: Task,
+        old_status: str,
+        new_status: str,
+    ) -> None:
+        """Handle point awards/deductions on status change."""
+        # Get people store
+        people_store = self.hass.data[DOMAIN].get("people_store")
+        if not people_store:
+            return
+
+        # Only award points if task has points_value
+        if task.points_value == 0:
+            return
+
+        # Resolve person_id
+        person_id = self._resolve_person_id_for_task(task)
+        if not person_id:
+            return
+
+        # Validate person exists in HA
+        if not self._validate_person_entity(person_id):
+            _LOGGER.warning("Person entity not found: %s", person_id)
+            return
+
+        # Handle completion
+        if new_status == "completed" and old_status == "needs_action":
+            # Award base points
+            await people_store.async_add_points(
+                person_id,
+                task.points_value,
+                "task_completion",
+                {
+                    "task_uid": task.uid,
+                    "task_summary": task.summary,
+                    "list_id": self._list_id,
+                },
+            )
+
+            # Check for streak bonus (recurring tasks only)
+            if task.is_recurring_instance() and task.streak_bonus_points > 0:
+                template = self._store.get_template(self._list_id, task.parent_uid)
+                if template and template.streak_bonus_interval > 0:
+                    # Check if current streak is a milestone
+                    if (
+                        template.streak_current > 0
+                        and template.streak_current % template.streak_bonus_interval
+                        == 0
+                    ):
+                        await people_store.async_add_points(
+                            person_id,
+                            template.streak_bonus_points,
+                            "streak_bonus",
+                            {
+                                "task_uid": task.uid,
+                                "task_summary": task.summary,
+                                "streak": template.streak_current,
+                            },
+                        )
+                        _LOGGER.info(
+                            "Awarded streak bonus: %d points for %d-day streak",
+                            template.streak_bonus_points,
+                            template.streak_current,
+                        )
+
+        # Handle uncomplete
+        elif new_status == "needs_action" and old_status == "completed":
+            # Deduct points (no streak bonus deduction)
+            await people_store.async_add_points(
+                person_id,
+                -task.points_value,
+                "task_uncomplete",
+                {
+                    "task_uid": task.uid,
+                    "task_summary": task.summary,
+                    "list_id": self._list_id,
+                },
+            )
+
+            # Disassociate recurring instances from template to prevent farming
+            # This converts the instance into a regular one-time task
+            if task.is_recurring_instance():
+                _LOGGER.info(
+                    "Disassociating uncompleted recurring instance %s from template %s",
+                    task.uid,
+                    task.parent_uid,
+                )
+                task.parent_uid = None
+                task.occurrence_index = 0
+
+    def _resolve_person_id_for_task(self, task: Task) -> str | None:
+        """Resolve person_id: section > list > None."""
+        # 1. Check task's section for person_id
+        if task.section_id:
+            sections = self._store.get_sections_for_list(self._list_id)
+            for section in sections:
+                if section["id"] == task.section_id:
+                    if "person_id" in section:
+                        return section["person_id"]
+
+        # 2. Fall back to list's person_id
+        list_config = self._store.get_list(self._list_id)
+        if list_config:
+            return list_config.get("person_id")
+
+        # 3. If neither exists, return None (no points awarded)
+        return None
+
+    def _validate_person_entity(self, person_id: str) -> bool:
+        """Check if person entity exists in HA."""
+        return person_id in self.hass.states.async_entity_ids("person")
 
     async def _handle_recurring_instance_completion(self, instance: Task) -> None:
         """Handle completion of a recurring task instance."""

@@ -28,11 +28,16 @@ from .const import (
     DEFAULT_SYNC_INTERVAL_MINUTES,
     DOMAIN,
     SERVICE_ADD_TASK,
+    SERVICE_ADJUST_POINTS,
     SERVICE_CREATE_LIST,
+    SERVICE_DELETE_REWARD,
+    SERVICE_MANAGE_REWARD,
+    SERVICE_REDEEM_REWARD,
     SERVICE_SYNC,
     SERVICE_UPDATE_TASK,
 )
 from .oauth_api import AsyncConfigEntryAuth
+from .people import PeopleStore
 from .store import ChoreBotStore
 from .sync_coordinator import SyncCoordinator
 from .task import Task
@@ -40,7 +45,7 @@ from .ticktick_backend import TickTickBackend
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.TODO]
+PLATFORMS: list[Platform] = [Platform.TODO, Platform.SENSOR]
 
 # Service schema for chorebot.create_list
 CREATE_LIST_SCHEMA = vol.Schema(
@@ -78,6 +83,43 @@ UPDATE_TASK_SCHEMA = vol.Schema(
         vol.Optional("points_value"): cv.positive_int,
         vol.Optional("rrule"): cv.string,
         vol.Optional("include_future_occurrences"): cv.boolean,
+    }
+)
+
+# Service schema for chorebot.manage_reward
+MANAGE_REWARD_SCHEMA = vol.Schema(
+    {
+        vol.Optional("reward_id"): cv.string,
+        vol.Required("name"): cv.string,
+        vol.Required("cost"): cv.positive_int,
+        vol.Required("icon"): cv.string,
+        vol.Optional("description"): cv.string,
+    }
+)
+
+# Service schema for chorebot.redeem_reward
+REDEEM_REWARD_SCHEMA = vol.Schema(
+    {
+        vol.Required("person_id"): cv.entity_id,
+        vol.Required("reward_id"): cv.string,
+    }
+)
+
+# Service schema for chorebot.delete_reward
+DELETE_REWARD_SCHEMA = vol.Schema(
+    {
+        vol.Required("reward_id"): cv.string,
+    }
+)
+
+# Service schema for chorebot.adjust_points
+ADJUST_POINTS_SCHEMA = vol.Schema(
+    {
+        vol.Required("person_id"): cv.entity_id,
+        vol.Required("amount"): vol.All(
+            vol.Coerce(int), vol.Range(min=-10000, max=10000)
+        ),
+        vol.Required("reason"): cv.string,
     }
 )
 
@@ -334,6 +376,102 @@ async def _handle_sync(
         _LOGGER.debug("Updated state for all %d entities", len(entities))
 
 
+async def _handle_manage_reward(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    people_store: PeopleStore,
+) -> None:
+    """Handle the chorebot.manage_reward service."""
+    reward_id = call.data.get("reward_id")
+    name = call.data["name"]
+    cost = call.data["cost"]
+    icon = call.data["icon"]
+    description = call.data.get("description", "")
+
+    _LOGGER.info("Managing reward via service: %s (cost: %d pts)", name, cost)
+
+    result_id = await people_store.async_create_reward(
+        reward_id=reward_id,
+        name=name,
+        cost=cost,
+        icon=icon,
+        description=description,
+    )
+
+    _LOGGER.info("Reward managed successfully: %s (id: %s)", name, result_id)
+
+
+async def _handle_redeem_reward(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    people_store: PeopleStore,
+) -> None:
+    """Handle the chorebot.redeem_reward service."""
+    person_id = call.data["person_id"]
+    reward_id = call.data["reward_id"]
+
+    # Validate person exists
+    if person_id not in hass.states.async_entity_ids("person"):
+        _LOGGER.error("Person entity not found: %s", person_id)
+        raise ValueError(f"Person entity not found: {person_id}")
+
+    _LOGGER.info("Redeeming reward %s for %s", reward_id, person_id)
+
+    success, message = await people_store.async_redeem_reward(person_id, reward_id)
+
+    if not success:
+        _LOGGER.error("Reward redemption failed: %s", message)
+        raise ValueError(message)
+
+    _LOGGER.info("Reward redeemed successfully: %s", message)
+
+
+async def _handle_delete_reward(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    people_store: PeopleStore,
+) -> None:
+    """Handle the chorebot.delete_reward service."""
+    reward_id = call.data["reward_id"]
+
+    _LOGGER.info("Deleting reward via service: %s", reward_id)
+
+    success = await people_store.async_delete_reward(reward_id)
+
+    if not success:
+        _LOGGER.error("Reward not found for deletion: %s", reward_id)
+        raise ValueError(f"Reward not found: {reward_id}")
+
+    _LOGGER.info("Reward deleted successfully: %s", reward_id)
+
+
+async def _handle_adjust_points(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    people_store: PeopleStore,
+) -> None:
+    """Handle the chorebot.adjust_points service."""
+    person_id = call.data["person_id"]
+    amount = call.data["amount"]
+    reason = call.data["reason"]
+
+    # Validate person exists
+    if person_id not in hass.states.async_entity_ids("person"):
+        _LOGGER.error("Person entity not found: %s", person_id)
+        raise ValueError(f"Person entity not found: {person_id}")
+
+    _LOGGER.info("Adjusting points for %s: %+d pts (%s)", person_id, amount, reason)
+
+    await people_store.async_add_points(
+        person_id,
+        amount,
+        "manual_adjustment",
+        {"reason": reason},
+    )
+
+    _LOGGER.info("Points adjusted successfully for %s", person_id)
+
+
 async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> None:
     """Daily maintenance: archive old instances, hide completed instances, check streaks."""
     _LOGGER.debug("Running daily maintenance job")
@@ -408,6 +546,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Store in hass.data
     hass.data[DOMAIN]["store"] = store
     _LOGGER.info("Store saved to hass.data")
+
+    # Initialize people store
+    people_store = PeopleStore(hass)
+    await people_store.async_load()
+    hass.data[DOMAIN]["people_store"] = people_store
+    _LOGGER.info("People store initialized")
 
     # Initialize sync coordinator if sync is enabled
     sync_coordinator = await _async_setup_sync_coordinator(hass, entry, store)
@@ -502,6 +646,65 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DOMAIN, SERVICE_SYNC, handle_sync, schema=SYNC_SCHEMA
         )
         _LOGGER.info("Service registered: %s", SERVICE_SYNC)
+
+    # Get people store (may not exist if not initialized yet)
+    people_store = hass.data[DOMAIN].get("people_store")
+
+    # Register chorebot.manage_reward service
+    if people_store:
+
+        async def handle_manage_reward(call: ServiceCall) -> None:
+            await _handle_manage_reward(call, hass, people_store)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_MANAGE_REWARD,
+            handle_manage_reward,
+            schema=MANAGE_REWARD_SCHEMA,
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_MANAGE_REWARD)
+
+    # Register chorebot.redeem_reward service
+    if people_store:
+
+        async def handle_redeem_reward(call: ServiceCall) -> None:
+            await _handle_redeem_reward(call, hass, people_store)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REDEEM_REWARD,
+            handle_redeem_reward,
+            schema=REDEEM_REWARD_SCHEMA,
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_REDEEM_REWARD)
+
+    # Register chorebot.delete_reward service
+    if people_store:
+
+        async def handle_delete_reward(call: ServiceCall) -> None:
+            await _handle_delete_reward(call, hass, people_store)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DELETE_REWARD,
+            handle_delete_reward,
+            schema=DELETE_REWARD_SCHEMA,
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_DELETE_REWARD)
+
+    # Register chorebot.adjust_points service
+    if people_store:
+
+        async def handle_adjust_points(call: ServiceCall) -> None:
+            await _handle_adjust_points(call, hass, people_store)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_ADJUST_POINTS,
+            handle_adjust_points,
+            schema=ADJUST_POINTS_SCHEMA,
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_ADJUST_POINTS)
 
     # Forward to TODO platform
     _LOGGER.info("Forwarding setup to platforms: %s", PLATFORMS)

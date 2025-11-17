@@ -1,4 +1,5 @@
 """Task model for ChoreBot."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ from .const import (
     FIELD_POINTS_VALUE,
     FIELD_RRULE,
     FIELD_SECTION_ID,
+    FIELD_STREAK_BONUS_INTERVAL,
+    FIELD_STREAK_BONUS_POINTS,
     FIELD_STREAK_CURRENT,
     FIELD_STREAK_LONGEST,
     FIELD_TAGS,
@@ -40,13 +43,19 @@ class Task:
     streak_longest: int = 0
     last_completed: str | None = None  # ISO 8601 timestamp
     points_value: int = 0
+    streak_bonus_points: int = 0  # Bonus points at streak milestones
+    streak_bonus_interval: int = 0  # Days between bonuses (0 = disabled)
     parent_uid: str | None = None  # Points to template task if this is an instance
     is_template: bool = False  # True if this is a recurring task template
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
     is_all_day: bool = False  # True if this is an all-day task (no specific time)
     section_id: str | None = None  # Section/column this task belongs to
-    custom_fields: dict[str, Any] = field(default_factory=dict)  # Backend-specific metadata
-    sync: dict[str, dict[str, Any]] = field(default_factory=dict)  # Sync metadata per backend
+    custom_fields: dict[str, Any] = field(
+        default_factory=dict
+    )  # Backend-specific metadata
+    sync: dict[str, dict[str, Any]] = field(
+        default_factory=dict
+    )  # Sync metadata per backend
 
     @classmethod
     def create_new(
@@ -99,6 +108,12 @@ class Task:
             custom_fields_output[FIELD_LAST_COMPLETED] = self.last_completed
         if self.points_value > 0:
             custom_fields_output[FIELD_POINTS_VALUE] = self.points_value
+        if self.streak_bonus_points > 0:
+            custom_fields_output[FIELD_STREAK_BONUS_POINTS] = self.streak_bonus_points
+        if self.streak_bonus_interval > 0:
+            custom_fields_output[FIELD_STREAK_BONUS_INTERVAL] = (
+                self.streak_bonus_interval
+            )
         if self.parent_uid:
             custom_fields_output[FIELD_PARENT_UID] = self.parent_uid
             # Always store occurrence_index for instances (even if 0)
@@ -151,6 +166,8 @@ class Task:
             FIELD_STREAK_LONGEST,
             FIELD_LAST_COMPLETED,
             FIELD_POINTS_VALUE,
+            FIELD_STREAK_BONUS_POINTS,
+            FIELD_STREAK_BONUS_INTERVAL,
             FIELD_PARENT_UID,
             FIELD_IS_TEMPLATE,
             FIELD_OCCURRENCE_INDEX,
@@ -163,7 +180,11 @@ class Task:
             k: v for k, v in custom_fields.items() if k not in known_fields
         }
 
-        template_value = is_template if is_template is not None else custom_fields.get(FIELD_IS_TEMPLATE, False)
+        template_value = (
+            is_template
+            if is_template is not None
+            else custom_fields.get(FIELD_IS_TEMPLATE, False)
+        )
 
         return cls(
             uid=data["uid"],
@@ -180,6 +201,8 @@ class Task:
             streak_longest=custom_fields.get(FIELD_STREAK_LONGEST, 0),
             last_completed=custom_fields.get(FIELD_LAST_COMPLETED),
             points_value=custom_fields.get(FIELD_POINTS_VALUE, 0),
+            streak_bonus_points=custom_fields.get(FIELD_STREAK_BONUS_POINTS, 0),
+            streak_bonus_interval=custom_fields.get(FIELD_STREAK_BONUS_INTERVAL, 0),
             parent_uid=custom_fields.get(FIELD_PARENT_UID),
             is_template=template_value,
             occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
