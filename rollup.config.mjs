@@ -52,4 +52,19 @@ export default [
       production && terser(),
     ],
   },
+  // ChoreBot Rewards Card
+  {
+    input: "src/rewards-card.ts",
+    output: {
+      file: "dist/chorebot-rewards-card.js",
+      format: "es",
+      sourcemap: !production,
+    },
+    plugins: [
+      resolve({ browser: true }),
+      commonjs(),
+      typescript(),
+      production && terser(),
+    ],
+  },
 ];

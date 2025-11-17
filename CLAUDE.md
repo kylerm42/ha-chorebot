@@ -415,6 +415,47 @@ Build Configuration:
       - Rewards are persistent (not one-time use) and can be disabled without deletion
       - Disassociation approach inspired by TickTick's behavior - elegant and simple solution
 
+11. **Points & Rewards System - Phase 2: Frontend Display** (Completed 2025-11-17):
+    - **Points Badge on Task Cards**:
+      - Added `show_points` config option (default: true) to both list and grouped cards
+      - Points badge displays inline with due date: `+10 pts`
+      - Bonus detection: Shows `+10 + 50 pts` with golden gradient when next completion awards streak bonus
+      - Automatic bonus calculation checks template's current streak vs interval
+      - CSS animation (glow effect) highlights upcoming bonus opportunities
+    - **Points Fields in Edit Dialog**:
+      - Added `points_value` field (0-10000) to all tasks
+      - Added `streak_bonus_points` field (0-10000) for recurring tasks only
+      - Added `streak_bonus_interval` field (0-999) for recurring tasks only
+      - Conditional visibility: Bonus fields only shown when task has recurrence enabled
+      - Clear helper text: "Bonus Every X Days (0 = no bonus)"
+    - **New Rewards Card** (`chorebot-rewards-card.ts`):
+      - **People Section**: Displays all people with points balances
+        - Avatar support: Shows person's picture if available, falls back to initials
+        - Circular avatars with gradient background for initials
+        - Sorted by points balance (highest first)
+        - Filters out deleted person entities silently
+      - **Rewards Grid**: Responsive grid layout (250px min column width)
+        - Shows icon, name, cost, and description for each reward
+        - Configurable sorting: cost (default), name, or created date
+        - Optional display of disabled rewards (`show_disabled_rewards` config)
+        - Per-person redeem buttons (one for each person)
+        - Buttons disabled if person can't afford or reward is disabled
+      - **Redemption Flow**:
+        - Calls `chorebot.redeem_reward` service
+        - Shows loading state during redemption ("Redeeming...")
+        - Success: Triggers star shower confetti animation (3 seconds)
+        - Error: Displays alert with error message
+        - Automatically updates when sensor state changes
+      - **Config Options**:
+        - `title`: Card title (default: "Rewards")
+        - `show_title`: Show/hide title (default: true)
+        - `hide_card_background`: Remove card background (default: false)
+        - `show_people_section`: Show/hide people balances (default: true)
+        - `show_disabled_rewards`: Include disabled rewards (default: false)
+        - `sort_by`: Sort order - "cost", "name", or "created" (default: "cost")
+    - **Build System**: Added rewards card to Rollup configuration (4 cards total: list, grouped, add-task, rewards)
+    - **Bundle Sizes**: List (47KB), Grouped (55KB), Add Task (29KB), Rewards (37KB)
+
 ### 🚧 In Progress / Next Steps
 
 1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution
@@ -422,12 +463,11 @@ Build Configuration:
    - Test points award/deduction on task completion/uncomplete
    - Test streak bonus awards at correct intervals (7, 14, 21 days)
    - Test reward redemption with validation (sufficient points, enabled rewards)
-3. **Frontend Enhancements**:
-   - Add tags field to edit dialog (currently tasks can have tags but not editable via UI)
-   - Streak display for recurring tasks in card UI
-   - Points badge display on task cards (`show_points` config option)
-   - Points fields in edit dialog (points_value, streak_bonus_points, streak_bonus_interval)
-   - Rewards card for displaying people balances and available rewards
-   - Visual effects for task completion and reward redemption (e.g., confetti)
-   - Separate "Add Task" button card (optional - currently handled via edit dialog)
+   - Test points badge display and bonus detection in UI
+   - Test rewards card with multiple people and rewards
+3. **Future Frontend Enhancements**:
+   - Transaction history view (dedicated card or modal)
+   - Leaderboards (weekly/monthly/all-time top earners)
+   - Badges/achievements for milestones
+   - Point multipliers (double points events, special occasions)
 4. **Additional Backends**: Todoist, Notion, or other task management services

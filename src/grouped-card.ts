@@ -219,6 +219,39 @@ export class ChoreBotGroupedCard extends LitElement {
       font-size: 14px;
       font-weight: normal;
       opacity: 0.7;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .points-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      font-size: 11px;
+      font-weight: bold;
+      white-space: nowrap;
+      opacity: 0.9;
+    }
+
+    .points-badge.bonus-pending {
+      background: linear-gradient(135deg, #ffd700, #ffa500);
+      animation: glow 2s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+    }
+
+    @keyframes glow {
+      0%,
+      100% {
+        opacity: 0.9;
+      }
+      50% {
+        opacity: 1;
+      }
     }
 
     .recurring-icon {
@@ -269,6 +302,7 @@ export class ChoreBotGroupedCard extends LitElement {
       hide_card_background: config.hide_card_background === true,
       task_background_color: config.task_background_color || "",
       task_text_color: config.task_text_color || "",
+      show_points: config.show_points !== false,
       untagged_header: config.untagged_header || "Untagged",
       tag_group_order: config.tag_group_order || [],
       show_future_tasks: config.show_future_tasks === true,
@@ -459,6 +493,7 @@ export class ChoreBotGroupedCard extends LitElement {
                         class="recurring-icon"
                       ></ha-icon>`
                     : ""}
+                  ${this._renderPointsBadge(task)}
                 </div>`
               : ""}
           </div>
@@ -475,6 +510,37 @@ export class ChoreBotGroupedCard extends LitElement {
         </div>
       `;
     });
+  }
+
+  private _renderPointsBadge(task: Task) {
+    // Don't show if points disabled or task has no points
+    if (!this._config?.show_points || !task.points_value) {
+      return html``;
+    }
+
+    // Check if this is a recurring task with upcoming bonus
+    const entity = this.hass?.states[this._config.entity];
+    const templates = entity?.attributes.chorebot_templates || [];
+
+    if (
+      task.parent_uid &&
+      task.streak_bonus_points &&
+      task.streak_bonus_interval
+    ) {
+      const template = templates.find((t: any) => t.uid === task.parent_uid);
+      if (template) {
+        const nextStreak = template.streak_current + 1;
+        if (nextStreak % task.streak_bonus_interval === 0) {
+          // Next completion will award bonus!
+          return html`<span class="points-badge bonus-pending">
+            +${task.points_value} + ${task.streak_bonus_points} pts
+          </span>`;
+        }
+      }
+    }
+
+    // Regular points badge
+    return html`<span class="points-badge">+${task.points_value} pts</span>`;
   }
 
   // ============================================================================

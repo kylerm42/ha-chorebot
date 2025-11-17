@@ -18,6 +18,13 @@ export function prepareTaskForEditing(task: Task): EditingTask {
     is_all_day: task.is_all_day || task.custom_fields?.is_all_day || false,
     tags: task.tags || task.custom_fields?.tags || [],
     section_id: task.section_id || task.custom_fields?.section_id,
+    points_value: task.points_value || task.custom_fields?.points_value || 0,
+    streak_bonus_points:
+      task.streak_bonus_points || task.custom_fields?.streak_bonus_points || 0,
+    streak_bonus_interval:
+      task.streak_bonus_interval ||
+      task.custom_fields?.streak_bonus_interval ||
+      0,
   };
 
   // Extract due date/time if present
@@ -207,6 +214,43 @@ export function buildEditDialogSchema(
     }
   }
 
+  // Points section
+  schema.push({
+    name: "points_value",
+    selector: {
+      number: {
+        min: 0,
+        max: 10000,
+        mode: "box",
+      },
+    },
+  });
+
+  // Streak bonus section (only for recurring tasks)
+  if (hasDueDate && task.has_recurrence) {
+    schema.push({
+      name: "streak_bonus_points",
+      selector: {
+        number: {
+          min: 0,
+          max: 10000,
+          mode: "box",
+        },
+      },
+    });
+
+    schema.push({
+      name: "streak_bonus_interval",
+      selector: {
+        number: {
+          min: 0,
+          max: 999,
+          mode: "box",
+        },
+      },
+    });
+  }
+
   return schema;
 }
 
@@ -253,6 +297,9 @@ export function buildEditDialogData(
     recurrence_interval: task.recurrence_interval || 1,
     recurrence_byweekday: task.recurrence_byweekday || [],
     recurrence_bymonthday: task.recurrence_bymonthday || 1,
+    points_value: task.points_value || 0,
+    streak_bonus_points: task.streak_bonus_points || 0,
+    streak_bonus_interval: task.streak_bonus_interval || 0,
   };
 }
 
@@ -276,6 +323,9 @@ export function computeLabel(schema: any): string {
     recurrence_interval: "Repeat Every",
     recurrence_byweekday: "Days of Week",
     recurrence_bymonthday: "Day of Month",
+    points_value: "Points",
+    streak_bonus_points: "Streak Bonus Points",
+    streak_bonus_interval: "Bonus Every X Days (0 = no bonus)",
   };
   return labels[schema.name] || schema.name;
 }

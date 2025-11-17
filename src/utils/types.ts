@@ -36,6 +36,7 @@ export interface ChoreBotBaseConfig {
   filter_section_id?: string;
   task_background_color?: string;
   task_text_color?: string;
+  show_points?: boolean; // Default: true
 }
 
 export interface Task {
@@ -49,6 +50,9 @@ export interface Task {
   tags?: string[];
   is_all_day?: boolean;
   section_id?: string;
+  points_value?: number;
+  streak_bonus_points?: number;
+  streak_bonus_interval?: number;
   custom_fields?: {
     tags?: string[];
     is_all_day?: boolean;
@@ -57,6 +61,9 @@ export interface Task {
     rrule?: string;
     section_id?: string;
     last_completed?: string;
+    points_value?: number;
+    streak_bonus_points?: number;
+    streak_bonus_interval?: number;
   };
 }
 
@@ -75,6 +82,9 @@ export interface EditingTask extends Task {
   recurrence_interval?: number;
   recurrence_byweekday?: string[];
   recurrence_bymonthday?: number;
+  points_value?: number;
+  streak_bonus_points?: number;
+  streak_bonus_interval?: number;
 }
 
 export interface Progress {
@@ -86,4 +96,46 @@ export interface GroupState {
   name: string;
   tasks: Task[];
   isCollapsed: boolean;
+}
+
+// ============================================================================
+// Points & Rewards Interfaces
+// ============================================================================
+
+export interface ChoreBotRewardsConfig {
+  type: "custom:chorebot-rewards-card";
+  title?: string;
+  show_title?: boolean;
+  hide_card_background?: boolean;
+  show_people_section?: boolean; // Default: true
+  show_disabled_rewards?: boolean; // Default: false
+  sort_by?: "cost" | "name" | "created"; // Default: "cost"
+}
+
+export interface PersonPoints {
+  entity_id: string;
+  points_balance: number;
+  lifetime_points: number;
+  last_updated: string;
+}
+
+export interface Reward {
+  id: string;
+  name: string;
+  cost: number;
+  icon: string;
+  enabled: boolean;
+  description: string;
+  created?: string;
+  modified?: string;
+}
+
+export interface Transaction {
+  id: string;
+  timestamp: string;
+  person_id: string;
+  amount: number;
+  balance_after: number;
+  type: string;
+  metadata: { [key: string]: any };
 }
