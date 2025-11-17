@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: 2025-11-17 - Storage Optimization: Split storage files for better performance and namespace isolation
+**Last Updated**: 2025-11-17 - Development Environment: Migrated from VS Code dev containers to Docker Compose for simpler, more stable workflow
 
 ## Project Overview
 
@@ -34,49 +34,74 @@ The integration follows a **three-layer architecture** with strict separation of
 
 ## Development Environment
 
-This integration is developed using the [Home Assistant Core devcontainer](https://developers.home-assistant.io/docs/development_environment):
+This integration uses a **Docker Compose setup** for simplified development without VS Code dependencies. See `DEVELOPMENT.md` for detailed instructions.
 
-1. Clone the HA core repository: https://github.com/home-assistant/core
-2. Open in VS Code with Dev Containers extension
-3. Add mounts to `core/.devcontainer/devcontainer.json`:
+### Quick Start
 
-```json
-"mounts": [
-    "source=/path/to/ha-chorebot/custom_components/chorebot,target=${containerWorkspaceFolder}/config/custom_components/chorebot,type=bind",
-    "source=/path/to/ha-chorebot/dist,target=${containerWorkspaceFolder}/config/www,type=bind"
-]
+```bash
+# Start HA + auto-building card builder
+docker-compose up -d
+
+# View logs
+docker-compose logs -f homeassistant
+docker-compose logs -f card-builder
+
+# Stop everything
+docker-compose down
 ```
 
-4. Rebuild the devcontainer
-5. Run `hass -c config` to start Home Assistant
-6. Access at http://localhost:8123
+Access at http://localhost:8123
+
+### Architecture
+
+Two services run in parallel:
+
+1. **homeassistant**: Official `homeassistant/home-assistant:dev` image
+   - Config: `./dev-config` mounted to `/config`
+   - Integration: `./custom_components/chorebot` mounted to `/config/custom_components/chorebot`
+   - Cards: `./dist` mounted to `/config/www/chorebot`
+
+2. **card-builder**: Node.js 20 Alpine container
+   - Runs `npm run watch` automatically
+   - Rebuilds TypeScript cards on file changes
+   - Only watches `src/` directory (won't rebuild on Python changes)
 
 ### Frontend Development Workflow
 
-The frontend card is built with TypeScript and requires compilation:
+The frontend cards are built with TypeScript and Lit:
 
-1. **Install dependencies**: `npm install` (one-time setup)
-2. **Development mode**: `npm run watch` (auto-recompiles on changes)
-3. **Production build**: `npm run build` (creates minified bundle)
-4. **Output**: Compiled bundle is placed in `dist/chorebot-list-card.js`
-5. **Testing**: The devcontainer mount maps `dist/` to `config/www/`, making the compiled card immediately available in HA
+1. **Automatic building**: The `card-builder` service runs `npm run watch` by default
+2. **Edit TypeScript**: Changes to `src/` trigger automatic rebuilds
+3. **Check build logs**: `docker-compose logs -f card-builder`
+4. **View in browser**: Hard refresh (Ctrl+Shift+R) to see changes
 
 **Build Tools:**
 
-- **Rollup**: Bundles TypeScript source into a single ES module
-- **TypeScript**: Provides type checking and modern JavaScript features
+- **Rollup**: Bundles TypeScript source into ES modules
+- **TypeScript**: Type checking and modern JavaScript features
 - **Lit**: Web Components framework for building the card UI
 - **Terser**: Minifies production builds
 
+**Output (4 cards in `dist/`):**
+- `chorebot-list-card.js` - Today-focused flat view (47KB)
+- `chorebot-grouped-card.js` - Tag-based grouped view (55KB)
+- `chorebot-add-task-card.js` - Add task dialog (29KB)
+- `chorebot-rewards-card.js` - Points & rewards (37KB)
+
 ### Testing Changes
 
-- **Python changes**: Restart Home Assistant from Developer Tools → Server Controls
-- **Frontend changes**:
-  1. Build: `npm run build` (or `npm run watch` for automatic rebuilding)
-  2. Copy `dist/chorebot-list-card.js` to `config/www/chorebot-list-card.js` in devcontainer
-  3. Hard refresh browser (Ctrl+Shift+R)
+- **Python changes**: `docker-compose restart homeassistant` or restart from Developer Tools → Server Controls
+- **Frontend changes**: Automatic rebuild + hard refresh browser (Ctrl+Shift+R)
 - **Config flow changes**: Remove and re-add the integration
-- **View logs**: `docker logs -f homeassistant` or check `config/home-assistant.log`
+- **View logs**: `docker-compose logs -f homeassistant` or check `dev-config/home-assistant.log`
+
+### Config and Data Location
+
+All HA config and runtime data is in `dev-config/`:
+- `configuration.yaml` - Main HA config
+- `secrets.yaml` - Credentials (gitignored)
+- `.storage/` - HA state and ChoreBot data (gitignored)
+- `home-assistant_v2.db` - SQLite database (gitignored)
 
 ## Storage Architecture
 

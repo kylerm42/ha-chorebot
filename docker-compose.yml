@@ -1,0 +1,27 @@
+services:
+  homeassistant:
+    container_name: homeassistant-chorebot-dev
+    image: homeassistant/home-assistant:dev
+    volumes:
+      # Main HA config directory
+      - ./dev-config:/config
+      # Mount integration Python files (live editing)
+      - ./custom_components/chorebot:/config/custom_components/chorebot
+      # Mount built frontend cards
+      - ./dist:/config/www/chorebot
+    ports:
+      - "8123:8123"
+    restart: unless-stopped
+    # Allow device access if needed for certain integrations
+    privileged: true
+    network_mode: host
+
+  card-builder:
+    container_name: chorebot-card-builder
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      # Mount entire project for access to src, dist, configs
+      - ./:/app
+    command: sh -c "npm install && npm run watch"
+    restart: unless-stopped
