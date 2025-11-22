@@ -66,6 +66,9 @@ ADD_TASK_SCHEMA = vol.Schema(
         vol.Optional("is_all_day"): cv.boolean,
         vol.Optional("tags"): cv.ensure_list,
         vol.Optional("section_id"): cv.string,
+        vol.Optional("points_value"): cv.positive_int,
+        vol.Optional("streak_bonus_points"): cv.positive_int,
+        vol.Optional("streak_bonus_interval"): cv.positive_int,
         vol.Optional("rrule"): cv.string,
     }
 )
@@ -83,6 +86,8 @@ UPDATE_TASK_SCHEMA = vol.Schema(
         vol.Optional("tags"): cv.ensure_list,
         vol.Optional("section_id"): cv.string,
         vol.Optional("points_value"): cv.positive_int,
+        vol.Optional("streak_bonus_points"): cv.positive_int,
+        vol.Optional("streak_bonus_interval"): cv.positive_int,
         vol.Optional("rrule"): cv.string,
         vol.Optional("include_future_occurrences"): cv.boolean,
     }
@@ -370,6 +375,8 @@ async def _handle_update_task(
         is_all_day=call.data.get("is_all_day"),
         section_id=call.data.get("section_id"),
         points_value=call.data.get("points_value"),
+        streak_bonus_points=call.data.get("streak_bonus_points"),
+        streak_bonus_interval=call.data.get("streak_bonus_interval"),
         rrule=call.data.get("rrule"),
         include_future_occurrences=call.data.get("include_future_occurrences", False),
     )

@@ -214,6 +214,9 @@ class ChoreBotList(TodoListEntity):
         rrule: str | None = None,
         is_all_day: bool = False,
         section_id: str | None = None,
+        points_value: int = 0,
+        streak_bonus_points: int = 0,
+        streak_bonus_interval: int = 0,
     ) -> None:
         """Internal method to create task(s) - used by both entity and services.
 
@@ -235,7 +238,11 @@ class ChoreBotList(TodoListEntity):
                 is_template=True,
                 is_all_day=is_all_day,
                 section_id=section_id,
+                points_value=points_value,
             )
+            # Set bonus fields directly on template (not supported in create_new)
+            template.streak_bonus_points = streak_bonus_points
+            template.streak_bonus_interval = streak_bonus_interval
 
             first_instance = Task.create_new(
                 summary=summary,
@@ -248,7 +255,11 @@ class ChoreBotList(TodoListEntity):
                 occurrence_index=0,
                 is_all_day=is_all_day,
                 section_id=section_id,
+                points_value=points_value,
             )
+            # Set bonus fields directly on instance (inherited from template)
+            first_instance.streak_bonus_points = streak_bonus_points
+            first_instance.streak_bonus_interval = streak_bonus_interval
 
             _LOGGER.debug("Creating recurring task template and first instance")
             await self._store.async_add_task(self._list_id, template)
@@ -270,7 +281,11 @@ class ChoreBotList(TodoListEntity):
                 rrule=None,
                 is_all_day=is_all_day,
                 section_id=section_id,
+                points_value=points_value,
             )
+            # Set bonus fields (though they won't be used for non-recurring tasks)
+            task.streak_bonus_points = streak_bonus_points
+            task.streak_bonus_interval = streak_bonus_interval
 
             await self._store.async_add_task(self._list_id, task)
 
@@ -295,6 +310,8 @@ class ChoreBotList(TodoListEntity):
         is_all_day: bool | None = None,
         section_id: str | None = None,
         points_value: int | None = None,
+        streak_bonus_points: int | None = None,
+        streak_bonus_interval: int | None = None,
         rrule: str | None = None,
         include_future_occurrences: bool = False,
     ) -> None:
@@ -362,6 +379,10 @@ class ChoreBotList(TodoListEntity):
                 template.section_id = section_id
             if points_value is not None:
                 template.points_value = points_value
+            if streak_bonus_points is not None:
+                template.streak_bonus_points = streak_bonus_points
+            if streak_bonus_interval is not None:
+                template.streak_bonus_interval = streak_bonus_interval
             if rrule is not None:
                 template.rrule = rrule
 
@@ -386,6 +407,10 @@ class ChoreBotList(TodoListEntity):
             task.section_id = section_id
         if points_value is not None:
             task.points_value = points_value
+        if streak_bonus_points is not None:
+            task.streak_bonus_points = streak_bonus_points
+        if streak_bonus_interval is not None:
+            task.streak_bonus_interval = streak_bonus_interval
 
         # Check if status changed to completed
         status_changed_to_completed = (

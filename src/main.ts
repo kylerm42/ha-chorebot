@@ -535,6 +535,17 @@ export class ChoreBotListCard extends LitElement {
       serviceData.rrule = "";
     }
 
+    // Handle points fields
+    if (this._editingTask.points_value !== undefined) {
+      serviceData.points_value = this._editingTask.points_value;
+    }
+    if (this._editingTask.streak_bonus_points !== undefined) {
+      serviceData.streak_bonus_points = this._editingTask.streak_bonus_points;
+    }
+    if (this._editingTask.streak_bonus_interval !== undefined) {
+      serviceData.streak_bonus_interval = this._editingTask.streak_bonus_interval;
+    }
+
     // For recurring task instances, always apply changes to future instances
     const isRecurringInstance = !!(
       this._editingTask.parent_uid ||
@@ -543,6 +554,8 @@ export class ChoreBotListCard extends LitElement {
     if (isRecurringInstance) {
       serviceData.include_future_occurrences = true;
     }
+
+    console.log("Calling chorebot.update_task with payload:", serviceData);
 
     try {
       await this.hass!.callService("chorebot", "update_task", serviceData);
