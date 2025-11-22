@@ -31,6 +31,12 @@ export class ChoreBotRewardsCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @state() private _config?: ChoreBotRewardsConfig;
   @state() private _redeeming: string | null = null; // reward_id being redeemed
+  @state() private _selectedPersonId: string | null = null; // Currently selected person
+  @state() private _showConfirmModal: boolean = false; // Show redemption confirmation
+  @state() private _pendingRedemption: {
+    personId: string;
+    rewardId: string;
+  } | null = null; // Pending redemption details
 
   static styles = css`
     :host {
@@ -70,6 +76,44 @@ export class ChoreBotRewardsCard extends LitElement {
       border-radius: 12px;
       background: var(--card-background-color);
       border: 1px solid var(--divider-color);
+      flex: 1;
+      min-width: 0; /* Allow flex items to shrink below content size */
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .person-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .person-card.selected {
+      border-color: var(--primary-color);
+      border-width: 2px;
+      padding: 11px; /* Compensate for thicker border */
+      background: color-mix(
+        in srgb,
+        var(--primary-color) 10%,
+        var(--card-background-color)
+      );
+    }
+
+    .person-card.selected::after {
+      content: "✓";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      background: var(--primary-color);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
     }
 
     .person-avatar {
@@ -171,14 +215,7 @@ export class ChoreBotRewardsCard extends LitElement {
       margin-top: -4px;
     }
 
-    /* Redeem Buttons */
-    .redeem-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: auto;
-    }
-
+    /* Redeem Button */
     .redeem-button {
       padding: 8px 16px;
       border: none;
@@ -189,6 +226,8 @@ export class ChoreBotRewardsCard extends LitElement {
       font-size: 14px;
       font-weight: 500;
       transition: all 0.2s ease;
+      margin-top: auto;
+      width: 100%;
     }
 
     .redeem-button:hover:not(:disabled) {
@@ -199,6 +238,103 @@ export class ChoreBotRewardsCard extends LitElement {
     .redeem-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    /* Confirmation Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--card-background-color);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      color: var(--primary-text-color);
+    }
+
+    .modal-body {
+      margin-bottom: 24px;
+      color: var(--primary-text-color);
+    }
+
+    .modal-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      background: var(--secondary-background-color);
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .modal-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-info-label {
+      color: var(--secondary-text-color);
+      font-size: 14px;
+    }
+
+    .modal-info-value {
+      color: var(--primary-text-color);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .modal-button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .modal-button.cancel {
+      background: var(--secondary-background-color);
+      color: var(--primary-text-color);
+    }
+
+    .modal-button.cancel:hover {
+      background: var(--divider-color);
+    }
+
+    .modal-button.confirm {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .modal-button.confirm:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     .empty-state {
@@ -336,6 +472,74 @@ export class ChoreBotRewardsCard extends LitElement {
           : ""}
         ${this._renderRewardsGrid(rewards, people)}
       </ha-card>
+      ${this._showConfirmModal ? this._renderConfirmModal(people, rewards) : ""}
+    `;
+  }
+
+  private _renderConfirmModal(
+    people: { [key: string]: PersonPoints },
+    rewards: Reward[],
+  ) {
+    if (!this._pendingRedemption) return "";
+
+    const { personId, rewardId } = this._pendingRedemption;
+    const person = people[personId];
+    const reward = rewards.find((r) => r.id === rewardId);
+
+    if (!person || !reward) return "";
+
+    const personName = this._getPersonName(personId);
+    const remainingPoints = person.points_balance - reward.cost;
+
+    return html`
+      <div class="modal-overlay" @click="${this._cancelRedemption}">
+        <div
+          class="modal-content"
+          @click="${(e: Event) => e.stopPropagation()}"
+        >
+          <div class="modal-header">Are you sure?</div>
+          <div class="modal-body">
+            <div class="modal-info">
+              <div class="modal-info-row">
+                <span class="modal-info-label">Person:</span>
+                <span class="modal-info-value">${personName}</span>
+              </div>
+              <div class="modal-info-row">
+                <span class="modal-info-label">Reward:</span>
+                <span class="modal-info-value">${reward.name}</span>
+              </div>
+              <div class="modal-info-row">
+                <span class="modal-info-label">Cost:</span>
+                <span class="modal-info-value">${reward.cost} pts</span>
+              </div>
+              <div class="modal-info-row">
+                <span class="modal-info-label">Current Balance:</span>
+                <span class="modal-info-value"
+                  >${person.points_balance} pts</span
+                >
+              </div>
+              <div class="modal-info-row">
+                <span class="modal-info-label">Remaining Balance:</span>
+                <span class="modal-info-value">${remainingPoints} pts</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button
+              class="modal-button cancel"
+              @click="${this._cancelRedemption}"
+            >
+              Cancel
+            </button>
+            <button
+              class="modal-button confirm"
+              @click="${this._confirmRedemption}"
+            >
+              Redeem
+            </button>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -353,6 +557,14 @@ export class ChoreBotRewardsCard extends LitElement {
       </div>`;
     }
 
+    // Auto-select first person if none selected or selected person no longer exists
+    if (
+      !this._selectedPersonId ||
+      !peopleArray.find((p) => p.entity_id === this._selectedPersonId)
+    ) {
+      this._selectedPersonId = peopleArray[0].entity_id;
+    }
+
     return html`
       <div class="people-section">
         ${peopleArray.map((person) => this._renderPersonCard(person))}
@@ -364,9 +576,13 @@ export class ChoreBotRewardsCard extends LitElement {
     const entity = this.hass?.states[person.entity_id];
     const pictureUrl = entity?.attributes.entity_picture;
     const name = this._getPersonName(person.entity_id);
+    const isSelected = this._selectedPersonId === person.entity_id;
 
     return html`
-      <div class="person-card">
+      <div
+        class="person-card ${isSelected ? "selected" : ""}"
+        @click="${() => this._selectPerson(person.entity_id)}"
+      >
         ${pictureUrl
           ? html`<div class="person-avatar">
               <img src="${pictureUrl}" alt="${name}" />
@@ -411,6 +627,14 @@ export class ChoreBotRewardsCard extends LitElement {
     reward: Reward,
     people: { [key: string]: PersonPoints },
   ) {
+    const selectedPerson = this._selectedPersonId
+      ? people[this._selectedPersonId]
+      : null;
+    const canAfford = selectedPerson
+      ? selectedPerson.points_balance >= reward.cost
+      : false;
+    const isRedeeming = this._redeeming === reward.id;
+
     return html`
       <div class="reward-card">
         <div class="reward-icon">
@@ -422,29 +646,16 @@ export class ChoreBotRewardsCard extends LitElement {
           ? html`<div class="reward-description">${reward.description}</div>`
           : ""}
 
-        <div class="redeem-buttons">
-          ${Object.keys(people)
-            .filter((personId) => {
-              // Only show buttons for people whose entities still exist
-              return this.hass?.states[personId] !== undefined;
-            })
-            .map((personId) => {
-              const person = people[personId];
-              const canAfford = person.points_balance >= reward.cost;
-              const isRedeeming = this._redeeming === reward.id;
-              return html`
-                <button
-                  class="redeem-button"
-                  ?disabled="${!canAfford || !reward.enabled || isRedeeming}"
-                  @click="${() => this._redeemReward(personId, reward.id)}"
-                >
-                  ${isRedeeming
-                    ? "Redeeming..."
-                    : `${this._getPersonName(personId)}`}
-                </button>
-              `;
-            })}
-        </div>
+        <button
+          class="redeem-button"
+          ?disabled="${!canAfford ||
+          !reward.enabled ||
+          isRedeeming ||
+          !this._selectedPersonId}"
+          @click="${() => this._showRedeemConfirmation(reward.id)}"
+        >
+          ${isRedeeming ? "Redeeming..." : "Redeem"}
+        </button>
       </div>
     `;
   }
@@ -497,6 +708,37 @@ export class ChoreBotRewardsCard extends LitElement {
 
     // Play star shower animation
     playStarShower(colors, 3000);
+  }
+
+  private _selectPerson(personId: string) {
+    this._selectedPersonId = personId;
+  }
+
+  private _showRedeemConfirmation(rewardId: string) {
+    if (!this._selectedPersonId) return;
+
+    this._pendingRedemption = {
+      personId: this._selectedPersonId,
+      rewardId: rewardId,
+    };
+    this._showConfirmModal = true;
+  }
+
+  private _cancelRedemption() {
+    this._showConfirmModal = false;
+    this._pendingRedemption = null;
+  }
+
+  private async _confirmRedemption() {
+    if (!this._pendingRedemption) return;
+
+    const { personId, rewardId } = this._pendingRedemption;
+
+    // Close modal and trigger redemption
+    this._showConfirmModal = false;
+    this._pendingRedemption = null;
+
+    await this._redeemReward(personId, rewardId);
   }
 
   private _getPersonName(entityId: string): string {

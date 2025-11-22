@@ -437,6 +437,12 @@ async def _handle_manage_reward(
 
     _LOGGER.info("Reward managed successfully: %s (id: %s)", name, result_id)
 
+    # Trigger immediate sensor update
+    points_sensor = hass.data[DOMAIN].get("points_sensor")
+    if points_sensor:
+        points_sensor.async_write_ha_state()
+        _LOGGER.debug("Triggered points sensor update after reward management")
+
 
 async def _handle_redeem_reward(
     call: ServiceCall,
@@ -462,6 +468,12 @@ async def _handle_redeem_reward(
 
     _LOGGER.info("Reward redeemed successfully: %s", message)
 
+    # Trigger immediate sensor update
+    points_sensor = hass.data[DOMAIN].get("points_sensor")
+    if points_sensor:
+        points_sensor.async_write_ha_state()
+        _LOGGER.debug("Triggered points sensor update after redemption")
+
 
 async def _handle_delete_reward(
     call: ServiceCall,
@@ -480,6 +492,12 @@ async def _handle_delete_reward(
         raise ValueError(f"Reward not found: {reward_id}")
 
     _LOGGER.info("Reward deleted successfully: %s", reward_id)
+
+    # Trigger immediate sensor update
+    points_sensor = hass.data[DOMAIN].get("points_sensor")
+    if points_sensor:
+        points_sensor.async_write_ha_state()
+        _LOGGER.debug("Triggered points sensor update after reward deletion")
 
 
 async def _handle_adjust_points(
@@ -507,6 +525,12 @@ async def _handle_adjust_points(
     )
 
     _LOGGER.info("Points adjusted successfully for %s", person_id)
+
+    # Trigger immediate sensor update
+    points_sensor = hass.data[DOMAIN].get("points_sensor")
+    if points_sensor:
+        points_sensor.async_write_ha_state()
+        _LOGGER.debug("Triggered points sensor update after points adjustment")
 
 
 async def _handle_sync_people(

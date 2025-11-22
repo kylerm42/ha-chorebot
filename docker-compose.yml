@@ -15,6 +15,7 @@ services:
     # Allow device access if needed for certain integrations
     privileged: true
     network_mode: host
+    user: "1000:1000"
 
   card-builder:
     container_name: chorebot-card-builder

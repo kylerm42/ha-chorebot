@@ -36,11 +36,21 @@ Access Home Assistant at: http://localhost:8123
 
 1. Edit files in `custom_components/chorebot/`
 2. Changes are immediately visible to HA via volume mount
-3. Restart HA to load changes:
-   ```bash
-   docker-compose restart homeassistant
-   ```
-4. Or restart from Developer Tools → Server Controls in HA UI
+3. Restart HA to load changes (choose one method):
+
+**Option A: UI Restart (Recommended - Fastest)**
+- Go to Developer Tools → Server Controls
+- Click "Restart" button
+- Wait ~20 seconds for HA to reload
+
+**Option B: Container Restart (Simple and Reliable)**
+```bash
+docker-compose restart homeassistant
+```
+- Takes ~30-60 seconds (includes container restart + HA startup)
+- Always works, no auth tokens needed
+
+**Note**: Only restart the container if you've changed `docker-compose.yml` or need to troubleshoot container issues. For code changes, the UI restart is faster.
 
 ### Frontend (TypeScript/Lit) Development
 
@@ -148,7 +158,7 @@ docker exec -it homeassistant-chorebot-dev tail -f /config/home-assistant.log
 
 If you modify `config_flow.py`:
 1. Remove the integration (Settings → Devices & Services → ChoreBot → Delete)
-2. Restart HA
+2. Restart HA (use Developer Tools → Server Controls → Restart)
 3. Re-add the integration
 
 ### Service Testing

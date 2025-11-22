@@ -27,6 +27,10 @@ async def async_setup_entry(
     # Create sensor entity
     sensor = ChoreBotPointsSensor(people_store)
     async_add_entities([sensor])
+
+    # Store sensor entity in hass.data for triggering updates
+    hass.data[DOMAIN]["points_sensor"] = sensor
+
     _LOGGER.info("Sensor entity created: sensor.chorebot_points")
 
 

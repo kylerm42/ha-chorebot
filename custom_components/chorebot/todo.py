@@ -528,6 +528,12 @@ class ChoreBotList(TodoListEntity):
                             template.streak_current,
                         )
 
+            # Trigger immediate sensor update
+            points_sensor = self.hass.data[DOMAIN].get("points_sensor")
+            if points_sensor:
+                points_sensor.async_write_ha_state()
+                _LOGGER.debug("Triggered points sensor update after task completion")
+
         # Handle uncomplete
         elif new_status == "needs_action" and old_status == "completed":
             # Deduct points (no streak bonus deduction)
@@ -552,6 +558,12 @@ class ChoreBotList(TodoListEntity):
                 )
                 task.parent_uid = None
                 task.occurrence_index = 0
+
+            # Trigger immediate sensor update
+            points_sensor = self.hass.data[DOMAIN].get("points_sensor")
+            if points_sensor:
+                points_sensor.async_write_ha_state()
+                _LOGGER.debug("Triggered points sensor update after task uncomplete")
 
     def _resolve_person_id_for_task(self, task: Task) -> str | None:
         """Resolve person_id: section > list > None."""

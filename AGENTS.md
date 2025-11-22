@@ -1,6 +1,28 @@
-# CLAUDE.md
+<!-- OPENSPEC:START -->
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
+# AGENTS.md
+
+This file provides guidance to AI Agents when working with code in this repository.
 
 **Last Updated**: 2025-11-17 - Development Environment: Migrated from VS Code dev containers to Docker Compose for simpler, more stable workflow
 
@@ -83,6 +105,7 @@ The frontend cards are built with TypeScript and Lit:
 - **Terser**: Minifies production builds
 
 **Output (4 cards in `dist/`):**
+
 - `chorebot-list-card.js` - Today-focused flat view (47KB)
 - `chorebot-grouped-card.js` - Tag-based grouped view (55KB)
 - `chorebot-add-task-card.js` - Add task dialog (29KB)
@@ -98,6 +121,7 @@ The frontend cards are built with TypeScript and Lit:
 ### Config and Data Location
 
 All HA config and runtime data is in `dev-config/`:
+
 - `configuration.yaml` - Main HA config
 - `secrets.yaml` - Credentials (gitignored)
 - `.storage/` - HA state and ChoreBot data (gitignored)
