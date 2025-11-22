@@ -1,0 +1,9 @@
+# Linux-specific overrides - use with: docker compose -f docker-compose.yml -f docker-compose.linux.yml up
+services:
+  homeassistant:
+    # Enable host networking on Linux for full mDNS/discovery support
+    network_mode: host
+    # Remove ports mapping (not used in host mode)
+    ports: []
+    # Enable privileged mode for device access
+    privileged: true

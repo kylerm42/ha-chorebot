@@ -24,7 +24,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 This file provides guidance to AI Agents when working with code in this repository.
 
-**Last Updated**: 2025-11-17 - Development Environment: Migrated from VS Code dev containers to Docker Compose for simpler, more stable workflow
+**Last Updated**: 2025-11-22 - Development Environment: Docker Compose with cross-platform support (macOS/Linux)
 
 ## Project Overview
 
@@ -61,18 +61,22 @@ This integration uses a **Docker Compose setup** for simplified development with
 ### Quick Start
 
 ```bash
-# Start HA + auto-building card builder
-docker-compose up -d
+# Easy way (works on both macOS and Linux)
+./dev.sh up           # Start services
+./dev.sh logs         # View logs
+./dev.sh restart      # Restart services
+./dev.sh down         # Stop everything
 
-# View logs
-docker-compose logs -f homeassistant
-docker-compose logs -f card-builder
+# Manual way - macOS/Windows
+docker compose up -d
 
-# Stop everything
-docker-compose down
+# Manual way - Linux (with host networking)
+docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d
 ```
 
 Access at http://localhost:8123
+
+**Platform Note**: The `dev.sh` helper script automatically detects your platform and uses the correct Docker Compose configuration. On Linux, it enables host networking for better integration discovery. On macOS/Windows, it uses standard port mapping.
 
 ### Architecture
 

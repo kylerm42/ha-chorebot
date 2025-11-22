@@ -16,17 +16,35 @@ The development environment consists of two services:
 
 ## Quick Start
 
+### macOS / Windows
+
 ```bash
 # Start both services (HA + auto-building cards)
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f homeassistant
-docker-compose logs -f card-builder
+docker compose logs -f homeassistant
+docker compose logs -f card-builder
 
 # Stop everything
-docker-compose down
+docker compose down
 ```
+
+### Linux
+
+```bash
+# Start with host networking for full mDNS/discovery support
+docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d
+
+# View logs
+docker compose logs -f homeassistant
+docker compose logs -f card-builder
+
+# Stop everything
+docker compose -f docker-compose.yml -f docker-compose.linux.yml down
+```
+
+**Note**: Linux uses `network_mode: host` which provides better integration discovery but requires the `-f` flag to include the Linux override file.
 
 Access Home Assistant at: http://localhost:8123
 
@@ -78,41 +96,53 @@ The Docker Compose setup uses these mounts:
 
 ```yaml
 homeassistant:
-  - ./dev-config → /config                                    # HA config
-  - ./custom_components/chorebot → /config/custom_components/chorebot  # Live Python code
-  - ./dist → /config/www/chorebot                             # Built cards
+  - ./dev-config → /config # HA config
+  - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code
+  - ./dist → /config/www/chorebot # Built cards
 
 card-builder:
-  - ./ → /app                                                 # Entire project for building
+  - ./ → /app # Entire project for building
 ```
 
 ## Common Commands
 
 ### Container Management
 
+**macOS/Windows:**
+
 ```bash
 # Start services in background
-docker-compose up -d
+docker compose up -d
 
 # Start services with logs visible
-docker-compose up
+docker compose up
 
 # Stop services
-docker-compose down
+docker compose down
 
 # Restart HA only
-docker-compose restart homeassistant
+docker compose restart homeassistant
 
 # Restart card builder (if package.json changes)
-docker-compose restart card-builder
+docker compose restart card-builder
 
 # View logs
-docker-compose logs -f                # Both services
-docker-compose logs -f homeassistant  # HA only
-docker-compose logs -f card-builder   # Builder only
+docker compose logs -f                # Both services
+docker compose logs -f homeassistant  # HA only
+docker compose logs -f card-builder   # Builder only
 
 # Rebuild containers (after Dockerfile changes)
-docker-compose up -d --build
+docker compose up -d --build
+```
+
+**Linux:**
+
+```bash
+# Use -f flags to include both files
+docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.linux.yml down
+docker compose restart homeassistant  # Works without -f flags
+docker compose logs -f homeassistant  # Works without -f flags
 ```
 
 ### Accessing HA Container
@@ -157,6 +187,7 @@ docker exec -it homeassistant-chorebot-dev tail -f /config/home-assistant.log
 ### Config Flow Changes
 
 If you modify `config_flow.py`:
+
 1. Remove the integration (Settings → Devices & Services → ChoreBot → Delete)
 2. Restart HA (use Developer Tools → Server Controls → Restart)
 3. Re-add the integration
@@ -187,12 +218,14 @@ service: chorebot.sync
 ### Frontend Card Build
 
 The card builder uses:
+
 - **Rollup**: Bundles TypeScript → JavaScript
 - **TypeScript**: Type checking and modern JS features
 - **Lit**: Web Components framework
 - **Terser**: Minification for production
 
 Build outputs (in `dist/`):
+
 - `chorebot-list-card.js` - Today-focused flat view
 - `chorebot-grouped-card.js` - Tag-based grouped view
 - `chorebot-add-task-card.js` - Add task dialog
@@ -211,19 +244,48 @@ npm run watch
 npm run build
 ```
 
+## Platform-Specific Networking
+
+### Why Two Docker Compose Files?
+
+**macOS/Windows**: Docker Desktop uses a VM, so `network_mode: host` doesn't work. Port mapping (`8123:8123`) is required.
+
+**Linux**: Docker runs natively, so `network_mode: host` works and provides better performance and integration discovery (mDNS, SSDP, etc.).
+
+The `docker-compose.yml` file contains the base configuration that works everywhere. The `docker-compose.linux.yml` file overrides the network settings for Linux-only optimizations.
+
+### When Do You Need Host Networking?
+
+You probably **don't need it** for ChoreBot development. Port mapping works fine for:
+
+- Web UI access
+- REST API calls
+- OAuth flows
+- Custom integrations
+
+You **might need it** if you're working with:
+
+- Home Assistant discovery protocols (mDNS, SSDP)
+- Network device integrations (like Sonos, HomeKit)
+- Multicast protocols
+
+For most ChoreBot development, just use the standard `docker compose up -d` on any platform.
+
 ## Troubleshooting
 
 ### "Port 8123 already in use"
 
 Another HA instance is running. Stop it or change the port in `docker-compose.yml`:
+
 ```yaml
 ports:
-  - "8124:8123"  # Use 8124 instead
+  - "8124:8123" # Use 8124 instead
 ```
 
 ### "Permission denied" Errors
 
 The HA container runs as root by default. If you see permission issues:
+
 ```bash
 # Fix ownership of dev-config
 sudo chown -R $USER:$USER dev-config/
@@ -245,6 +307,7 @@ sudo chown -R $USER:$USER dev-config/
 ## Differences from Dev Container Setup
 
 **Old (Dev Containers)**:
+
 - VS Code dependent
 - Full HA core repository required
 - Symlinks between repos
@@ -252,6 +315,7 @@ sudo chown -R $USER:$USER dev-config/
 - Can cause VS Code crashes
 
 **New (Docker Compose)**:
+
 - Editor agnostic
 - Single repository
 - Direct volume mounts
@@ -260,13 +324,13 @@ sudo chown -R $USER:$USER dev-config/
 
 ## File Locations
 
-| What | Old Location | New Location |
-|------|-------------|--------------|
-| HA Config | `core/config/` | `ha-chorebot/dev-config/` |
-| Integration Code | `ha-chorebot/custom_components/` | (same) |
-| Frontend Source | `ha-chorebot/src/` | (same) |
-| Built Cards | `ha-chorebot/dist/` | (same) |
-| Storage Data | `core/config/.storage/` | `ha-chorebot/dev-config/.storage/` |
+| What             | Old Location                     | New Location                       |
+| ---------------- | -------------------------------- | ---------------------------------- |
+| HA Config        | `core/config/`                   | `ha-chorebot/dev-config/`          |
+| Integration Code | `ha-chorebot/custom_components/` | (same)                             |
+| Frontend Source  | `ha-chorebot/src/`               | (same)                             |
+| Built Cards      | `ha-chorebot/dist/`              | (same)                             |
+| Storage Data     | `core/config/.storage/`          | `ha-chorebot/dev-config/.storage/` |
 
 ## Additional Resources
 

@@ -1,3 +1,4 @@
+# Base configuration - works on macOS, Windows, and Linux
 services:
   homeassistant:
     container_name: homeassistant-chorebot-dev
@@ -12,10 +13,10 @@ services:
     ports:
       - "8123:8123"
     restart: unless-stopped
-    # Allow device access if needed for certain integrations
-    privileged: true
-    network_mode: host
     user: "1000:1000"
+    environment:
+      # Disable IPv6 to avoid network issues on some systems
+      - DISABLE_IPV6=true
 
   card-builder:
     container_name: chorebot-card-builder
