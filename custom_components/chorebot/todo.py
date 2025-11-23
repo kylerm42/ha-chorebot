@@ -257,9 +257,7 @@ class ChoreBotList(TodoListEntity):
                 section_id=section_id,
                 points_value=points_value,
             )
-            # Set bonus fields directly on instance (inherited from template)
-            first_instance.streak_bonus_points = streak_bonus_points
-            first_instance.streak_bonus_interval = streak_bonus_interval
+            # Note: Instances do NOT store bonus fields - they reference their parent template
 
             _LOGGER.debug("Creating recurring task template and first instance")
             await self._store.async_add_task(self._list_id, template)
@@ -472,10 +470,14 @@ class ChoreBotList(TodoListEntity):
             task.section_id = section_id
         if points_value is not None:
             task.points_value = points_value
-        if streak_bonus_points is not None:
-            task.streak_bonus_points = streak_bonus_points
-        if streak_bonus_interval is not None:
-            task.streak_bonus_interval = streak_bonus_interval
+        
+        # Bonus fields: Only update on regular tasks (not recurring instances)
+        # For recurring instances, bonus fields must be updated on the template via include_future_occurrences
+        if not task.is_recurring_instance():
+            if streak_bonus_points is not None:
+                task.streak_bonus_points = streak_bonus_points
+            if streak_bonus_interval is not None:
+                task.streak_bonus_interval = streak_bonus_interval
 
         # Check if status changed to completed
         status_changed_to_completed = (

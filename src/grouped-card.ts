@@ -230,8 +230,6 @@ export class ChoreBotGroupedCard extends LitElement {
       align-items: center;
       padding: 2px 8px;
       border-radius: 12px;
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
       font-size: 11px;
       font-weight: bold;
       white-space: nowrap;
@@ -239,7 +237,8 @@ export class ChoreBotGroupedCard extends LitElement {
     }
 
     .points-badge.bonus-pending {
-      background: linear-gradient(135deg, #ffd700, #ffa500);
+      background: linear-gradient(135deg, #ffd700, #ffa500) !important;
+      border: 1px solid currentColor !important;
       animation: glow 2s ease-in-out infinite;
       box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
     }
@@ -518,25 +517,42 @@ export class ChoreBotGroupedCard extends LitElement {
       return html``;
     }
 
+    // Get configured colors
+    const bgColor =
+      this._config!.task_background_color || "var(--primary-color)";
+    const textColor = this._config!.task_text_color || "white";
+
     // Check if this is a recurring task with upcoming bonus
     const entity = this.hass?.states[this._config.entity];
     const templates = entity?.attributes.chorebot_templates || [];
 
-    if (task.parent_uid && task.streak_bonus_points && task.streak_bonus_interval) {
+    if (task.parent_uid) {
       const template = templates.find((t: any) => t.uid === task.parent_uid);
-      if (template) {
+      if (
+        template &&
+        template.streak_bonus_points &&
+        template.streak_bonus_interval
+      ) {
         const nextStreak = template.streak_current + 1;
-        if (nextStreak % task.streak_bonus_interval === 0) {
+        if (nextStreak % template.streak_bonus_interval === 0) {
           // Next completion will award bonus!
-          return html`<span class="points-badge bonus-pending">
-            +${task.points_value} + ${task.streak_bonus_points} pts
+          return html`<span
+            class="points-badge bonus-pending"
+            style="color: ${textColor};"
+          >
+            +${task.points_value} + ${template.streak_bonus_points} pts
           </span>`;
         }
       }
     }
 
     // Regular points badge
-    return html`<span class="points-badge">+${task.points_value} pts</span>`;
+    return html`<span
+      class="points-badge"
+      style="background: ${bgColor}; color: ${textColor}; border: 1px solid ${textColor};"
+    >
+      +${task.points_value} pts
+    </span>`;
   }
 
   // ============================================================================
@@ -787,7 +803,11 @@ export class ChoreBotGroupedCard extends LitElement {
   // ============================================================================
 
   private _openEditDialog(task: Task) {
-    this._editingTask = prepareTaskForEditing(task);
+    if (!this.hass || !this._config?.entity) return;
+    const entity = this.hass.states[this._config.entity];
+    if (!entity) return;
+    const templates = entity.attributes.chorebot_templates || [];
+    this._editingTask = prepareTaskForEditing(task, templates);
     this._editDialogOpen = true;
   }
 
@@ -908,7 +928,8 @@ export class ChoreBotGroupedCard extends LitElement {
       serviceData.streak_bonus_points = this._editingTask.streak_bonus_points;
     }
     if (this._editingTask.streak_bonus_interval !== undefined) {
-      serviceData.streak_bonus_interval = this._editingTask.streak_bonus_interval;
+      serviceData.streak_bonus_interval =
+        this._editingTask.streak_bonus_interval;
     }
 
     // For recurring task instances, always apply changes to future instances

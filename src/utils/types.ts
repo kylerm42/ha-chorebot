@@ -60,8 +60,21 @@ export interface Task {
 
 export interface RecurringTemplate {
   uid: string;
+  summary: string;
+  status: string;
+  created: string;
+  modified: string;
+  description?: string;
+  tags?: string[];
+  rrule: string;
   streak_current: number;
   streak_longest: number;
+  is_template: boolean;
+  points_value?: number;
+  streak_bonus_points?: number;
+  streak_bonus_interval?: number;
+  is_all_day?: boolean;
+  section_id?: string;
 }
 
 export interface EditingTask extends Task {

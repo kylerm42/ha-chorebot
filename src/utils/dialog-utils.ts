@@ -3,16 +3,26 @@
 // ============================================================================
 
 import { html, TemplateResult } from "lit";
-import { HomeAssistant, Task, EditingTask, Section } from "./types.js";
+import {
+  HomeAssistant,
+  Task,
+  EditingTask,
+  Section,
+  RecurringTemplate,
+} from "./types.js";
 import { parseUTCToLocal } from "./date-utils.js";
 import { parseRrule } from "./rrule-utils.js";
 
 /**
  * Prepare a task for editing by flattening custom fields and parsing dates/rrule
  * @param task - Task to prepare for editing
+ * @param templates - Optional array of templates (for looking up recurring task templates)
  * @returns EditingTask with flattened fields
  */
-export function prepareTaskForEditing(task: Task): EditingTask {
+export function prepareTaskForEditing(
+  task: Task,
+  templates?: RecurringTemplate[],
+): EditingTask {
   const flatTask: EditingTask = {
     ...task,
     is_all_day: task.is_all_day || false,
@@ -33,8 +43,20 @@ export function prepareTaskForEditing(task: Task): EditingTask {
     flatTask.has_due_date = false;
   }
 
+  // For recurring instances, look up the template to get rrule and bonus fields
+  let rruleToUse = task.rrule;
+  if (task.parent_uid && templates) {
+    const template = templates.find((t) => t.uid === task.parent_uid);
+    if (template) {
+      rruleToUse = template.rrule;
+      // Also use template's bonus fields if instance doesn't have them
+      flatTask.streak_bonus_points = template.streak_bonus_points || 0;
+      flatTask.streak_bonus_interval = template.streak_bonus_interval || 0;
+    }
+  }
+
   // Parse existing rrule if present
-  const parsedRrule = parseRrule(task.rrule);
+  const parsedRrule = parseRrule(rruleToUse);
 
   if (parsedRrule) {
     flatTask.has_recurrence = true;
