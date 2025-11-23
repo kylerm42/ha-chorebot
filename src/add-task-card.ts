@@ -341,6 +341,30 @@ export class ChoreBotAddTaskCard extends LitElement {
       serviceData.rrule = rrule;
     }
 
+    // Handle points
+    if (
+      this._newTask.points_value !== undefined &&
+      this._newTask.points_value > 0
+    ) {
+      serviceData.points_value = this._newTask.points_value;
+    }
+
+    // Handle streak bonus (only for recurring tasks)
+    if (rrule !== null) {
+      if (
+        this._newTask.streak_bonus_points !== undefined &&
+        this._newTask.streak_bonus_points > 0
+      ) {
+        serviceData.streak_bonus_points = this._newTask.streak_bonus_points;
+      }
+      if (
+        this._newTask.streak_bonus_interval !== undefined &&
+        this._newTask.streak_bonus_interval > 0
+      ) {
+        serviceData.streak_bonus_interval = this._newTask.streak_bonus_interval;
+      }
+    }
+
     try {
       await this.hass!.callService("chorebot", "add_task", serviceData);
       this._closeDialog();

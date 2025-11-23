@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from datetime import UTC, datetime, timedelta
 import logging
 from zoneinfo import ZoneInfo
@@ -207,6 +208,97 @@ def _extract_list_id_from_entity(hass: HomeAssistant, entity_id: str) -> str | N
     return None
 
 
+def _extract_task_data_from_service_call(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    include_uid: bool = False,
+    apply_section_default: bool = False,
+    store: ChoreBotStore | None = None,
+    list_id: str | None = None,
+) -> dict[str, Any]:
+    """Extract and normalize task data from service call.
+    
+    Single source of truth for translating service call data to task model data.
+    Handles datetime conversion, tag normalization, and field extraction.
+    
+    Args:
+        call: The service call containing task data
+        hass: Home Assistant instance for timezone handling
+        include_uid: If True, extract uid field (for updates)
+        apply_section_default: If True, apply default section if not provided (for creates)
+        store: ChoreBotStore instance (required if apply_section_default is True)
+        list_id: List ID (required if apply_section_default is True)
+    
+    Returns:
+        Dictionary ready to pass to entity methods (async_create_task_internal or async_update_task_internal)
+    """
+    data: dict[str, Any] = {}
+    
+    # UID (for updates only)
+    if include_uid:
+        data["uid"] = call.data["uid"]
+    
+    # Core fields - only include if present in service call
+    if "summary" in call.data:
+        data["summary"] = call.data["summary"]
+    
+    if "description" in call.data:
+        data["description"] = call.data["description"]
+    
+    if "status" in call.data:
+        data["status"] = call.data["status"]
+    
+    # Due date (with datetime conversion)
+    if "due" in call.data:
+        due = call.data["due"]
+        if due == "":
+            # Empty string means explicitly clear the due date (update only)
+            data["due"] = ""
+        elif due:
+            # Ensure timezone-aware datetime
+            if due.tzinfo is None:
+                # Naive datetime - assume system timezone
+                system_tz = ZoneInfo(hass.config.time_zone)
+                due = due.replace(tzinfo=system_tz)
+            # Convert to UTC
+            due_utc = due.astimezone(UTC)
+            data["due"] = due_utc.isoformat().replace("+00:00", "Z")
+    
+    # Boolean flags
+    if "is_all_day" in call.data:
+        data["is_all_day"] = call.data["is_all_day"]
+    
+    # Organization fields
+    # Tags: distinguish between "not provided" and "provided as empty list"
+    if "tags" in call.data:
+        data["tags"] = call.data["tags"] if call.data["tags"] is not None else []
+    
+    if "section_id" in call.data:
+        data["section_id"] = call.data["section_id"]
+    elif apply_section_default and store and list_id:
+        # Apply default section if creating a new task and no section provided
+        data["section_id"] = store.get_default_section_id(list_id)
+    
+    # Points system fields
+    if "points_value" in call.data:
+        data["points_value"] = call.data["points_value"]
+    
+    if "streak_bonus_points" in call.data:
+        data["streak_bonus_points"] = call.data["streak_bonus_points"]
+    
+    if "streak_bonus_interval" in call.data:
+        data["streak_bonus_interval"] = call.data["streak_bonus_interval"]
+    
+    # Recurrence fields
+    if "rrule" in call.data:
+        data["rrule"] = call.data["rrule"]
+    
+    if "include_future_occurrences" in call.data:
+        data["include_future_occurrences"] = call.data["include_future_occurrences"]
+    
+    return data
+
+
 async def _handle_create_list(
     call: ServiceCall,
     hass: HomeAssistant,
@@ -265,24 +357,13 @@ async def _handle_add_task(
 ) -> None:
     """Handle the chorebot.add_task service."""
     entity_id = call.data["list_id"]
-    summary = call.data["summary"]
-    description = call.data.get("description")
-    due = call.data.get("due")
-    is_all_day = call.data.get("is_all_day", False)
-    tags = call.data.get("tags", [])
-    rrule = call.data.get("rrule")
-    section_id = call.data.get("section_id")
 
     list_id = _extract_list_id_from_entity(hass, entity_id)
     if not list_id:
         _LOGGER.error("Invalid entity_id provided: %s", entity_id)
         return
 
-    # Use default section if not provided
-    if not section_id:
-        section_id = store.get_default_section_id(list_id)
-
-    _LOGGER.info("Adding task via service: %s to list %s", summary, list_id)
+    _LOGGER.info("Adding task via service: %s to list %s", call.data["summary"], list_id)
 
     # Get the entity instance
     entities = hass.data[DOMAIN].get("entities", {})
@@ -292,29 +373,19 @@ async def _handle_add_task(
         _LOGGER.error("Entity not found for list_id: %s", list_id)
         return
 
-    # Convert due datetime to ISO string if present
-    due_str = None
-    if due:
-        # Ensure timezone-aware datetime
-        if due.tzinfo is None:
-            # Naive datetime - assume system timezone
-            system_tz = ZoneInfo(hass.config.time_zone)
-            due = due.replace(tzinfo=system_tz)
-        # Convert to UTC
-        due_utc = due.astimezone(UTC)
-        due_str = due_utc.isoformat().replace("+00:00", "Z")
+    # Extract and normalize task data using shared function
+    task_data = _extract_task_data_from_service_call(
+        call=call,
+        hass=hass,
+        include_uid=False,
+        apply_section_default=True,
+        store=store,
+        list_id=list_id,
+    )
 
     # Call entity's internal method - single source of truth!
     # This ensures consistent state updates, sync, and no dispatcher needed
-    await entity.async_create_task_internal(
-        summary=summary,
-        description=description,
-        due=due_str,
-        tags=tags or [],
-        rrule=rrule,
-        is_all_day=is_all_day,
-        section_id=section_id,
-    )
+    await entity.async_create_task_internal(**task_data)
 
 
 async def _handle_update_task(
@@ -342,44 +413,18 @@ async def _handle_update_task(
         _LOGGER.error("Entity not found for list_id: %s", list_id)
         return
 
-    # Convert due datetime to ISO string if present
-    due_str = None
-    if "due" in call.data:
-        due = call.data["due"]
-        if due == "":
-            # Empty string means explicitly clear the due date
-            due_str = ""
-        elif due:
-            # Ensure timezone-aware datetime
-            if due.tzinfo is None:
-                # Naive datetime - assume system timezone
-                system_tz = ZoneInfo(hass.config.time_zone)
-                due = due.replace(tzinfo=system_tz)
-            # Convert to UTC
-            due_utc = due.astimezone(UTC)
-            due_str = due_utc.isoformat().replace("+00:00", "Z")
-
-    # Extract tags explicitly to handle empty list case
-    # call.data.get() returns None if key not present
-    # But we need to distinguish between "not provided" and "provided as empty list"
-    tags = call.data.get("tags") if "tags" in call.data else None
+    # Extract and normalize task data using shared function
+    task_data = _extract_task_data_from_service_call(
+        call=call,
+        hass=hass,
+        include_uid=True,
+        apply_section_default=False,
+        store=None,
+        list_id=None,
+    )
 
     # Call entity's internal method - single source of truth!
-    await entity.async_update_task_internal(
-        uid=uid,
-        summary=call.data.get("summary"),
-        description=call.data.get("description"),
-        due=due_str,
-        status=call.data.get("status"),
-        tags=tags,
-        is_all_day=call.data.get("is_all_day"),
-        section_id=call.data.get("section_id"),
-        points_value=call.data.get("points_value"),
-        streak_bonus_points=call.data.get("streak_bonus_points"),
-        streak_bonus_interval=call.data.get("streak_bonus_interval"),
-        rrule=call.data.get("rrule"),
-        include_future_occurrences=call.data.get("include_future_occurrences", False),
-    )
+    await entity.async_update_task_internal(**task_data)
 
 
 async def _handle_sync(

@@ -346,7 +346,8 @@ class ChoreBotList(TodoListEntity):
         old_status = task.status
 
         # CONVERSION: Regular task → Recurring task (when rrule is added)
-        if rrule is not None and not task.is_recurring_instance() and not task.is_recurring_template():
+        # Note: Check for truthy rrule, not just non-None, to avoid converting on empty string ""
+        if rrule and not task.is_recurring_instance() and not task.is_recurring_template():
             _LOGGER.info("Converting regular task %s to recurring task (adding rrule)", uid)
             
             # Create template from current task data
