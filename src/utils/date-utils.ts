@@ -40,7 +40,7 @@ export function parseUTCToLocal(utcString: string): {
  * @returns Human-readable relative date string
  */
 export function formatRelativeDate(date: Date, task?: Task): string {
-  const isAllDay = task?.is_all_day || task?.custom_fields?.is_all_day || false;
+  const isAllDay = task?.is_all_day || false;
 
   // For all-day tasks, compare dates in UTC to avoid timezone issues
   if (isAllDay) {
@@ -108,7 +108,7 @@ export function isOverdue(task: Task): boolean {
     return false;
   }
 
-  const isAllDay = task.is_all_day || task.custom_fields?.is_all_day || false;
+  const isAllDay = task.is_all_day || false;
   const dueDate = new Date(task.due);
 
   if (isAllDay) {

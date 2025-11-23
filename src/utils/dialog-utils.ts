@@ -15,16 +15,12 @@ import { parseRrule } from "./rrule-utils.js";
 export function prepareTaskForEditing(task: Task): EditingTask {
   const flatTask: EditingTask = {
     ...task,
-    is_all_day: task.is_all_day || task.custom_fields?.is_all_day || false,
-    tags: task.tags || task.custom_fields?.tags || [],
-    section_id: task.section_id || task.custom_fields?.section_id,
-    points_value: task.points_value || task.custom_fields?.points_value || 0,
-    streak_bonus_points:
-      task.streak_bonus_points || task.custom_fields?.streak_bonus_points || 0,
-    streak_bonus_interval:
-      task.streak_bonus_interval ||
-      task.custom_fields?.streak_bonus_interval ||
-      0,
+    is_all_day: task.is_all_day || false,
+    tags: task.tags || [],
+    section_id: task.section_id,
+    points_value: task.points_value || 0,
+    streak_bonus_points: task.streak_bonus_points || 0,
+    streak_bonus_interval: task.streak_bonus_interval || 0,
   };
 
   // Extract due date/time if present
@@ -38,8 +34,7 @@ export function prepareTaskForEditing(task: Task): EditingTask {
   }
 
   // Parse existing rrule if present
-  const rrule = task.custom_fields?.rrule;
-  const parsedRrule = parseRrule(rrule);
+  const parsedRrule = parseRrule(task.rrule);
 
   if (parsedRrule) {
     flatTask.has_recurrence = true;

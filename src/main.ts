@@ -309,11 +309,7 @@ export class ChoreBotListCard extends LitElement {
     const entity = this.hass?.states[this._config.entity];
     const templates = entity?.attributes.chorebot_templates || [];
 
-    if (
-      task.parent_uid &&
-      task.streak_bonus_points &&
-      task.streak_bonus_interval
-    ) {
+    if (task.parent_uid && task.streak_bonus_points && task.streak_bonus_interval) {
       const template = templates.find((t: any) => t.uid === task.parent_uid);
       if (template) {
         const nextStreak = template.streak_current + 1;
@@ -547,10 +543,7 @@ export class ChoreBotListCard extends LitElement {
     }
 
     // For recurring task instances, always apply changes to future instances
-    const isRecurringInstance = !!(
-      this._editingTask.parent_uid ||
-      this._editingTask.custom_fields?.parent_uid
-    );
+    const isRecurringInstance = !!this._editingTask.parent_uid;
     if (isRecurringInstance) {
       serviceData.include_future_occurrences = true;
     }

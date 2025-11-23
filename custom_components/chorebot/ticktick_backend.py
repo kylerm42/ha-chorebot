@@ -1004,11 +1004,34 @@ class TickTickBackend(SyncBackend):
             local_task.is_all_day = ticktick_task["isAllDay"]
 
         # Update section_id from columnId
-        if "columnId" in ticktick_task:
-            local_task.section_id = ticktick_task["columnId"]
-        elif not local_task.section_id:
-            # Use default section if no columnId specified
-            local_task.section_id = self.store.get_default_section_id(list_id)
+        column_id = ticktick_task.get("columnId")
+        _LOGGER.info(
+            "[SECTION_DEBUG] Task '%s' (uid: %s) - TickTick columnId: %s",
+            local_task.summary,
+            local_task.uid,
+            column_id if column_id else "NOT PROVIDED (will set to None)",
+        )
+        _LOGGER.info(
+            "[SECTION_DEBUG] Task '%s' - BEFORE assignment: local_task.section_id = %s",
+            local_task.summary,
+            local_task.section_id,
+        )
+        if column_id:
+            # TickTick returned a valid columnId - use it
+            local_task.section_id = column_id
+            _LOGGER.info(
+                "[SECTION_DEBUG] Task '%s' - AFTER assignment: local_task.section_id = %s (SET from columnId)",
+                local_task.summary,
+                local_task.section_id,
+            )
+        else:
+            # TickTick says task has no column - clear section_id
+            # (TickTick is source of truth for section assignments)
+            local_task.section_id = None
+            _LOGGER.info(
+                "[SECTION_DEBUG] Task '%s' - AFTER assignment: local_task.section_id = None (CLEARED - no columnId)",
+                local_task.summary,
+            )
 
         # Update recurrence rule (direct property, not custom_fields)
         if "repeatFlag" in ticktick_task:
@@ -1066,9 +1089,19 @@ class TickTickBackend(SyncBackend):
 
         # Extract section_id from columnId
         section_id = ticktick_task.get("columnId")
+        _LOGGER.info(
+            "[SECTION_DEBUG] IMPORT - Task '%s' - TickTick columnId: %s",
+            ticktick_task.get("title"),
+            section_id if section_id else "NOT PROVIDED",
+        )
         if not section_id:
             # Use default section if no columnId specified
             section_id = self.store.get_default_section_id(list_id)
+            _LOGGER.info(
+                "[SECTION_DEBUG] IMPORT - Task '%s' - Using default section_id: %s",
+                ticktick_task.get("title"),
+                section_id,
+            )
 
         # Check if this is a recurring task
         rrule = ticktick_task.get("repeatFlag")

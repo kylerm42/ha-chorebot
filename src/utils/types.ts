@@ -53,18 +53,9 @@ export interface Task {
   points_value?: number;
   streak_bonus_points?: number;
   streak_bonus_interval?: number;
-  custom_fields?: {
-    tags?: string[];
-    is_all_day?: boolean;
-    parent_uid?: string;
-    occurrence_index?: number;
-    rrule?: string;
-    section_id?: string;
-    last_completed?: string;
-    points_value?: number;
-    streak_bonus_points?: number;
-    streak_bonus_interval?: number;
-  };
+  occurrence_index?: number;
+  rrule?: string;
+  sync?: { [backend: string]: any };
 }
 
 export interface RecurringTemplate {

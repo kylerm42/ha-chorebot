@@ -487,7 +487,7 @@ export class ChoreBotGroupedCard extends LitElement {
                     : "inherit"}"
                 >
                   ${formatRelativeDate(new Date(task.due), task)}
-                  ${task.parent_uid || task.custom_fields?.parent_uid
+                  ${task.parent_uid
                     ? html`<ha-icon
                         icon="mdi:sync"
                         class="recurring-icon"
@@ -522,11 +522,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const entity = this.hass?.states[this._config.entity];
     const templates = entity?.attributes.chorebot_templates || [];
 
-    if (
-      task.parent_uid &&
-      task.streak_bonus_points &&
-      task.streak_bonus_interval
-    ) {
+    if (task.parent_uid && task.streak_bonus_points && task.streak_bonus_interval) {
       const template = templates.find((t: any) => t.uid === task.parent_uid);
       if (template) {
         const nextStreak = template.streak_current + 1;
@@ -701,7 +697,7 @@ export class ChoreBotGroupedCard extends LitElement {
     const tagGroups = groupTasksByTag(tasks, untaggedHeader);
 
     // Get tags for the completed task
-    const taskTags = task.tags || task.custom_fields?.tags || [];
+    const taskTags = task.tags || [];
     const tagsToCheck = taskTags.length > 0 ? taskTags : [untaggedHeader];
 
     // Check if any of the task's groups are now complete
@@ -916,10 +912,7 @@ export class ChoreBotGroupedCard extends LitElement {
     }
 
     // For recurring task instances, always apply changes to future instances
-    const isRecurringInstance = !!(
-      this._editingTask.parent_uid ||
-      this._editingTask.custom_fields?.parent_uid
-    );
+    const isRecurringInstance = !!this._editingTask.parent_uid;
     if (isRecurringInstance) {
       serviceData.include_future_occurrences = true;
     }

@@ -347,6 +347,71 @@ class ChoreBotList(TodoListEntity):
         # Track old status for completion logic
         old_status = task.status
 
+        # CONVERSION: Regular task → Recurring task (when rrule is added)
+        if rrule is not None and not task.is_recurring_instance() and not task.is_recurring_template():
+            _LOGGER.info("Converting regular task %s to recurring task (adding rrule)", uid)
+            
+            # Create template from current task data
+            template = Task.create_new(
+                summary=task.summary,
+                description=task.description,
+                due=None,  # Templates don't have due dates
+                tags=task.tags.copy() if task.tags else [],
+                rrule=rrule,
+                is_template=True,
+                is_all_day=task.is_all_day,
+                section_id=task.section_id,
+                points_value=points_value if points_value is not None else task.points_value,
+            )
+            
+            # Set bonus fields on template
+            template.streak_bonus_points = streak_bonus_points if streak_bonus_points is not None else 0
+            template.streak_bonus_interval = streak_bonus_interval if streak_bonus_interval is not None else 0
+            
+            # Convert existing task to first instance
+            task.parent_uid = template.uid
+            task.occurrence_index = 0
+            task.rrule = None  # Instances don't have rrule
+            # Remove bonus fields from instance (they belong on template)
+            task.streak_bonus_points = 0
+            task.streak_bonus_interval = 0
+            
+            # Apply any other provided updates to both template and instance
+            if summary is not None:
+                task.summary = summary
+                template.summary = summary
+            if description is not None:
+                task.description = description
+                template.description = description
+            if due is not None and due != "":
+                task.due = due
+            if tags is not None:
+                task.tags = tags
+                template.tags = tags.copy()
+            if is_all_day is not None:
+                task.is_all_day = is_all_day
+                template.is_all_day = is_all_day
+            if section_id is not None:
+                task.section_id = section_id
+                template.section_id = section_id
+            if points_value is not None:
+                task.points_value = points_value
+                template.points_value = points_value
+            
+            # Save template first, then update the instance
+            await self._store.async_add_task(self._list_id, template)
+            task.update_modified()
+            await self._store.async_update_task(self._list_id, task)
+            
+            # Write state immediately
+            self.async_write_ha_state()
+            
+            # Push template to remote backend if sync is enabled
+            if self._sync_coordinator:
+                await self._sync_coordinator.async_push_task(self._list_id, template)
+            
+            return  # Exit early, conversion complete
+
         # If updating future occurrences for recurring instance, validate and update template
         if include_future_occurrences and task.is_recurring_instance():
             # Validate this is the latest incomplete instance

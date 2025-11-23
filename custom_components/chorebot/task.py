@@ -94,38 +94,6 @@ class Task:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert task to dictionary for JSON storage."""
-        # Start with standard fields
-        custom_fields_output = {}
-        if self.tags:
-            custom_fields_output[FIELD_TAGS] = self.tags
-        if self.rrule:
-            custom_fields_output[FIELD_RRULE] = self.rrule
-        if self.streak_current > 0:
-            custom_fields_output[FIELD_STREAK_CURRENT] = self.streak_current
-        if self.streak_longest > 0:
-            custom_fields_output[FIELD_STREAK_LONGEST] = self.streak_longest
-        if self.last_completed:
-            custom_fields_output[FIELD_LAST_COMPLETED] = self.last_completed
-        if self.points_value > 0:
-            custom_fields_output[FIELD_POINTS_VALUE] = self.points_value
-        if self.streak_bonus_points > 0:
-            custom_fields_output[FIELD_STREAK_BONUS_POINTS] = self.streak_bonus_points
-        if self.streak_bonus_interval > 0:
-            custom_fields_output[FIELD_STREAK_BONUS_INTERVAL] = (
-                self.streak_bonus_interval
-            )
-        if self.parent_uid:
-            custom_fields_output[FIELD_PARENT_UID] = self.parent_uid
-            # Always store occurrence_index for instances (even if 0)
-            custom_fields_output[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
-        if self.is_all_day:
-            custom_fields_output[FIELD_IS_ALL_DAY] = self.is_all_day
-        if self.section_id:
-            custom_fields_output[FIELD_SECTION_ID] = self.section_id
-
-        # Merge in any extra custom fields (e.g., backend-specific metadata)
-        custom_fields_output.update(self.custom_fields)
-
         result: dict[str, Any] = {
             "uid": self.uid,
             "summary": self.summary,
@@ -134,14 +102,44 @@ class Task:
             "modified": self.modified,
         }
 
+        # Add optional standard fields
         if self.description:
             result["description"] = self.description
         if self.due:
             result["due"] = self.due
         if self.deleted_at:
             result[FIELD_DELETED_AT] = self.deleted_at
-        if custom_fields_output:
-            result["custom_fields"] = custom_fields_output
+
+        # Add ChoreBot fields at root level
+        if self.tags:
+            result[FIELD_TAGS] = self.tags
+        if self.rrule:
+            result[FIELD_RRULE] = self.rrule
+        if self.streak_current > 0:
+            result[FIELD_STREAK_CURRENT] = self.streak_current
+        if self.streak_longest > 0:
+            result[FIELD_STREAK_LONGEST] = self.streak_longest
+        if self.last_completed:
+            result[FIELD_LAST_COMPLETED] = self.last_completed
+        if self.points_value > 0:
+            result[FIELD_POINTS_VALUE] = self.points_value
+        if self.streak_bonus_points > 0:
+            result[FIELD_STREAK_BONUS_POINTS] = self.streak_bonus_points
+        if self.streak_bonus_interval > 0:
+            result[FIELD_STREAK_BONUS_INTERVAL] = self.streak_bonus_interval
+        if self.parent_uid:
+            result[FIELD_PARENT_UID] = self.parent_uid
+            # Always store occurrence_index for instances (even if 0)
+            result[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
+        if self.is_all_day:
+            result[FIELD_IS_ALL_DAY] = self.is_all_day
+        # ALWAYS include section_id (even if None) to ensure TickTick's state is persisted
+        # If section_id is None, we need to write it to clear old values
+        result[FIELD_SECTION_ID] = self.section_id
+        if self.is_template:
+            result[FIELD_IS_TEMPLATE] = self.is_template
+
+        # Add sync metadata (backend-specific)
         if self.sync:
             result["sync"] = self.sync
 
@@ -154,36 +152,9 @@ class Task:
         Args:
             data: Task data dictionary
             is_template: Override to set template status (inferred from storage location).
-                        If None, falls back to reading from custom_fields for backwards compatibility.
         """
-        custom_fields = data.get("custom_fields", {})
-
-        # Known fields that map to dataclass attributes
-        known_fields = {
-            FIELD_TAGS,
-            FIELD_RRULE,
-            FIELD_STREAK_CURRENT,
-            FIELD_STREAK_LONGEST,
-            FIELD_LAST_COMPLETED,
-            FIELD_POINTS_VALUE,
-            FIELD_STREAK_BONUS_POINTS,
-            FIELD_STREAK_BONUS_INTERVAL,
-            FIELD_PARENT_UID,
-            FIELD_IS_TEMPLATE,
-            FIELD_OCCURRENCE_INDEX,
-            FIELD_IS_ALL_DAY,
-            FIELD_SECTION_ID,
-        }
-
-        # Extract extra custom fields (backend-specific metadata)
-        extra_custom_fields = {
-            k: v for k, v in custom_fields.items() if k not in known_fields
-        }
-
         template_value = (
-            is_template
-            if is_template is not None
-            else custom_fields.get(FIELD_IS_TEMPLATE, False)
+            is_template if is_template is not None else data.get(FIELD_IS_TEMPLATE, False)
         )
 
         return cls(
@@ -195,20 +166,20 @@ class Task:
             created=data["created"],
             modified=data["modified"],
             deleted_at=data.get(FIELD_DELETED_AT),
-            tags=custom_fields.get(FIELD_TAGS, []),
-            rrule=custom_fields.get(FIELD_RRULE),
-            streak_current=custom_fields.get(FIELD_STREAK_CURRENT, 0),
-            streak_longest=custom_fields.get(FIELD_STREAK_LONGEST, 0),
-            last_completed=custom_fields.get(FIELD_LAST_COMPLETED),
-            points_value=custom_fields.get(FIELD_POINTS_VALUE, 0),
-            streak_bonus_points=custom_fields.get(FIELD_STREAK_BONUS_POINTS, 0),
-            streak_bonus_interval=custom_fields.get(FIELD_STREAK_BONUS_INTERVAL, 0),
-            parent_uid=custom_fields.get(FIELD_PARENT_UID),
+            tags=data.get(FIELD_TAGS, []),
+            rrule=data.get(FIELD_RRULE),
+            streak_current=data.get(FIELD_STREAK_CURRENT, 0),
+            streak_longest=data.get(FIELD_STREAK_LONGEST, 0),
+            last_completed=data.get(FIELD_LAST_COMPLETED),
+            points_value=data.get(FIELD_POINTS_VALUE, 0),
+            streak_bonus_points=data.get(FIELD_STREAK_BONUS_POINTS, 0),
+            streak_bonus_interval=data.get(FIELD_STREAK_BONUS_INTERVAL, 0),
+            parent_uid=data.get(FIELD_PARENT_UID),
             is_template=template_value,
-            occurrence_index=custom_fields.get(FIELD_OCCURRENCE_INDEX, 0),
-            is_all_day=custom_fields.get(FIELD_IS_ALL_DAY, False),
-            section_id=custom_fields.get(FIELD_SECTION_ID),
-            custom_fields=extra_custom_fields,
+            occurrence_index=data.get(FIELD_OCCURRENCE_INDEX, 0),
+            is_all_day=data.get(FIELD_IS_ALL_DAY, False),
+            section_id=data.get(FIELD_SECTION_ID),
+            custom_fields={},  # No longer used for ChoreBot fields
             sync=data.get("sync", {}),
         )
 

@@ -39,10 +39,8 @@ export function filterTodayTasks(
 
     // If task is completed, check if it was completed today
     if (isCompleted) {
-      const lastCompleted =
-        task.last_completed || task.custom_fields?.last_completed;
-      if (lastCompleted) {
-        const completedDate = new Date(lastCompleted);
+      if (task.last_completed) {
+        const completedDate = new Date(task.last_completed);
         if (isSameDay(completedDate, new Date())) {
           return true; // Show if completed today (regardless of due date)
         }
@@ -79,9 +77,7 @@ export function filterTodayTasks(
     const sectionIdToMatch = sectionByName ? sectionByName.id : filterValue;
 
     filteredTasks = filteredTasks.filter(
-      (task) =>
-        (task.section_id || task.custom_fields?.section_id) ===
-        sectionIdToMatch,
+      (task) => task.section_id === sectionIdToMatch,
     );
   }
 
@@ -130,7 +126,7 @@ export function groupTasksByTag(
   const groups = new Map<string, Task[]>();
 
   for (const task of tasks) {
-    const tags = task.tags || task.custom_fields?.tags || [];
+    const tags = task.tags || [];
 
     if (tags.length === 0) {
       // Task has no tags - add to untagged group
@@ -282,8 +278,7 @@ export function filterAndGroupTasks(
   for (const task of allTasks) {
     // Apply section filter first (if applicable)
     if (sectionIdToMatch) {
-      const taskSectionId = task.section_id || task.custom_fields?.section_id;
-      if (taskSectionId !== sectionIdToMatch) {
+      if (task.section_id !== sectionIdToMatch) {
         continue; // Skip this task
       }
     }
@@ -312,10 +307,8 @@ export function filterAndGroupTasks(
         const isOverdue = dueDateOnly < today;
 
         if (isCompleted) {
-          const lastCompleted =
-            task.last_completed || task.custom_fields?.last_completed;
-          if (typeof lastCompleted === "string") {
-            if (isSameDay(new Date(lastCompleted), new Date())) {
+          if (task.last_completed) {
+            if (isSameDay(new Date(task.last_completed), new Date())) {
               isTodayTask = true; // Show if completed today (regardless of due date)
             }
           }
@@ -328,7 +321,7 @@ export function filterAndGroupTasks(
     // Add to appropriate group
     if (isTodayTask) {
       // Add to tag groups
-      const tags = task.tags || task.custom_fields?.tags || [];
+      const tags = task.tags || [];
       if (tags.length === 0) {
         if (!tagGroups.has(untaggedHeader)) {
           tagGroups.set(untaggedHeader, []);

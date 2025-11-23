@@ -171,12 +171,20 @@ Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array 
         "status": "needs_action",
         "created": "YYYY-MM-DDTHH:MM:SSZ",
         "modified": "YYYY-MM-DDTHH:MM:SSZ",
-        "custom_fields": {
-          "tags": ["Morning"],
-          "rrule": "FREQ=DAILY;INTERVAL=1",
-          "streak_current": 5,
-          "streak_longest": 10,
-          "is_template": true
+        "tags": ["Morning"],
+        "rrule": "FREQ=DAILY;INTERVAL=1",
+        "streak_current": 5,
+        "streak_longest": 10,
+        "is_template": true,
+        "points_value": 10,
+        "streak_bonus_points": 50,
+        "streak_bonus_interval": 7,
+        "sync": {
+          "ticktick": {
+            "id": "remote_template_id",
+            "etag": "abc123",
+            "last_synced_at": "YYYY-MM-DDTHH:MM:SSZ"
+          }
         }
       }
     ],
@@ -188,10 +196,17 @@ Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array 
         "due": "YYYY-MM-DDTHH:MM:SSZ",
         "created": "YYYY-MM-DDTHH:MM:SSZ",
         "modified": "YYYY-MM-DDTHH:MM:SSZ",
-        "custom_fields": {
-          "tags": ["Morning"],
-          "parent_uid": "template_id",
-          "occurrence_index": 0
+        "tags": ["Morning"],
+        "parent_uid": "template_id",
+        "occurrence_index": 0,
+        "section_id": "section_id",
+        "is_all_day": false,
+        "sync": {
+          "ticktick": {
+            "id": "remote_task_id",
+            "etag": "def456",
+            "last_synced_at": "YYYY-MM-DDTHH:MM:SSZ"
+          }
         }
       }
     ],
@@ -210,11 +225,29 @@ Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array 
 **Key Points:**
 
 - All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
+- **All ChoreBot fields are at root level** - no `custom_fields` dict (standardized 2025-11-22)
 - **Metadata** (person_id) is stored in the same file as tasks/sections for logical grouping
 - Templates are in `recurring_templates` array (have `rrule`, `streak_current`, `streak_longest`, `is_template`)
 - Tasks/instances are in `tasks` array (regular tasks and recurring instances)
 - Sections are in `sections` array (can have optional `person_id` that overrides list's person_id)
 - **Instances do NOT store streak data** - they reference their parent template via `parent_uid`
+- **Sync metadata** stored in `sync.<backend_name>` dicts (e.g., `sync.ticktick.id`)
+
+### Task Serialization Strategy
+
+**Root Level Fields (Standard):**
+- Core HA fields: `uid`, `summary`, `status`, `created`, `modified`, `due`, `description`, `deleted_at`
+- ChoreBot features: `tags`, `rrule`, `points_value`, `streak_bonus_points`, `streak_bonus_interval`
+- Recurrence: `parent_uid`, `occurrence_index`, `is_template`
+- Streak tracking: `streak_current`, `streak_longest`, `last_completed`
+- Organization: `section_id`, `is_all_day`
+
+**Sync Dict (Backend-Specific):**
+- Per-backend metadata: `sync.<backend_name>.id`, `sync.<backend_name>.etag`, etc.
+- Example: `sync.ticktick.id`, `sync.ticktick.status`, `sync.ticktick.last_synced_at`
+- Allows multi-backend sync without conflicts
+
+**Historical Note:** Prior to 2025-11-22, ChoreBot fields were stored in a `custom_fields` dict. This has been standardized to root-level storage for clarity and to fix frontend display bugs.
 
 ### Recurring Task Model
 
@@ -470,6 +503,7 @@ data:
 - **ALWAYS** filter out tasks where `deleted_at` is not null when loading into cache
 - **ALWAYS** maintain Local Master model for TickTick sync - local JSON is source of truth
 - **ALWAYS** update `spec/chore-bot.md` when making architectural decisions or pivoting from original plans
+- **All ChoreBot fields serialize to root level** - never use `custom_fields` for known dataclass fields (deprecated as of 2025-11-22)
 - **Two-array storage**: Templates in `recurring_templates`, tasks/instances in `tasks` - never mix them
 - **Templates stay in cache** as separate dictionary but are filtered from UI (use `get_tasks_for_list()`, not `get_templates_for_list()`)
 - **No streak duplication**: NEVER copy `streak_current` or `streak_longest` to instances - they belong only on templates
