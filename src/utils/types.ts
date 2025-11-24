@@ -116,6 +116,14 @@ export interface ChoreBotRewardsConfig {
   sort_by?: "cost" | "name" | "created"; // Default: "cost"
 }
 
+export interface ChoreBotPersonPointsConfig {
+  type: "custom:chorebot-person-points-card";
+  person_entity: string; // Required - e.g., "person.kyle"
+  title?: string;
+  show_title?: boolean;
+  hide_card_background?: boolean;
+}
+
 export interface PersonPoints {
   entity_id: string;
   points_balance: number;

@@ -10,3 +10,6 @@ dev-config/home-assistant.log*
 dev-config/secrets.yaml
 dev-config/.uuid
 dev-config/deps/
+
+.ha_run.lock
+.HA_VERSION

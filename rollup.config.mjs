@@ -67,4 +67,19 @@ export default [
       production && terser(),
     ],
   },
+  // ChoreBot Person Points Card
+  {
+    input: "src/person-points-card.ts",
+    output: {
+      file: "dist/chorebot-person-points-card.js",
+      format: "es",
+      sourcemap: !production,
+    },
+    plugins: [
+      resolve({ browser: true }),
+      commonjs(),
+      typescript(),
+      production && terser(),
+    ],
+  },
 ];
