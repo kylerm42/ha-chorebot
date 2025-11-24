@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_config",
+  "data": {
+    "lists": [
+      {
+        "id": "test",
+        "name": "Test",
+        "sync": {
+          "ticktick": {
+            "project_id": "690cf15b8f08d350d2af0379",
+            "status": "synced",
+            "last_synced_at": "2025-11-06T19:04:59.500837Z"
+          }
+        }
+      }
+    ]
+  }
+}

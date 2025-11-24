@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_redemptions",
+  "data": {
+    "redemptions": [
+      {
+        "id": "redemption_821db6dbb05d",
+        "timestamp": "2025-11-17T21:04:10.476859Z",
+        "person_id": "person.other",
+        "reward_id": "reward_d177c494",
+        "reward_name": "Test Reward",
+        "cost": 100
+      },
+      {
+        "id": "redemption_37c5cfae9fd9",
+        "timestamp": "2025-11-17T21:27:15.891132Z",
+        "person_id": "person.other",
+        "reward_id": "reward_d177c494",
+        "reward_name": "Test Reward",
+        "cost": 100
+      },
+      {
+        "id": "redemption_3025383ecb9e",
+        "timestamp": "2025-11-17T21:32:16.142002Z",
+        "person_id": "person.other",
+        "reward_id": "reward_d177c494",
+        "reward_name": "Test Reward",
+        "cost": 100
+      }
+    ]
+  }
+}

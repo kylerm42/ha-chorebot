@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_transactions",
+  "data": {
+    "transactions": [
+      {
+        "id": "txn_d713ece4ce5b",
+        "timestamp": "2025-11-17T21:04:10.476827Z",
+        "person_id": "person.other",
+        "amount": -100,
+        "balance_after": 900,
+        "type": "reward_redemption",
+        "metadata": {
+          "reward_id": "reward_d177c494",
+          "reward_name": "Test Reward"
+        }
+      },
+      {
+        "id": "txn_6e4e02ee037a",
+        "timestamp": "2025-11-17T21:27:15.891091Z",
+        "person_id": "person.other",
+        "amount": -100,
+        "balance_after": 800,
+        "type": "reward_redemption",
+        "metadata": {
+          "reward_id": "reward_d177c494",
+          "reward_name": "Test Reward"
+        }
+      },
+      {
+        "id": "txn_60c903de5ee0",
+        "timestamp": "2025-11-17T21:32:16.141971Z",
+        "person_id": "person.other",
+        "amount": -100,
+        "balance_after": 700,
+        "type": "reward_redemption",
+        "metadata": {
+          "reward_id": "reward_d177c494",
+          "reward_name": "Test Reward"
+        }
+      },
+      {
+        "id": "txn_178d460aa79a",
+        "timestamp": "2025-11-17T21:34:30.690472Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 10,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9db65cc4-b63f-4d98-b553-d8f6b7028f19",
+          "task_summary": "TT Kyle Afternoon",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_651157369a34",
+        "timestamp": "2025-11-17T21:34:31.485090Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 0,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "9db65cc4-b63f-4d98-b553-d8f6b7028f19",
+          "task_summary": "TT Kyle Afternoon",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_63625fad9a1a",
+        "timestamp": "2025-11-17T21:34:41.642723Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 10,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9db65cc4-b63f-4d98-b553-d8f6b7028f19",
+          "task_summary": "TT Kyle Afternoon",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_0c2072f5421f",
+        "timestamp": "2025-11-17T21:34:42.505479Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 0,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "9db65cc4-b63f-4d98-b553-d8f6b7028f19",
+          "task_summary": "TT Kyle Afternoon",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_b818f4cf3782",
+        "timestamp": "2025-11-17T21:34:48.402730Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 10,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9db65cc4-b63f-4d98-b553-d8f6b7028f19",
+          "task_summary": "TT Kyle Afternoon",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_eb1806480ab0",
+        "timestamp": "2025-11-17T21:34:50.945725Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 0,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "9db65cc4-b63f-4d98-b553-d8f6b7028f19",
+          "task_summary": "TT Kyle Afternoon",
+          "list_id": "test"
+        }
+      }
+    ]
+  }
+}

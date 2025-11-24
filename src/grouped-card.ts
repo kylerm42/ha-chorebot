@@ -478,14 +478,16 @@ export class ChoreBotGroupedCard extends LitElement {
         >
           <div class="todo-content">
             <div class="todo-summary">${task.summary}</div>
-            ${task.due
+            ${task.due || task.points_value || task.parent_uid
               ? html`<div
                   class="todo-due-date"
                   style="color: ${isOverdue(task)
                     ? "var(--error-color)"
                     : "inherit"}"
                 >
-                  ${formatRelativeDate(new Date(task.due), task)}
+                  ${task.due
+                    ? formatRelativeDate(new Date(task.due), task)
+                    : ""}
                   ${task.parent_uid
                     ? html`<ha-icon
                         icon="mdi:sync"

@@ -274,14 +274,22 @@ export class ChoreBotListCard extends LitElement {
         >
           <div class="todo-content">
             <div class="todo-summary">${task.summary}</div>
-            ${task.due
+            ${task.due || task.points_value || task.parent_uid
               ? html`<div
                   class="todo-due-date"
                   style="color: ${isOverdue(task)
                     ? "var(--error-color)"
                     : "inherit"}"
                 >
-                  ${formatRelativeDate(new Date(task.due), task)}
+                  ${task.due
+                    ? formatRelativeDate(new Date(task.due), task)
+                    : ""}
+                  ${task.parent_uid
+                    ? html`<ha-icon
+                        icon="mdi:sync"
+                        class="recurring-icon"
+                      ></ha-icon>`
+                    : ""}
                   ${this._renderPointsBadge(task)}
                 </div>`
               : ""}
@@ -350,7 +358,7 @@ export class ChoreBotListCard extends LitElement {
     return filterTodayTasks(
       entity,
       this._config!.show_dateless_tasks !== false,
-      this._config?.filter_section_id
+      this._config?.filter_section_id,
     );
   }
 
@@ -360,7 +368,7 @@ export class ChoreBotListCard extends LitElement {
 
   private async _toggleTask(
     task: Task,
-    confettiOrigin?: { x: number; y: number }
+    confettiOrigin?: { x: number; y: number },
   ) {
     const newStatus =
       task.status === "completed" ? "needs_action" : "completed";
@@ -462,7 +470,7 @@ export class ChoreBotListCard extends LitElement {
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
-      () => this._saveTask()
+      () => this._saveTask(),
     );
   }
 

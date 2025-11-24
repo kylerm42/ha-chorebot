@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_people",
+  "data": {
+    "people": {
+      "person.kyle": {
+        "entity_id": "person.kyle",
+        "points_balance": 0,
+        "lifetime_points": 30,
+        "last_updated": "2025-11-17T21:34:50.945725Z"
+      },
+      "person.other": {
+        "entity_id": "person.other",
+        "points_balance": 700,
+        "lifetime_points": 0,
+        "last_updated": "2025-11-17T21:32:16.141971Z"
+      },
+      "person.campbell": {
+        "entity_id": "person.campbell",
+        "points_balance": 0,
+        "lifetime_points": 0,
+        "last_updated": "2025-11-24T19:07:58.608617Z"
+      },
+      "person.courtney": {
+        "entity_id": "person.courtney",
+        "points_balance": 0,
+        "lifetime_points": 0,
+        "last_updated": "2025-11-24T19:07:58.608617Z"
+      }
+    }
+  }
+}

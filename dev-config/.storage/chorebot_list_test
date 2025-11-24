@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_list_test",
+  "data": {
+    "recurring_templates": [
+      {
+        "uid": "9e4ba644-5aa9-471d-bf19-188c30c2ec34",
+        "summary": "TT Kyle Recurring",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.142063Z",
+        "modified": "2025-11-24T19:03:52.142063Z",
+        "rrule": "FREQ=DAILY;INTERVAL=1",
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "is_template": true,
+        "sync": {
+          "ticktick": {
+            "id": "69163e7672b70c0c7e70f1bb",
+            "status": "synced",
+            "etag": "tpziq0o3",
+            "last_synced_at": "2025-11-24T19:03:52.142096Z"
+          }
+        }
+      },
+      {
+        "uid": "e428560b-21e5-4fb5-9ebe-25341cb9f0f2",
+        "summary": "TT Kyle Recurring Morning",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.143892Z",
+        "modified": "2025-11-24T19:03:52.143892Z",
+        "tags": [
+          "morning"
+        ],
+        "rrule": "FREQ=DAILY;INTERVAL=1",
+        "is_all_day": true,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "is_template": true,
+        "sync": {
+          "ticktick": {
+            "id": "69163e9672b70c0c7e70f1c6",
+            "status": "synced",
+            "etag": "6llt3loz",
+            "last_synced_at": "2025-11-24T19:03:52.143909Z"
+          }
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "uid": "9f11ffe4-25eb-4bcb-b64c-145f889fdf62",
+        "summary": "TT Kyle Recurring",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.142594Z",
+        "modified": "2025-11-24T19:03:52.142594Z",
+        "due": "2025-11-18T00:00:00Z",
+        "parent_uid": "9e4ba644-5aa9-471d-bf19-188c30c2ec34",
+        "occurrence_index": 0,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e"
+      },
+      {
+        "uid": "c8b4ac3f-9150-4070-8523-d974af6ed76b",
+        "summary": "TT Kyle Due",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.142947Z",
+        "modified": "2025-11-24T19:03:52.142947Z",
+        "due": "2025-11-14T05:00:00Z",
+        "is_all_day": true,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "sync": {
+          "ticktick": {
+            "id": "69163e4572b70c0c7e70f1a5",
+            "status": "synced",
+            "etag": "ty4dn8n4",
+            "last_synced_at": "2025-11-24T19:03:52.142957Z"
+          }
+        }
+      },
+      {
+        "uid": "12e4bd46-8571-4f7b-8737-4fc0d6dc1516",
+        "summary": "TT Kyle Recurring",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.143437Z",
+        "modified": "2025-11-24T19:22:10.567667Z",
+        "due": "2025-11-25T00:00:00Z",
+        "points_value": 31,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "sync": {
+          "ticktick": {
+            "id": "691b53a34c0c4c70b2ccb1e4",
+            "status": "synced",
+            "etag": "8uj3bsfg",
+            "last_synced_at": "2025-11-24T19:22:11.532051Z"
+          }
+        }
+      },
+      {
+        "uid": "f3c64c62-3b2d-466c-8029-4ab2b9476c0a",
+        "summary": "TT Kyle Recurring Morning",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.144449Z",
+        "modified": "2025-11-24T19:03:52.144449Z",
+        "due": "2025-11-12T05:00:00Z",
+        "tags": [
+          "morning"
+        ],
+        "parent_uid": "e428560b-21e5-4fb5-9ebe-25341cb9f0f2",
+        "occurrence_index": 0,
+        "is_all_day": true,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e"
+      },
+      {
+        "uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+        "summary": "TT Kyle",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.144891Z",
+        "modified": "2025-11-24T19:09:49.805314Z",
+        "points_value": 10,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "sync": {
+          "ticktick": {
+            "id": "6914fbfa4c0c4c7fe64dddda",
+            "status": "synced",
+            "etag": "j99lvkx5",
+            "last_synced_at": "2025-11-24T19:09:50.409895Z"
+          }
+        }
+      },
+      {
+        "uid": "9fc39f82-f6e4-435a-b246-43b1a4764ad6",
+        "summary": "TT Campbell",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.145418Z",
+        "modified": "2025-11-24T19:03:52.145418Z",
+        "is_all_day": true,
+        "section_id": "6914de074c0c4c7fe64ddd9a",
+        "sync": {
+          "ticktick": {
+            "id": "6914fc094c0c4c7fe64dddf1",
+            "status": "synced",
+            "etag": "v3ieq54e",
+            "last_synced_at": "2025-11-24T19:03:52.145429Z"
+          }
+        }
+      },
+      {
+        "uid": "295f757e-ec22-4169-b37b-3ef6024b3c36",
+        "summary": "TT Kyle Morning ",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.145857Z",
+        "modified": "2025-11-24T19:03:52.145857Z",
+        "tags": [
+          "morning"
+        ],
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "sync": {
+          "ticktick": {
+            "id": "6916272f4c0c4c7fe64ddeb7",
+            "status": "synced",
+            "etag": "t4nu9tym",
+            "last_synced_at": "2025-11-24T19:03:52.145866Z"
+          }
+        }
+      },
+      {
+        "uid": "0bacae6b-3ffb-4f74-aeaf-e8d6ed2299ab",
+        "summary": "TT Kyle Afternoon",
+        "status": "needs_action",
+        "created": "2025-11-24T19:03:52.146303Z",
+        "modified": "2025-11-24T19:03:52.146303Z",
+        "tags": [
+          "afternoon"
+        ],
+        "section_id": "6914ddf84c0c4c7fe64ddd8e",
+        "sync": {
+          "ticktick": {
+            "id": "69176f1672b70c0c7e70f2f0",
+            "status": "synced",
+            "etag": "6d4a3yea",
+            "last_synced_at": "2025-11-24T19:03:52.146311Z"
+          }
+        }
+      }
+    ],
+    "sections": [
+      {
+        "id": "6914de074c0c4c7fe64ddd9a",
+        "name": "Campbell",
+        "sort_order": 2199023255552
+      },
+      {
+        "id": "6914c0834c0c4c7fe64ddd2c",
+        "name": "Courtney",
+        "sort_order": 1099511627776
+      },
+      {
+        "id": "6914ddf84c0c4c7fe64ddd8e",
+        "name": "Kyle",
+        "sort_order": 0
+      }
+    ],
+    "metadata": {
+      "person_id": "person.kyle"
+    }
+  }
+}

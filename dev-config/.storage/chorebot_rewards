@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "chorebot_rewards",
+  "data": {
+    "rewards": [
+      {
+        "id": "reward_d177c494",
+        "name": "Test Reward",
+        "cost": 100,
+        "icon": "mdi:death-star-variant",
+        "enabled": true,
+        "description": "Oh there's a description",
+        "created": "2025-11-17T18:41:03.470834Z",
+        "modified": "2025-11-17T18:41:03.470834Z"
+      }
+    ]
+  }
+}

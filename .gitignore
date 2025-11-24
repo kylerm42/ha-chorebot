@@ -3,13 +3,15 @@ node_modules/
 dist/
 
 # Dev config - exclude runtime and sensitive files
-dev-config/.storage/
+dev-config/.storage/*
+!dev-config/.storage/chorebot_*
 dev-config/home-assistant_v2.db*
 dev-config/.cloud/
 dev-config/home-assistant.log*
 dev-config/secrets.yaml
 dev-config/.uuid
 dev-config/deps/
+dev-config/.ha_run.lock
 
 .ha_run.lock
 .HA_VERSION
