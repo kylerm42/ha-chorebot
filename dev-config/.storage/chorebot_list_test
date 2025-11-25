@@ -60,18 +60,19 @@
       {
         "uid": "c8b4ac3f-9150-4070-8523-d974af6ed76b",
         "summary": "TT Kyle Due",
-        "status": "needs_action",
+        "status": "completed",
         "created": "2025-11-24T19:03:52.142947Z",
-        "modified": "2025-11-24T19:03:52.142947Z",
-        "due": "2025-11-14T05:00:00Z",
+        "modified": "2025-11-25T17:42:03.648283Z",
+        "due": "2025-11-14T00:00:00Z",
+        "last_completed": "2025-11-25T17:42:03.648278Z",
         "is_all_day": true,
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "69163e4572b70c0c7e70f1a5",
             "status": "synced",
-            "etag": "ty4dn8n4",
-            "last_synced_at": "2025-11-24T19:03:52.142957Z"
+            "etag": "aedjtwyh",
+            "last_synced_at": "2025-11-25T17:42:03.980962Z"
           }
         }
       },
@@ -80,16 +81,16 @@
         "summary": "TT Kyle Recurring",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.143437Z",
-        "modified": "2025-11-24T19:22:10.567667Z",
-        "due": "2025-11-25T00:00:00Z",
+        "modified": "2025-11-25T17:43:18.325745Z",
+        "due": "2025-11-26T00:00:00Z",
         "points_value": 31,
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "691b53a34c0c4c70b2ccb1e4",
             "status": "synced",
-            "etag": "8uj3bsfg",
-            "last_synced_at": "2025-11-24T19:22:11.532051Z"
+            "etag": "52qbtobx",
+            "last_synced_at": "2025-11-25T17:43:19.056959Z"
           }
         }
       },
@@ -166,17 +167,18 @@
         "summary": "TT Kyle Afternoon",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.146303Z",
-        "modified": "2025-11-24T19:03:52.146303Z",
+        "modified": "2025-11-25T17:41:57.777425Z",
         "tags": [
           "afternoon"
         ],
+        "last_completed": "2025-11-25T17:41:56.604944Z",
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "69176f1672b70c0c7e70f2f0",
             "status": "synced",
-            "etag": "6d4a3yea",
-            "last_synced_at": "2025-11-24T19:03:52.146311Z"
+            "etag": "8ya633s6",
+            "last_synced_at": "2025-11-25T17:41:58.019075Z"
           }
         }
       }

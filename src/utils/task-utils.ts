@@ -239,6 +239,61 @@ export function sortGroups(
 }
 
 /**
+ * Filter tasks assigned to a specific person across all ChoreBot lists
+ * Uses section person_id (priority) or list person_id (fallback)
+ * @param entities - All Home Assistant entities (will filter to todo.chorebot_*)
+ * @param personEntityId - Person entity ID (e.g., "person.kyle")
+ * @param includeDateless - Whether to include dateless tasks (default: false)
+ * @returns Array of tasks assigned to this person (already filtered by today/overdue)
+ */
+export function filterTasksByPerson(
+  entities: HassEntity[],
+  personEntityId: string,
+  includeDateless: boolean = false,
+): Task[] {
+  const allPersonTasks: Task[] = [];
+
+  // Filter to only ChoreBot todo entities
+  const choreботEntities = entities.filter((e) =>
+    e.entity_id.startsWith("todo.chorebot_"),
+  );
+
+  for (const entity of choreботEntities) {
+    // Get today's tasks from this entity
+    const todayTasks = filterTodayTasks(entity, includeDateless);
+
+    // Get sections and list metadata
+    const sections: Section[] = entity.attributes.chorebot_sections || [];
+    const listMetadata = entity.attributes.chorebot_metadata;
+
+    // Filter tasks assigned to this person
+    for (const task of todayTasks) {
+      let isAssignedToPerson = false;
+
+      // Check section assignment first (priority)
+      if (task.section_id) {
+        const section = sections.find((s) => s.id === task.section_id);
+        if (section?.person_id) {
+          isAssignedToPerson = section.person_id === personEntityId;
+        } else if (listMetadata?.person_id) {
+          // Section has no person_id, check list metadata
+          isAssignedToPerson = listMetadata.person_id === personEntityId;
+        }
+      } else if (listMetadata?.person_id) {
+        // No section, check list metadata
+        isAssignedToPerson = listMetadata.person_id === personEntityId;
+      }
+
+      if (isAssignedToPerson) {
+        allPersonTasks.push(task);
+      }
+    }
+  }
+
+  return allPersonTasks;
+}
+
+/**
  * Filter and group tasks in a single pass for efficiency
  * Returns array of GroupState objects including tag groups and optional Upcoming group
  * @param entity - Home Assistant entity containing tasks

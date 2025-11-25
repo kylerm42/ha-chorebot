@@ -16,6 +16,10 @@ export interface HassEntity {
     chorebot_templates?: RecurringTemplate[];
     chorebot_sections?: Section[];
     chorebot_tags?: string[];
+    chorebot_metadata?: {
+      person_id?: string;
+      [key: string]: any;
+    };
     [key: string]: any;
   };
 }
@@ -24,6 +28,7 @@ export interface Section {
   id: string;
   name: string;
   sort_order: number;
+  person_id?: string; // Optional person assignment (overrides list person_id)
 }
 
 export interface ChoreBotBaseConfig {
@@ -122,6 +127,9 @@ export interface ChoreBotPersonPointsConfig {
   title?: string;
   show_title?: boolean;
   hide_card_background?: boolean;
+  show_progress?: boolean; // Default: true
+  accent_color?: string; // Default: var(--primary-color) - used for progress bar and points text
+  progress_text_color?: string; // Default: var(--text-primary-color)
 }
 
 export interface PersonPoints {

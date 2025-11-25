@@ -71,7 +71,8 @@ class ChoreBotList(TodoListEntity):
         self.hass = hass
         self._store = store
         self._list_id = list_id
-        self._attr_name = list_name
+        # Prefix name with "ChoreBot " to ensure entity_id is todo.chorebot_<list_name>
+        self._attr_name = f"ChoreBot {list_name}"
         self._attr_unique_id = f"{DOMAIN}_{list_id}"
         self._sync_coordinator = hass.data[DOMAIN].get("sync_coordinator")
         _LOGGER.info("Initialized ChoreBotList entity: %s (id: %s)", list_name, list_id)
@@ -126,6 +127,9 @@ class ChoreBotList(TodoListEntity):
             len(all_tags),
         )
 
+        # Get list metadata (person_id, etc.)
+        list_metadata = self._store._metadata_cache.get(self._list_id, {})
+
         return {
             "chorebot_tasks": [task.to_dict() for task in visible_tasks],
             "chorebot_templates": [
@@ -133,6 +137,7 @@ class ChoreBotList(TodoListEntity):
             ],
             "chorebot_sections": sections,
             "chorebot_tags": sorted(list(all_tags)),
+            "chorebot_metadata": list_metadata,
         }
 
     def _task_to_todo_item(self, task: Task) -> TodoItem:
@@ -347,9 +352,15 @@ class ChoreBotList(TodoListEntity):
 
         # CONVERSION: Regular task → Recurring task (when rrule is added)
         # Note: Check for truthy rrule, not just non-None, to avoid converting on empty string ""
-        if rrule and not task.is_recurring_instance() and not task.is_recurring_template():
-            _LOGGER.info("Converting regular task %s to recurring task (adding rrule)", uid)
-            
+        if (
+            rrule
+            and not task.is_recurring_instance()
+            and not task.is_recurring_template()
+        ):
+            _LOGGER.info(
+                "Converting regular task %s to recurring task (adding rrule)", uid
+            )
+
             # Create template from current task data
             template = Task.create_new(
                 summary=task.summary,
@@ -360,13 +371,19 @@ class ChoreBotList(TodoListEntity):
                 is_template=True,
                 is_all_day=task.is_all_day,
                 section_id=task.section_id,
-                points_value=points_value if points_value is not None else task.points_value,
+                points_value=points_value
+                if points_value is not None
+                else task.points_value,
             )
-            
+
             # Set bonus fields on template
-            template.streak_bonus_points = streak_bonus_points if streak_bonus_points is not None else 0
-            template.streak_bonus_interval = streak_bonus_interval if streak_bonus_interval is not None else 0
-            
+            template.streak_bonus_points = (
+                streak_bonus_points if streak_bonus_points is not None else 0
+            )
+            template.streak_bonus_interval = (
+                streak_bonus_interval if streak_bonus_interval is not None else 0
+            )
+
             # Convert existing task to first instance
             task.parent_uid = template.uid
             task.occurrence_index = 0
@@ -374,7 +391,7 @@ class ChoreBotList(TodoListEntity):
             # Remove bonus fields from instance (they belong on template)
             task.streak_bonus_points = 0
             task.streak_bonus_interval = 0
-            
+
             # Apply any other provided updates to both template and instance
             if summary is not None:
                 task.summary = summary
@@ -396,19 +413,19 @@ class ChoreBotList(TodoListEntity):
             if points_value is not None:
                 task.points_value = points_value
                 template.points_value = points_value
-            
+
             # Save template first, then update the instance
             await self._store.async_add_task(self._list_id, template)
             task.update_modified()
             await self._store.async_update_task(self._list_id, task)
-            
+
             # Write state immediately
             self.async_write_ha_state()
-            
+
             # Push template to remote backend if sync is enabled
             if self._sync_coordinator:
                 await self._sync_coordinator.async_push_task(self._list_id, template)
-            
+
             return  # Exit early, conversion complete
 
         # If updating future occurrences for recurring instance, validate and update template
@@ -471,7 +488,7 @@ class ChoreBotList(TodoListEntity):
             task.section_id = section_id
         if points_value is not None:
             task.points_value = points_value
-        
+
         # Bonus fields: Only update on regular tasks (not recurring instances)
         # For recurring instances, bonus fields must be updated on the template via include_future_occurrences
         if not task.is_recurring_instance():

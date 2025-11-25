@@ -6,7 +6,14 @@ import {
   HomeAssistant,
   ChoreBotPersonPointsConfig,
   PersonPoints,
+  Progress,
+  HassEntity,
 } from "./utils/types.js";
+import {
+  filterTasksByPerson,
+  calculateDatedTasksProgress,
+} from "./utils/task-utils.js";
+import { calculateColorShades, ColorShades } from "./utils/color-utils.js";
 
 // ============================================================================
 // ChoreBot Person Points Card (TypeScript)
@@ -23,6 +30,14 @@ import {
 export class ChoreBotPersonPointsCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @state() private _config?: ChoreBotPersonPointsConfig;
+  @state() private _progress?: Progress;
+  private shades: ColorShades = {
+    lighter: "",
+    light: "",
+    base: "",
+    dark: "",
+    darker: "",
+  };
 
   static styles = css`
     :host {
@@ -89,6 +104,14 @@ export class ChoreBotPersonPointsCard extends LitElement {
       font-weight: bold;
     }
 
+    .person-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0; /* Allow truncation */
+      flex: 1;
+    }
+
     .person-name {
       font-size: 20px;
       font-weight: 500;
@@ -96,6 +119,38 @@ export class ChoreBotPersonPointsCard extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .progress-bar {
+      position: relative;
+      border-radius: 12px;
+      height: 24px;
+      overflow: hidden;
+      margin-top: 4px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .progress-bar-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      transition: width 0.3s ease;
+      border-radius: 12px;
+    }
+
+    .progress-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 1;
     }
 
     .person-points {
@@ -144,7 +199,55 @@ export class ChoreBotPersonPointsCard extends LitElement {
       title: config.title || "Points",
       show_title: config.show_title !== false,
       hide_card_background: config.hide_card_background === true,
+      show_progress: config.show_progress !== false, // Default: true
+      accent_color: config.accent_color || "",
+      progress_text_color: config.progress_text_color || "",
     };
+  }
+
+  willUpdate(changedProperties: Map<string, any>) {
+    super.willUpdate(changedProperties);
+
+    // Recalculate color shades when config changes
+    if (changedProperties.has("_config") && this._config) {
+      const baseColor = this._config.accent_color || "var(--primary-color)";
+      this.shades = calculateColorShades(baseColor);
+    }
+
+    // Recalculate progress when hass or config changes
+    if (
+      (changedProperties.has("hass") || changedProperties.has("_config")) &&
+      this.hass &&
+      this._config
+    ) {
+      this._progress = this._calculatePersonProgress();
+    }
+  }
+
+  private _calculatePersonProgress(): Progress {
+    if (!this.hass || !this._config) {
+      return { completed: 0, total: 0 };
+    }
+
+    // Get all ChoreBot todo entities
+    const allStates = Object.values(this.hass.states);
+    const todoEntities = allStates.filter((e) =>
+      e.entity_id.startsWith("todo."),
+    );
+
+    const entities = todoEntities.filter((e) =>
+      e.entity_id.startsWith("todo.chorebot_"),
+    ) as HassEntity[];
+
+    // Filter tasks assigned to this person (excludes dateless by default)
+    const personTasks = filterTasksByPerson(
+      entities,
+      this._config.person_entity,
+      false, // Don't include dateless
+    );
+
+    // Calculate progress for dated tasks only
+    return calculateDatedTasksProgress(personTasks);
   }
 
   static getStubConfig() {
@@ -154,6 +257,9 @@ export class ChoreBotPersonPointsCard extends LitElement {
       title: "Points",
       show_title: true,
       hide_card_background: false,
+      show_progress: true,
+      accent_color: "",
+      progress_text_color: "",
     };
   }
 
@@ -184,6 +290,19 @@ export class ChoreBotPersonPointsCard extends LitElement {
           default: false,
           selector: { boolean: {} },
         },
+        {
+          name: "show_progress",
+          default: true,
+          selector: { boolean: {} },
+        },
+        {
+          name: "accent_color",
+          selector: { text: {} },
+        },
+        {
+          name: "progress_text_color",
+          selector: { text: {} },
+        },
       ],
       computeLabel: (schema: any) => {
         const labels: { [key: string]: string } = {
@@ -191,6 +310,9 @@ export class ChoreBotPersonPointsCard extends LitElement {
           title: "Card Title",
           show_title: "Show Title",
           hide_card_background: "Hide Card Background",
+          show_progress: "Show Progress Bar",
+          accent_color: "Accent Color",
+          progress_text_color: "Progress Text Color",
         };
         return labels[schema.name] || undefined;
       },
@@ -201,6 +323,12 @@ export class ChoreBotPersonPointsCard extends LitElement {
           show_title: "Show the card title",
           hide_card_background:
             "Hide the card background and padding for a seamless look",
+          show_progress:
+            "Display task completion progress below the person's name",
+          accent_color:
+            "Accent color for progress bar and points text (hex code or CSS variable like var(--primary-color))",
+          progress_text_color:
+            "Text color for progress label (hex code or CSS variable)",
         };
         return helpers[schema.name] || undefined;
       },
@@ -276,9 +404,45 @@ export class ChoreBotPersonPointsCard extends LitElement {
             : html`<div class="person-avatar initials">
                 ${this._getPersonInitials(this._config!.person_entity)}
               </div>`}
-          <div class="person-name">${name}</div>
+          <div class="person-info">
+            <div class="person-name">${name}</div>
+            ${this._config!.show_progress && this._progress
+              ? this._renderProgressBar(this._progress)
+              : ""}
+          </div>
         </div>
-        <div class="person-points">${personData.points_balance} pts</div>
+        <div
+          class="person-points"
+          style="color: ${this._config!.accent_color || "var(--primary-color)"}"
+        >
+          ${personData.points_balance} pts
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderProgressBar(progress: Progress) {
+    // Calculate percentage (handle divide by zero)
+    const percentage =
+      progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
+
+    // Get text color from config or use default
+    const textColor =
+      this._config!.progress_text_color || "var(--text-primary-color)";
+
+    return html`
+      <div
+        class="progress-bar"
+        style="background: #${this.shades.lighter}"
+        aria-label="${progress.completed} of ${progress.total} tasks completed"
+      >
+        <div
+          class="progress-bar-fill"
+          style="width: ${percentage}%; background: #${this.shades.darker}"
+        ></div>
+        <div class="progress-text" style="color: ${textColor}">
+          ${progress.completed}/${progress.total}
+        </div>
       </div>
     `;
   }
