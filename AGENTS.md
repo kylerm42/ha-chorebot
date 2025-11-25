@@ -236,6 +236,7 @@ Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array 
 ### Task Serialization Strategy
 
 **Root Level Fields (Standard):**
+
 - Core HA fields: `uid`, `summary`, `status`, `created`, `modified`, `due`, `description`, `deleted_at`
 - ChoreBot features: `tags`, `rrule`, `points_value`, `streak_bonus_points`, `streak_bonus_interval`
 - Recurrence: `parent_uid`, `occurrence_index`, `is_template`
@@ -243,6 +244,7 @@ Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array 
 - Organization: `section_id`, `is_all_day`
 
 **Sync Dict (Backend-Specific):**
+
 - Per-backend metadata: `sync.<backend_name>.id`, `sync.<backend_name>.etag`, etc.
 - Example: `sync.ticktick.id`, `sync.ticktick.status`, `sync.ticktick.last_synced_at`
 - Allows multi-backend sync without conflicts
@@ -514,6 +516,15 @@ data:
 - Daily maintenance job runs at midnight: archives old instances, soft-deletes completed instances, resets streaks for overdue instances
 - **Storage file naming**: List files use `chorebot_list_{list_id}` prefix to avoid namespace collisions. Archive files use `chorebot_list_{list_id}_archive`.
 - **People data optimization**: Use specific save methods (`async_save_people()`, `async_save_rewards()`, etc.) instead of `async_save()` to avoid writing all 4 files on every operation.
+
+### Person Assignment Computation
+
+- **Backend computes person_id**: `_resolve_person_id_for_task()` runs during state updates, enriching each task dict with `computed_person_id`
+- **Frontend consumes computed value**: `task.computed_person_id` is pre-computed in `extra_state_attributes`, DO NOT reimplement resolution logic
+- **Resolution order**: section.person_id → list.person_id → null
+- **Exposed in state**: `extra_state_attributes["chorebot_tasks"][n]["computed_person_id"]`
+- **Read-only**: Frontend never modifies this field, it's derived from section/list metadata
+- **Why centralized**: Single source of truth eliminates code duplication between Python and TypeScript, improves performance (no repeated section lookups), and enhances debuggability (visible in Developer Tools → States)
 
 ## Implementation Status
 

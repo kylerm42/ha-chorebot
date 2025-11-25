@@ -131,7 +131,13 @@ class ChoreBotList(TodoListEntity):
         list_metadata = self._store._metadata_cache.get(self._list_id, {})
 
         return {
-            "chorebot_tasks": [task.to_dict() for task in visible_tasks],
+            "chorebot_tasks": [
+                {
+                    **task.to_dict(),
+                    "computed_person_id": self._resolve_person_id_for_task(task),
+                }
+                for task in visible_tasks
+            ],
             "chorebot_templates": [
                 template.to_dict() for template in visible_templates
             ],

@@ -240,7 +240,7 @@ export function sortGroups(
 
 /**
  * Filter tasks assigned to a specific person across all ChoreBot lists
- * Uses section person_id (priority) or list person_id (fallback)
+ * Uses pre-computed person_id from backend (eliminates manual section/list lookups)
  * @param entities - All Home Assistant entities (will filter to todo.chorebot_*)
  * @param personEntityId - Person entity ID (e.g., "person.kyle")
  * @param includeDateless - Whether to include dateless tasks (default: false)
@@ -262,32 +262,13 @@ export function filterTasksByPerson(
     // Get today's tasks from this entity
     const todayTasks = filterTodayTasks(entity, includeDateless);
 
-    // Get sections and list metadata
-    const sections: Section[] = entity.attributes.chorebot_sections || [];
-    const listMetadata = entity.attributes.chorebot_metadata;
+    // Filter to tasks assigned to this person using pre-computed person_id
+    // Backend resolves: section.person_id → list.person_id → null
+    const personTasks = todayTasks.filter(
+      (task) => task.computed_person_id === personEntityId,
+    );
 
-    // Filter tasks assigned to this person
-    for (const task of todayTasks) {
-      let isAssignedToPerson = false;
-
-      // Check section assignment first (priority)
-      if (task.section_id) {
-        const section = sections.find((s) => s.id === task.section_id);
-        if (section?.person_id) {
-          isAssignedToPerson = section.person_id === personEntityId;
-        } else if (listMetadata?.person_id) {
-          // Section has no person_id, check list metadata
-          isAssignedToPerson = listMetadata.person_id === personEntityId;
-        }
-      } else if (listMetadata?.person_id) {
-        // No section, check list metadata
-        isAssignedToPerson = listMetadata.person_id === personEntityId;
-      }
-
-      if (isAssignedToPerson) {
-        allPersonTasks.push(task);
-      }
-    }
+    allPersonTasks.push(...personTasks);
   }
 
   return allPersonTasks;

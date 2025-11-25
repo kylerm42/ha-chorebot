@@ -61,6 +61,12 @@ export interface Task {
   occurrence_index?: number;
   rrule?: string;
   sync?: { [backend: string]: any };
+  /**
+   * Pre-computed person assignment from backend
+   * Resolved via: task.section_id → section.person_id → list.person_id → null
+   * Read-only field computed in extra_state_attributes
+   */
+  computed_person_id?: string;
 }
 
 export interface RecurringTemplate {
