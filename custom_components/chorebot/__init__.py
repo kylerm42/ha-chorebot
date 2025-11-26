@@ -42,7 +42,6 @@ from .oauth_api import AsyncConfigEntryAuth
 from .people import PeopleStore
 from .store import ChoreBotStore
 from .sync_coordinator import SyncCoordinator
-from .task import Task
 from .ticktick_backend import TickTickBackend
 
 _LOGGER = logging.getLogger(__name__)
@@ -217,10 +216,10 @@ def _extract_task_data_from_service_call(
     list_id: str | None = None,
 ) -> dict[str, Any]:
     """Extract and normalize task data from service call.
-    
+
     Single source of truth for translating service call data to task model data.
     Handles datetime conversion, tag normalization, and field extraction.
-    
+
     Args:
         call: The service call containing task data
         hass: Home Assistant instance for timezone handling
@@ -228,26 +227,26 @@ def _extract_task_data_from_service_call(
         apply_section_default: If True, apply default section if not provided (for creates)
         store: ChoreBotStore instance (required if apply_section_default is True)
         list_id: List ID (required if apply_section_default is True)
-    
+
     Returns:
         Dictionary ready to pass to entity methods (async_create_task_internal or async_update_task_internal)
     """
     data: dict[str, Any] = {}
-    
+
     # UID (for updates only)
     if include_uid:
         data["uid"] = call.data["uid"]
-    
+
     # Core fields - only include if present in service call
     if "summary" in call.data:
         data["summary"] = call.data["summary"]
-    
+
     if "description" in call.data:
         data["description"] = call.data["description"]
-    
+
     if "status" in call.data:
         data["status"] = call.data["status"]
-    
+
     # Due date (with datetime conversion)
     if "due" in call.data:
         due = call.data["due"]
@@ -263,39 +262,39 @@ def _extract_task_data_from_service_call(
             # Convert to UTC
             due_utc = due.astimezone(UTC)
             data["due"] = due_utc.isoformat().replace("+00:00", "Z")
-    
+
     # Boolean flags
     if "is_all_day" in call.data:
         data["is_all_day"] = call.data["is_all_day"]
-    
+
     # Organization fields
     # Tags: distinguish between "not provided" and "provided as empty list"
     if "tags" in call.data:
         data["tags"] = call.data["tags"] if call.data["tags"] is not None else []
-    
+
     if "section_id" in call.data:
         data["section_id"] = call.data["section_id"]
     elif apply_section_default and store and list_id:
         # Apply default section if creating a new task and no section provided
         data["section_id"] = store.get_default_section_id(list_id)
-    
+
     # Points system fields
     if "points_value" in call.data:
         data["points_value"] = call.data["points_value"]
-    
+
     if "streak_bonus_points" in call.data:
         data["streak_bonus_points"] = call.data["streak_bonus_points"]
-    
+
     if "streak_bonus_interval" in call.data:
         data["streak_bonus_interval"] = call.data["streak_bonus_interval"]
-    
+
     # Recurrence fields
     if "rrule" in call.data:
         data["rrule"] = call.data["rrule"]
-    
+
     if "include_future_occurrences" in call.data:
         data["include_future_occurrences"] = call.data["include_future_occurrences"]
-    
+
     return data
 
 

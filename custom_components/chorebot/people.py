@@ -550,7 +550,7 @@ class PeopleStore:
                 return False, f"Insufficient points: {balance} < {cost}"
 
             # Deduct points
-            transaction_id = await self._add_points_locked(
+            await self._add_points_locked(
                 person_id,
                 -cost,
                 "reward_redemption",

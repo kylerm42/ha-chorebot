@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from propcache import cached_property
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -45,13 +47,13 @@ class ChoreBotPointsSensor(SensorEntity):
         """Initialize the sensor."""
         self._people_store = people_store
 
-    @property
-    def state(self) -> int:
+    @cached_property
+    def native_value(self) -> int:
         """Return total points across all people."""
         people = self._people_store.async_get_all_people()
         return sum(p.points_balance for p in people.values())
 
-    @property
+    @cached_property
     def extra_state_attributes(self) -> dict:
         """Return people balances, rewards, and transactions."""
         people_data = self._people_store.async_get_all_people()

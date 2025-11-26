@@ -6,13 +6,10 @@ from datetime import UTC, date, datetime
 import logging
 
 from dateutil.rrule import rrulestr
+from propcache import cached_property
 
-from homeassistant.components.todo import (
-    TodoItem,
-    TodoItemStatus,
-    TodoListEntity,
-    TodoListEntityFeature,
-)
+from homeassistant.components.todo import TodoItem, TodoListEntity
+from homeassistant.components.todo.const import TodoItemStatus, TodoListEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -77,8 +74,8 @@ class ChoreBotList(TodoListEntity):
         self._sync_coordinator = hass.data[DOMAIN].get("sync_coordinator")
         _LOGGER.info("Initialized ChoreBotList entity: %s (id: %s)", list_name, list_id)
 
-    @property
-    def todo_items(self) -> list[TodoItem]:
+    @cached_property
+    def todo_items(self) -> list[TodoItem] | None:
         """Return the todo items (HA format)."""
         # Get tasks from store (templates already separated, only returns tasks)
         tasks = self._store.get_tasks_for_list(self._list_id)
@@ -95,7 +92,7 @@ class ChoreBotList(TodoListEntity):
         # Convert our Task objects to HA's TodoItem format
         return [self._task_to_todo_item(task) for task in visible_tasks]
 
-    @property
+    @cached_property
     def extra_state_attributes(self) -> dict:
         """Expose additional ChoreBot data to frontend."""
         # Get tasks (regular tasks and recurring instances)
@@ -445,7 +442,8 @@ class ChoreBotList(TodoListEntity):
                 )
                 return
 
-            # Get parent template
+            # Get parent template (parent_uid is guaranteed non-None by is_recurring_instance check)
+            assert task.parent_uid is not None
             template = self._store.get_template(self._list_id, task.parent_uid)
             if not template:
                 _LOGGER.error("Template not found for instance: %s", task.parent_uid)
@@ -620,6 +618,8 @@ class ChoreBotList(TodoListEntity):
 
             # Check for streak bonus (recurring tasks only)
             if task.is_recurring_instance() and task.streak_bonus_points > 0:
+                # parent_uid is guaranteed non-None by is_recurring_instance check
+                assert task.parent_uid is not None
                 template = self._store.get_template(self._list_id, task.parent_uid)
                 if template and template.streak_bonus_interval > 0:
                     # Check if current streak is a milestone
@@ -711,7 +711,8 @@ class ChoreBotList(TodoListEntity):
             _LOGGER.error("Instance has no parent_uid: %s", instance.uid)
             return
 
-        # Get the template
+        # Get the template (parent_uid is guaranteed non-None by check above)
+        assert instance.parent_uid is not None
         template = self._store.get_template(self._list_id, instance.parent_uid)
         if not template:
             _LOGGER.error("Template not found for instance: %s", instance.parent_uid)
@@ -869,6 +870,8 @@ class ChoreBotList(TodoListEntity):
         if not task.is_recurring_instance():
             return False
 
+        # parent_uid is guaranteed non-None by is_recurring_instance check
+        assert task.parent_uid is not None
         instances = self._store.get_instances_for_template(
             self._list_id, task.parent_uid
         )
