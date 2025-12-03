@@ -101,6 +101,7 @@ MANAGE_REWARD_SCHEMA = vol.Schema(
         vol.Required("cost"): cv.positive_int,
         vol.Required("icon"): cv.string,
         vol.Optional("description"): cv.string,
+        vol.Required("person_id"): cv.entity_id,
     }
 )
 
@@ -362,7 +363,9 @@ async def _handle_add_task(
         _LOGGER.error("Invalid entity_id provided: %s", entity_id)
         return
 
-    _LOGGER.info("Adding task via service: %s to list %s", call.data["summary"], list_id)
+    _LOGGER.info(
+        "Adding task via service: %s to list %s", call.data["summary"], list_id
+    )
 
     # Get the entity instance
     entities = hass.data[DOMAIN].get("entities", {})
@@ -475,14 +478,23 @@ async def _handle_manage_reward(
     cost = call.data["cost"]
     icon = call.data["icon"]
     description = call.data.get("description", "")
+    person_id = call.data["person_id"]
 
-    _LOGGER.info("Managing reward via service: %s (cost: %d pts)", name, cost)
+    # Validate person exists
+    if person_id not in hass.states.async_entity_ids("person"):
+        _LOGGER.error("Person entity not found: %s", person_id)
+        raise ValueError(f"Person entity not found: {person_id}")
+
+    _LOGGER.info(
+        "Managing reward via service: %s (cost: %d pts) for %s", name, cost, person_id
+    )
 
     result_id = await people_store.async_create_reward(
         reward_id=reward_id,
         name=name,
         cost=cost,
         icon=icon,
+        person_id=person_id,
         description=description,
     )
 

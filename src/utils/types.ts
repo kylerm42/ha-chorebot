@@ -138,6 +138,17 @@ export interface ChoreBotPersonPointsConfig {
   progress_text_color?: string; // Default: var(--text-primary-color)
 }
 
+export interface ChoreBotPersonRewardsConfig {
+  type: "custom:chorebot-person-rewards-card";
+  person_entity: string; // Required - e.g., "person.kyle"
+  title?: string;
+  show_title?: boolean;
+  hide_card_background?: boolean;
+  show_disabled_rewards?: boolean; // Default: false
+  sort_by?: "cost" | "name" | "created"; // Default: "cost"
+  show_add_reward_button?: boolean; // Default: true
+}
+
 export interface PersonPoints {
   entity_id: string;
   points_balance: number;
@@ -154,6 +165,7 @@ export interface Reward {
   description: string;
   created?: string;
   modified?: string;
+  person_id: string; // Required: Person this reward belongs to
 }
 
 export interface Transaction {

@@ -96,6 +96,7 @@ class Reward:
     description: str  # Optional description
     created: str  # ISO 8601 timestamp
     modified: str  # ISO 8601 timestamp
+    person_id: str  # Person this reward belongs to (REQUIRED)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON storage."""
@@ -108,6 +109,7 @@ class Reward:
             "description": self.description,
             "created": self.created,
             "modified": self.modified,
+            "person_id": self.person_id,
         }
 
     @classmethod
@@ -122,6 +124,7 @@ class Reward:
             description=data.get("description", ""),
             created=data["created"],
             modified=data["modified"],
+            person_id=data["person_id"],
         )
 
 
@@ -203,6 +206,32 @@ class PeopleStore:
                 len(self._data.get("rewards", [])),
                 len(self._data.get("redemptions", [])),
             )
+
+            # MIGRATION: Add person_id to rewards that don't have it
+            rewards = self._data.get("rewards", [])
+            people = self._data.get("people", {})
+
+            if rewards and people:
+                # Get first available person entity
+                first_person_id = next(iter(people.keys()), None)
+
+                if first_person_id:
+                    needs_save = False
+                    for reward in rewards:
+                        if "person_id" not in reward:
+                            reward["person_id"] = first_person_id
+                            needs_save = True
+                            _LOGGER.info(
+                                "Migrated reward '%s' to person_id: %s",
+                                reward["name"],
+                                first_person_id,
+                            )
+
+                    if needs_save:
+                        await self.async_save_rewards()
+                        _LOGGER.info(
+                            "Completed reward migration to person-specific model"
+                        )
 
     async def async_save(self) -> None:
         """Save all people data to storage. Must be called with lock held.
@@ -372,6 +401,7 @@ class PeopleStore:
         name: str,
         cost: int,
         icon: str,
+        person_id: str,
         description: str = "",
     ) -> str:
         """Create or update a reward.
@@ -381,6 +411,7 @@ class PeopleStore:
             name: Display name
             cost: Point cost
             icon: MDI icon
+            person_id: Person this reward belongs to (REQUIRED)
             description: Optional description
 
         Returns:
@@ -408,6 +439,7 @@ class PeopleStore:
                 reward["cost"] = cost
                 reward["icon"] = icon
                 reward["description"] = description
+                reward["person_id"] = person_id
                 reward["modified"] = now
                 _LOGGER.info("Updated reward: %s", name)
             else:
@@ -421,6 +453,7 @@ class PeopleStore:
                     "description": description,
                     "created": now,
                     "modified": now,
+                    "person_id": person_id,
                 }
                 rewards.append(reward)
                 _LOGGER.info("Created reward: %s (cost: %d pts)", name, cost)
@@ -536,6 +569,13 @@ class PeopleStore:
 
             if not reward["enabled"]:
                 return False, f"Reward is disabled: {reward['name']}"
+
+            # Validate person_id matches reward owner
+            if reward["person_id"] != person_id:
+                return (
+                    False,
+                    f"This reward belongs to {reward['person_id']}, not {person_id}",
+                )
 
             # Check person has sufficient points
             people = self._data.get("people", {})

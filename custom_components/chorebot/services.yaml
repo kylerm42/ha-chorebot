@@ -228,6 +228,14 @@ manage_reward:
       selector:
         text:
           multiline: true
+    person_id:
+      name: Person
+      description: Assign reward to a specific person (REQUIRED).
+      required: true
+      example: "person.kyle"
+      selector:
+        entity:
+          domain: person
 
 redeem_reward:
   name: Redeem Reward
