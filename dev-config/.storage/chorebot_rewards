@@ -12,7 +12,19 @@
         "enabled": true,
         "description": "Oh there's a description",
         "created": "2025-11-17T18:41:03.470834Z",
-        "modified": "2025-11-17T18:41:03.470834Z"
+        "modified": "2025-11-17T18:41:03.470834Z",
+        "person_id": "person.kyle"
+      },
+      {
+        "id": "reward_1e4b5b76",
+        "name": "Kyle Test",
+        "cost": 50,
+        "icon": "mdi:television",
+        "enabled": true,
+        "description": "Oh here's a description",
+        "created": "2025-12-03T15:59:13.006526Z",
+        "modified": "2025-12-03T15:59:13.006526Z",
+        "person_id": "person.kyle"
       }
     ]
   }

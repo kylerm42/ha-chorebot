@@ -78,6 +78,7 @@ class ChoreBotPointsSensor(SensorEntity):
                     "icon": r.icon,
                     "enabled": r.enabled,
                     "description": r.description,
+                    "person_id": r.person_id,
                 }
                 for r in rewards
             ],
