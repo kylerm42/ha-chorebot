@@ -5,23 +5,8 @@ import commonjs from "@rollup/plugin-commonjs";
 
 const production = !process.env.ROLLUP_WATCH;
 
-// Build all three cards
+// Build all active cards (deprecated cards are in src/deprecated/ for reference only)
 export default [
-  // ChoreBot List Card (original)
-  {
-    input: "src/main.ts",
-    output: {
-      file: "dist/chorebot-list-card.js",
-      format: "es",
-      sourcemap: !production,
-    },
-    plugins: [
-      resolve({ browser: true }),
-      commonjs(),
-      typescript(),
-      production && terser(),
-    ],
-  },
   // ChoreBot Grouped Card
   {
     input: "src/grouped-card.ts",
@@ -42,21 +27,6 @@ export default [
     input: "src/add-task-card.ts",
     output: {
       file: "dist/chorebot-add-task-card.js",
-      format: "es",
-      sourcemap: !production,
-    },
-    plugins: [
-      resolve({ browser: true }),
-      commonjs(),
-      typescript(),
-      production && terser(),
-    ],
-  },
-  // ChoreBot Rewards Card
-  {
-    input: "src/rewards-card.ts",
-    output: {
-      file: "dist/chorebot-rewards-card.js",
       format: "es",
       sourcemap: !production,
     },

@@ -118,7 +118,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .reward-icon ha-icon {
-      --mdi-icon-size: 48px;
+      --mdc-icon-size: 48px;
     }
 
     .reward-info {
@@ -593,7 +593,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
   private _renderConfirmModal(
     people: { [key: string]: PersonPoints },
-    rewards: Reward[],
+    rewards: Reward[]
   ) {
     if (!this._pendingRedemption || !this._config) return "";
 
@@ -792,18 +792,18 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
   private _renderRewardsGrid(
     rewards: Reward[],
-    people: { [key: string]: PersonPoints },
+    people: { [key: string]: PersonPoints }
   ) {
     if (!this._config) return "";
 
     // Filter rewards by person_id
     const personRewards = rewards.filter(
-      (r) => r.person_id === this._config!.person_entity,
+      (r) => r.person_id === this._config!.person_entity
     );
 
     // Filter by enabled/disabled
     const filteredRewards = personRewards.filter(
-      (r) => this._config!.show_disabled_rewards || r.enabled,
+      (r) => this._config!.show_disabled_rewards || r.enabled
     );
 
     // Sort rewards
@@ -878,7 +878,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
         return sorted.sort(
           (a, b) =>
             new Date(a.created || 0).getTime() -
-            new Date(b.created || 0).getTime(),
+            new Date(b.created || 0).getTime()
         );
       case "cost":
       default:
