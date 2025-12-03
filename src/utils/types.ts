@@ -150,12 +150,16 @@ export interface ChoreBotPersonRewardsConfig {
   accent_color?: string; // Default: var(--primary-color) - used for icons, costs, and buttons
 }
 
-export interface PersonPoints {
+export interface PersonProfile {
   entity_id: string;
   points_balance: number;
   lifetime_points: number;
   last_updated: string;
+  accent_color?: string; // UI accent color (hex code or CSS variable)
 }
+
+// Legacy alias for backwards compatibility
+export type PersonPoints = PersonProfile;
 
 export interface Reward {
   id: string;

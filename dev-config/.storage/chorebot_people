@@ -8,7 +8,8 @@
         "entity_id": "person.kyle",
         "points_balance": 1000,
         "lifetime_points": 30,
-        "last_updated": "2025-11-17T21:34:50.945725Z"
+        "last_updated": "2025-12-03T20:36:18.085915Z",
+        "accent_color": "#b29fe8"
       },
       "person.other": {
         "entity_id": "person.other",
@@ -20,13 +21,15 @@
         "entity_id": "person.campbell",
         "points_balance": 0,
         "lifetime_points": 0,
-        "last_updated": "2025-11-24T19:07:58.608617Z"
+        "last_updated": "2025-12-03T20:36:40.688712Z",
+        "accent_color": "#91aaf0"
       },
       "person.courtney": {
         "entity_id": "person.courtney",
         "points_balance": 0,
         "lifetime_points": 0,
-        "last_updated": "2025-11-24T19:07:58.608617Z"
+        "last_updated": "2025-12-03T20:36:29.436370Z",
+        "accent_color": "#80b7cc"
       }
     }
   }

@@ -46,13 +46,13 @@ class ChoreBotPointsSensor(SensorEntity):
         self._people_store = people_store
 
     @property
-    def native_value(self) -> int: # pyright: ignore[reportIncompatibleVariableOverride]
+    def native_value(self) -> int:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return total points across all people."""
         people = self._people_store.async_get_all_people()
         return sum(p.points_balance for p in people.values())
 
     @property
-    def extra_state_attributes(self) -> dict: # pyright: ignore[reportIncompatibleVariableOverride]
+    def extra_state_attributes(self) -> dict:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return people balances, rewards, and transactions."""
         people_data = self._people_store.async_get_all_people()
         rewards = self._people_store.async_get_all_rewards()
@@ -65,6 +65,7 @@ class ChoreBotPointsSensor(SensorEntity):
                     "points_balance": p.points_balance,
                     "lifetime_points": p.lifetime_points,
                     "last_updated": p.last_updated,
+                    "accent_color": p.accent_color,
                 }
                 for pid, p in people_data.items()
             },

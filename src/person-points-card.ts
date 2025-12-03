@@ -42,6 +42,7 @@ export class ChoreBotPersonPointsCard extends LitElement {
   static styles = css`
     :host {
       display: block;
+      margin-bottom: 1em;
     }
 
     ha-card {
@@ -208,9 +209,30 @@ export class ChoreBotPersonPointsCard extends LitElement {
   willUpdate(changedProperties: Map<string, any>) {
     super.willUpdate(changedProperties);
 
-    // Recalculate color shades when config changes
-    if (changedProperties.has("_config") && this._config) {
-      const baseColor = this._config.accent_color || "var(--primary-color)";
+    // Recalculate color shades when config or hass changes
+    if (
+      (changedProperties.has("_config") || changedProperties.has("hass")) &&
+      this._config &&
+      this.hass
+    ) {
+      // Precedence: Manual config > Person profile > Theme default
+      let baseColor = "var(--primary-color)"; // Default fallback
+
+      // Check for centralized person color from sensor
+      if (this._config.person_entity) {
+        const sensor = this.hass.states["sensor.chorebot_points"];
+        const people = sensor?.attributes.people || {};
+        const personProfile = people[this._config.person_entity];
+        if (personProfile?.accent_color) {
+          baseColor = personProfile.accent_color;
+        }
+      }
+
+      // Manual config overrides everything
+      if (this._config.accent_color) {
+        baseColor = this._config.accent_color;
+      }
+
       this.shades = calculateColorShades(baseColor);
     }
 
@@ -411,10 +433,7 @@ export class ChoreBotPersonPointsCard extends LitElement {
               : ""}
           </div>
         </div>
-        <div
-          class="person-points"
-          style="color: ${this._config!.accent_color || "var(--primary-color)"}"
-        >
+        <div class="person-points" style="color: #${this.shades.base}">
           ${personData.points_balance} pts
         </div>
       </div>

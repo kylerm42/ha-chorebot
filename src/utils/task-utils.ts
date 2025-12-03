@@ -283,6 +283,7 @@ export function filterTasksByPerson(
  * @param untaggedHeader - Header text for tasks without tags
  * @param upcomingHeader - Header text for future tasks group
  * @param filterSectionId - Optional section ID to filter by
+ * @param filterPersonId - Optional person entity ID to filter by
  * @returns Array of GroupState objects with tasks grouped
  */
 export function filterAndGroupTasks(
@@ -292,6 +293,7 @@ export function filterAndGroupTasks(
   untaggedHeader: string = "Untagged",
   upcomingHeader: string = "Upcoming",
   filterSectionId?: string,
+  filterPersonId?: string,
 ): GroupState[] {
   const allTasks = entity.attributes.chorebot_tasks || [];
   const today = new Date();
@@ -317,6 +319,11 @@ export function filterAndGroupTasks(
       if (task.section_id !== sectionIdToMatch) {
         continue; // Skip this task
       }
+    }
+
+    // Apply person filter (uses pre-computed person_id from backend)
+    if (filterPersonId && task.computed_person_id !== filterPersonId) {
+      continue; // Skip this task
     }
 
     const hasDueDate = !!task.due;

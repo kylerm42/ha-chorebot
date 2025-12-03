@@ -6,7 +6,6 @@ from datetime import UTC, date, datetime
 import logging
 
 from dateutil.rrule import rrulestr
-from propcache import cached_property
 
 from homeassistant.components.todo import TodoItem, TodoListEntity
 from homeassistant.components.todo.const import TodoItemStatus, TodoListEntityFeature
@@ -74,8 +73,8 @@ class ChoreBotList(TodoListEntity):
         self._sync_coordinator = hass.data[DOMAIN].get("sync_coordinator")
         _LOGGER.info("Initialized ChoreBotList entity: %s (id: %s)", list_name, list_id)
 
-    @cached_property
-    def todo_items(self) -> list[TodoItem] | None:
+    @property
+    def todo_items(self) -> list[TodoItem] | None: # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the todo items (HA format)."""
         # Get tasks from store (templates already separated, only returns tasks)
         tasks = self._store.get_tasks_for_list(self._list_id)
@@ -92,8 +91,8 @@ class ChoreBotList(TodoListEntity):
         # Convert our Task objects to HA's TodoItem format
         return [self._task_to_todo_item(task) for task in visible_tasks]
 
-    @cached_property
-    def extra_state_attributes(self) -> dict:
+    @property
+    def extra_state_attributes(self) -> dict: # pyright: ignore[reportIncompatibleVariableOverride]
         """Expose additional ChoreBot data to frontend."""
         # Get tasks (regular tasks and recurring instances)
         tasks = self._store.get_tasks_for_list(self._list_id)

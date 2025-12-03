@@ -338,6 +338,26 @@ sync_people:
   name: Sync People
   description: Sync people records with Home Assistant person entities. Creates missing people with 0 points.
 
+manage_person:
+  name: Manage Person
+  description: Update person profile settings (e.g., accent color).
+  fields:
+    person_id:
+      name: Person Entity ID
+      description: Home Assistant person entity ID (e.g., person.kyle).
+      required: true
+      example: "person.kyle"
+      selector:
+        entity:
+          domain: person
+    accent_color:
+      name: Accent Color
+      description: "UI accent color (hex code like #3498db or CSS variable like var(--blue-500))."
+      required: false
+      example: "#3498db"
+      selector:
+        text:
+
 manage_section:
   name: Manage Section
   description: Create, update, or delete a section in a ChoreBot list.

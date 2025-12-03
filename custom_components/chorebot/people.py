@@ -18,13 +18,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class PersonPoints:
-    """Person points data."""
+class PersonProfile:
+    """Person profile data."""
 
     entity_id: str  # HA Person entity_id
     points_balance: int  # Current points (can be negative)
     lifetime_points: int  # Total earned (never decrements)
     last_updated: str  # ISO 8601 timestamp
+    accent_color: str = ""  # UI accent color (hex code or CSS variable)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON storage."""
@@ -33,16 +34,18 @@ class PersonPoints:
             "points_balance": self.points_balance,
             "lifetime_points": self.lifetime_points,
             "last_updated": self.last_updated,
+            "accent_color": self.accent_color,
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> PersonPoints:
+    def from_dict(cls, data: dict[str, Any]) -> PersonProfile:
         """Create from dictionary."""
         return cls(
             entity_id=data["entity_id"],
             points_balance=data["points_balance"],
             lifetime_points=data["lifetime_points"],
             last_updated=data["last_updated"],
+            accent_color=data.get("accent_color", ""),  # Backwards compatibility
         )
 
 
@@ -280,11 +283,11 @@ class PeopleStore:
             return people[person_id]["points_balance"]
         return 0
 
-    def async_get_all_people(self) -> dict[str, PersonPoints]:
+    def async_get_all_people(self) -> dict[str, PersonProfile]:
         """Get all people with their balances (synchronous, no await needed)."""
         people_data = self._data.get("people", {})
         return {
-            person_id: PersonPoints.from_dict(data)
+            person_id: PersonProfile.from_dict(data)
             for person_id, data in people_data.items()
         }
 
@@ -318,6 +321,7 @@ class PeopleStore:
                     "points_balance": 0,
                     "lifetime_points": 0,
                     "last_updated": now,
+                    "accent_color": "",
                 }
 
             person = people[person_id]
@@ -646,6 +650,7 @@ class PeopleStore:
                 "points_balance": 0,
                 "lifetime_points": 0,
                 "last_updated": now,
+                "accent_color": "",
             }
 
         person = people[person_id]
@@ -702,6 +707,7 @@ class PeopleStore:
                         "points_balance": 0,
                         "lifetime_points": 0,
                         "last_updated": now,
+                        "accent_color": "",
                     }
                     created_count += 1
                     _LOGGER.info("Created person record: %s", person_id)
@@ -713,6 +719,47 @@ class PeopleStore:
                 _LOGGER.debug("All person entities already have records")
 
             return created_count
+
+    async def async_update_person_profile(
+        self,
+        person_id: str,
+        accent_color: str | None = None,
+    ) -> bool:
+        """Update person profile fields.
+
+        Args:
+            person_id: HA Person entity_id
+            accent_color: UI accent color (hex or CSS variable)
+
+        Returns:
+            True if successful
+        """
+        async with self._lock:
+            people = self._data.setdefault("people", {})
+
+            # Get or create person record
+            if person_id not in people:
+                now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                people[person_id] = {
+                    "entity_id": person_id,
+                    "points_balance": 0,
+                    "lifetime_points": 0,
+                    "last_updated": now,
+                    "accent_color": "",
+                }
+
+            person = people[person_id]
+
+            # Update fields
+            if accent_color is not None:
+                person["accent_color"] = accent_color
+
+            person["last_updated"] = (
+                datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            )
+
+            await self.async_save_people()
+            return True
 
     def async_get_redemptions(
         self,

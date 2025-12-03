@@ -28,6 +28,7 @@ A Home Assistant custom integration that provides advanced task management with 
 🚧 **Structure Setup Complete** - Ready for implementation
 
 The project scaffolding is now in place with:
+
 - ✅ Custom integration structure following HA best practices
 - ✅ TodoListEntity platform for native HA todo integration
 - ✅ Config flow for UI-based setup
@@ -37,6 +38,7 @@ The project scaffolding is now in place with:
 ## Features (Planned)
 
 ### MVP
+
 - **Native Todo Integration**: Standard HA `todo` entities for compatibility
 - **Recurring Tasks**: Tasks that automatically advance to the next due date on completion
 - **Streak Tracking**: Track completion streaks with longest streak history
@@ -45,9 +47,196 @@ The project scaffolding is now in place with:
 - **Custom Lovelace Cards**: Enhanced UI with filtering and special effects
 
 ### Post-MVP
+
 - Points/stars system
 - Reward shop
 - Badges and achievements
+
+## Services
+
+ChoreBot provides several services for managing tasks, people, rewards, and more.
+
+### Person Management
+
+**`chorebot.manage_person`** - Set a person's accent color for UI customization:
+
+```yaml
+service: chorebot.manage_person
+data:
+  person_id: person.kyle
+  accent_color: "#3498db" # Hex code (#RRGGBB or #RGB) or CSS variable (var(--name))
+```
+
+**`chorebot.sync_people`** - Sync people records with Home Assistant person entities:
+
+```yaml
+service: chorebot.sync_people
+```
+
+Creates missing people with 0 points balance. Runs automatically on integration setup.
+
+### Task Management
+
+**`chorebot.create_list`** - Create a new task list with optional person assignment:
+
+```yaml
+service: chorebot.create_list
+data:
+  name: "Kyle's Chores"
+  person_id: person.kyle # Optional: Assign default person for list
+```
+
+**`chorebot.add_task`** - Add a task with full field support:
+
+```yaml
+service: chorebot.add_task
+data:
+  list_id: todo.chorebot_family_tasks
+  summary: "Daily Exercise"
+  tags: ["Morning", "Health"]
+  rrule: "FREQ=DAILY;INTERVAL=1"
+  points_value: 10
+  streak_bonus_points: 50
+  streak_bonus_interval: 7
+```
+
+**`chorebot.manage_section`** - Create, update, or delete sections:
+
+```yaml
+# Create section with person assignment
+service: chorebot.manage_section
+data:
+  list_id: todo.chorebot_family_tasks
+  action: create
+  name: "Campbell's Tasks"
+  person_id: person.campbell
+  sort_order: 100
+
+# Update section person
+service: chorebot.manage_section
+data:
+  list_id: todo.chorebot_family_tasks
+  action: update
+  section_id: "section_id_here"
+  person_id: person.kyle
+
+# Delete section
+service: chorebot.manage_section
+data:
+  list_id: todo.chorebot_family_tasks
+  action: delete
+  section_id: "section_id_here"
+```
+
+### Points & Rewards
+
+**`chorebot.manage_reward`** - Create or update a reward:
+
+```yaml
+service: chorebot.manage_reward
+data:
+  name: "Ice Cream Trip"
+  description: "Trip to favorite ice cream shop"
+  cost: 100
+  icon: "mdi:ice-cream"
+  person_id: person.kyle # Optional: Make person-specific
+```
+
+**`chorebot.redeem_reward`** - Redeem a reward (deducts points):
+
+```yaml
+service: chorebot.redeem_reward
+data:
+  person_id: person.kyle
+  reward_id: "reward_id_here"
+```
+
+**`chorebot.adjust_points`** - Manually adjust points (admin use):
+
+```yaml
+service: chorebot.adjust_points
+data:
+  person_id: person.kyle
+  amount: 50 # Positive to add, negative to subtract
+  reason: "Extra credit for helping with dishes"
+```
+
+### Synchronization
+
+**`chorebot.sync`** - Manually trigger sync from TickTick:
+
+```yaml
+# Sync all lists
+service: chorebot.sync
+
+# Sync specific list
+service: chorebot.sync
+data:
+  list_id: todo.chorebot_family_tasks
+```
+
+## Cards
+
+ChoreBot provides several custom Lovelace cards:
+
+### Person Points Card
+
+Displays a person's points balance with progress visualization:
+
+```yaml
+type: custom:chorebot-person-points-card
+person_entity: person.kyle
+title: "Kyle's Points"
+# accent_color: "#3498db"  # Optional: Override person's color
+```
+
+### Person Rewards Card
+
+Shows person-specific rewards with redemption buttons:
+
+```yaml
+type: custom:chorebot-person-rewards-card
+person_entity: person.kyle
+title: "Kyle's Rewards"
+show_disabled_rewards: false
+sort_by: cost # Options: cost, name, created
+# accent_color: "#3498db"  # Optional: Override person's color
+```
+
+### Grouped Card
+
+Tag-based grouped task view with optional person filtering:
+
+```yaml
+# Personal view: Filter by person
+type: custom:chorebot-grouped-card
+entity: todo.chorebot_family_tasks
+person_entity: person.kyle  # Shows only Kyle's tasks
+title: "Kyle's Tasks"
+# accent_color: "#3498db"  # Optional: Override person's color
+
+# Family view: Show all tasks
+type: custom:chorebot-grouped-card
+entity: todo.chorebot_family_tasks
+title: "Family Tasks"
+tag_group_order:
+  - Morning
+  - Afternoon
+  - Evening
+untagged_header: "Other Tasks"
+```
+
+### List Card
+
+Today-focused flat task view:
+
+```yaml
+type: custom:chorebot-list-card
+entity: todo.chorebot_family_tasks
+show_progress: true
+show_points: true
+filter_section_id: "section_id" # Optional: Filter by section
+```
 
 ## Next Steps for Development
 
@@ -79,17 +268,23 @@ The project scaffolding is now in place with:
 ## HACS Installation (Future)
 
 ### As Custom Integration
+
 Add as a custom repository in HACS:
+
 ```
 https://github.com/kylerm42/chorebot
 ```
+
 Type: Integration
 
 ### As Frontend Plugin
+
 Add as a custom repository in HACS:
+
 ```
 https://github.com/kylerm42/chorebot
 ```
+
 Type: Lovelace
 
 ## Development Environment
@@ -99,6 +294,7 @@ This integration is developed using the [Home Assistant Core devcontainer](https
 ### Setup
 
 1. Clone the [Home Assistant core repository](https://github.com/home-assistant/core) next to this repository:
+
    ```bash
    # Your directory structure should be:
    # Projects/
@@ -108,6 +304,7 @@ This integration is developed using the [Home Assistant Core devcontainer](https
    ```
 
 2. Create a symlink from the core devcontainer config to use ChoreBot's customized version:
+
    ```bash
    cd core/.devcontainer
    rm devcontainer.json
@@ -133,6 +330,7 @@ This integration is developed using the [Home Assistant Core devcontainer](https
 After cloning and setting up the devcontainer:
 
 1. **Install npm dependencies**:
+
    ```bash
    cd ha-chorebot
    npm install
@@ -147,6 +345,7 @@ After cloning and setting up the devcontainer:
 #### Day-to-Day Development
 
 **For Backend (Python) Changes:**
+
 1. Edit files in `custom_components/chorebot/`
 2. Changes appear instantly in the container (bind mount)
 3. Restart Home Assistant to pick up changes:
@@ -157,12 +356,14 @@ After cloning and setting up the devcontainer:
    Or use Developer Tools → YAML → Restart in HA UI
 
 **For Frontend (TypeScript) Changes:**
+
 1. Edit files in `src/main.ts`
 2. Rollup auto-compiles (<1s) to `dist/chorebot-list-card.js`
 3. Compiled output syncs to container via bind mount
 4. Hard refresh browser (Ctrl+Shift+R) to see changes
 
 **Build Commands:**
+
 - `npm run build` - One-time build (production)
 - `npm run watch` - Continuous build (development)
 - `npm run format` - Format code with Prettier
@@ -170,6 +371,7 @@ After cloning and setting up the devcontainer:
 **Note:** The existing `www/chorebot-list-card.js` is the old JavaScript version. The TypeScript version is in `src/main.ts` and compiles to `dist/`. The container mounts `dist/` at `/workspaces/core/config/www/chorebot/`.
 
 ### Benefits
+
 - Full HA development environment with proper permissions
 - Live code reloading - changes are immediately available
 - Access to HA debugging tools and logs
@@ -180,6 +382,7 @@ After cloning and setting up the devcontainer:
 ### Troubleshooting
 
 If you encounter permission errors during container build:
+
 1. Make sure no `config/` directory exists in `core/` on your host (it should only exist inside the container)
 2. If it exists with root ownership, remove it: `sudo rm -rf core/config/`
 3. Rebuild the container to let the setup script create it properly

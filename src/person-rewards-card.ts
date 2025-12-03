@@ -543,12 +543,6 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       return html`<ha-card>Loading...</ha-card>`;
     }
 
-    // Set CSS variable for accent color
-    const accentColor = this._config.accent_color || "";
-    if (accentColor) {
-      this.style.setProperty("--accent-color", accentColor);
-    }
-
     // Validate person entity exists
     const personEntity = this.hass.states[this._config.person_entity];
     if (!personEntity) {
@@ -573,6 +567,25 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     const people = sensor.attributes.people || {};
     const rewards = sensor.attributes.rewards || [];
 
+    // Precedence: Manual config > Person profile > Theme default
+    let accentColor = "var(--primary-color)"; // Default fallback
+
+    // Check for centralized person color from sensor
+    if (this._config.person_entity) {
+      const personProfile = people[this._config.person_entity];
+      if (personProfile?.accent_color) {
+        accentColor = personProfile.accent_color;
+      }
+    }
+
+    // Manual config overrides everything
+    if (this._config.accent_color) {
+      accentColor = this._config.accent_color;
+    }
+
+    // Set CSS variable for accent color
+    this.style.setProperty("--accent-color", accentColor);
+
     // Get person name for default title
     const personName = this._getPersonName(this._config.person_entity);
     const cardTitle = this._config.title || `${personName}'s Rewards`;
@@ -593,7 +606,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
   private _renderConfirmModal(
     people: { [key: string]: PersonPoints },
-    rewards: Reward[]
+    rewards: Reward[],
   ) {
     if (!this._pendingRedemption || !this._config) return "";
 
@@ -792,18 +805,18 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
   private _renderRewardsGrid(
     rewards: Reward[],
-    people: { [key: string]: PersonPoints }
+    people: { [key: string]: PersonPoints },
   ) {
     if (!this._config) return "";
 
     // Filter rewards by person_id
     const personRewards = rewards.filter(
-      (r) => r.person_id === this._config!.person_entity
+      (r) => r.person_id === this._config!.person_entity,
     );
 
     // Filter by enabled/disabled
     const filteredRewards = personRewards.filter(
-      (r) => this._config!.show_disabled_rewards || r.enabled
+      (r) => this._config!.show_disabled_rewards || r.enabled,
     );
 
     // Sort rewards
@@ -878,7 +891,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
         return sorted.sort(
           (a, b) =>
             new Date(a.created || 0).getTime() -
-            new Date(b.created || 0).getTime()
+            new Date(b.created || 0).getTime(),
         );
       case "cost":
       default:

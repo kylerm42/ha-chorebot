@@ -513,6 +513,59 @@ data:
   section_id: "6914de074c0c4c7fe64ddd9a"
 ```
 
+### Person Accent Color System
+
+**Overview**: Centralized person-to-color mapping system where each person's accent color is configured once and automatically inherited by all their cards.
+
+**Data Model**: `PersonProfile` (formerly `PersonPoints`) stores person data including `accent_color` field:
+
+- Stored in `chorebot_people` file (hot data, loaded with points)
+- Field: `accent_color: str = ""` (hex code like `#3498db` or CSS variable like `var(--blue-500)`)
+- Exposed via `sensor.chorebot_points` attributes
+
+**Color Inheritance Precedence** (all cards):
+
+1. Manual `accent_color` in card config (explicit override)
+2. Person's `accent_color` from profile (centralized setting)
+3. Theme's `--primary-color` (fallback)
+
+**chorebot.manage_person** - Set person accent color:
+
+```yaml
+service: chorebot.manage_person
+data:
+  person_id: person.kyle
+  accent_color: "#3498db" # Hex code or CSS variable
+```
+
+**Supported Cards with Accent Colors:**
+
+- `chorebot-person-points-card` - Automatically inherits from `person_entity`
+- `chorebot-person-rewards-card` - Automatically inherits from `person_entity`
+- `chorebot-grouped-card` - Automatically inherits from optional `person_entity` filter
+
+**Grouped Card Person Filtering**:
+
+```yaml
+# Personal view: Filter by person + inherit their accent color
+- type: custom:chorebot-grouped-card
+  entity: todo.chorebot_family_tasks
+  person_entity: person.kyle # Shows only Kyle's tasks with Kyle's color
+
+# Family view: Show all tasks with theme color
+- type: custom:chorebot-grouped-card
+  entity: todo.chorebot_family_tasks
+  title: "Family Tasks"
+  # No person_entity = shows all tasks
+```
+
+**Implementation Details**:
+
+- Backend computes colors: No frontend logic needed
+- Uses pre-computed `computed_person_id` for person filtering
+- Validation: Service accepts hex `#RRGGBB`/`#RGB` or CSS variables `var(--name)`
+- See `.holocode/person-accent-color-system.md` for full specification
+
 ## Important Reminders
 
 - **NEVER** permanently delete tasks from local storage - always use soft deletes via `deleted_at`
@@ -605,7 +658,7 @@ data:
 
 10. **Points & Rewards System - Phase 1: Backend Foundation** (Completed 2025-01-14):
     - Created `people.py` with `PeopleStore` class for managing points, transactions, and rewards
-    - Data models: `PersonPoints`, `Transaction`, `Reward`, `Redemption`
+    - Data models: `PersonProfile` (formerly `PersonPoints`), `Transaction`, `Reward`, `Redemption`
     - Extended Task model with `streak_bonus_points` and `streak_bonus_interval` fields
     - Points award logic in `todo.py` with person ID resolution (section > list > none)
     - Automatic streak bonus awards at configurable intervals for recurring tasks
@@ -663,6 +716,26 @@ data:
         - `sort_by`: Sort order - "cost", "name", or "created" (default: "cost")
     - **Build System**: Added rewards card to Rollup configuration (4 cards total: list, grouped, add-task, rewards)
     - **Bundle Sizes**: List (47KB), Grouped (55KB), Add Task (29KB), Rewards (37KB)
+
+12. **Person Accent Color System** (Completed 2025-01-03):
+    - **Backend**:
+      - Renamed `PersonPoints` → `PersonProfile` with new `accent_color` field
+      - Added `async_update_person_profile()` method to `PeopleStore`
+      - New service: `chorebot.manage_person` for setting person colors
+      - Validation: Accepts hex codes (`#RRGGBB`/`#RGB`) or CSS variables (`var(--name)`)
+      - Backward compatible: Existing records default to empty string
+    - **Frontend**:
+      - Updated TypeScript types: `PersonProfile` interface with `accent_color` field
+      - Legacy `PersonPoints` alias maintained for compatibility
+      - Color inheritance in all 3 cards: `person-points-card`, `person-rewards-card`, `grouped-card`
+      - Precedence order: Manual config → Person profile → Theme default
+      - Grouped card enhancement: Optional `person_entity` filter for person-specific views
+      - Person filtering uses pre-computed `computed_person_id` from backend
+    - **Benefits**:
+      - DRY principle: Configure person color once, inherited by all their cards
+      - Consistency: All cards for same person use same color automatically
+      - Flexibility: Manual per-card override still works
+      - Extensibility: `PersonProfile` model ready for future enhancements
 
 ### 🚧 In Progress / Next Steps
 

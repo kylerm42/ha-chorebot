@@ -38,6 +38,7 @@ interface ChoreBotGroupedConfig extends ChoreBotBaseConfig {
   untagged_header?: string;
   tag_group_order?: string[];
   show_future_tasks?: boolean;
+  person_entity?: string; // NEW: Optional person filter
 }
 
 // ============================================================================
@@ -311,6 +312,7 @@ export class ChoreBotGroupedCard extends LitElement {
       tag_group_order: config.tag_group_order || [],
       show_future_tasks: config.show_future_tasks === true,
       filter_section_id: config.filter_section_id,
+      person_entity: config.person_entity,
     };
   }
 
@@ -319,9 +321,30 @@ export class ChoreBotGroupedCard extends LitElement {
   }
 
   willUpdate(changedProperties: Map<string, any>) {
-    // Recalculate color shades when config changes
-    if (changedProperties.has("_config") && this._config) {
-      const baseColor = this._config.accent_color || "var(--primary-color)";
+    // Recalculate color shades when config or hass changes
+    if (
+      (changedProperties.has("_config") || changedProperties.has("hass")) &&
+      this._config &&
+      this.hass
+    ) {
+      // Precedence: Manual config > Person profile > Theme default
+      let baseColor = "var(--primary-color)"; // Default fallback
+
+      // Check for centralized person color from sensor
+      if (this._config.person_entity) {
+        const sensor = this.hass.states["sensor.chorebot_points"];
+        const people = sensor?.attributes.people || {};
+        const personProfile = people[this._config.person_entity];
+        if (personProfile?.accent_color) {
+          baseColor = personProfile.accent_color;
+        }
+      }
+
+      // Manual config overrides everything
+      if (this._config.accent_color) {
+        baseColor = this._config.accent_color;
+      }
+
       this.shades = calculateColorShades(baseColor);
       this.shadesArray = Object.values(this.shades);
     }
@@ -346,6 +369,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._config.untagged_header || "Untagged",
       "Upcoming",
       this._config.filter_section_id,
+      this._config.person_entity,
     );
 
     // Sort groups
@@ -918,6 +942,7 @@ export class ChoreBotGroupedCard extends LitElement {
       show_dateless_tasks: true,
       show_future_tasks: false,
       filter_section_id: "",
+      person_entity: "",
       hide_card_background: false,
       accent_color: "",
       task_text_color: "",
@@ -963,6 +988,14 @@ export class ChoreBotGroupedCard extends LitElement {
           selector: { text: {} },
         },
         {
+          name: "person_entity",
+          selector: {
+            entity: {
+              filter: { domain: "person" },
+            },
+          },
+        },
+        {
           name: "hide_card_background",
           default: false,
           selector: { boolean: {} },
@@ -999,6 +1032,7 @@ export class ChoreBotGroupedCard extends LitElement {
           show_dateless_tasks: "Show Tasks Without Due Date",
           show_future_tasks: "Show Future Tasks",
           filter_section_id: "Filter by Section",
+          person_entity: "Filter by Person",
           hide_card_background: "Hide Card Background",
           accent_color: "Accent Color",
           task_text_color: "Task Text Color",
@@ -1017,6 +1051,8 @@ export class ChoreBotGroupedCard extends LitElement {
             "Show tasks with future due dates in a collapsible 'Upcoming' section (collapsed by default)",
           filter_section_id:
             'Enter section name (e.g., "SECOND SECTION"). Leave empty to show all sections.',
+          person_entity:
+            "Optional: Filter to show only tasks assigned to this person. Also inherits their accent color if set.",
           hide_card_background:
             "Hide the card background and padding for a seamless look",
           accent_color:

@@ -32,6 +32,7 @@ from .const import (
     SERVICE_ADJUST_POINTS,
     SERVICE_CREATE_LIST,
     SERVICE_DELETE_REWARD,
+    SERVICE_MANAGE_PERSON,
     SERVICE_MANAGE_REWARD,
     SERVICE_REDEEM_REWARD,
     SERVICE_SYNC,
@@ -151,6 +152,14 @@ MANAGE_SECTION_SCHEMA = vol.Schema(
         vol.Optional("person_id"): cv.entity_id,
         vol.Optional("clear_person"): cv.boolean,
         vol.Optional("sort_order"): cv.positive_int,
+    }
+)
+
+# Service schema for chorebot.manage_person
+MANAGE_PERSON_SCHEMA = vol.Schema(
+    {
+        vol.Required("person_id"): cv.entity_id,
+        vol.Optional("accent_color"): cv.string,
     }
 )
 
@@ -619,6 +628,57 @@ async def _handle_sync_people(
         _LOGGER.info("Sync complete: all person entities already exist")
 
 
+async def _handle_manage_person(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    people_store: PeopleStore,
+) -> None:
+    """Handle the chorebot.manage_person service."""
+    person_id = call.data["person_id"]
+    accent_color = call.data.get("accent_color")
+
+    # Validate person exists
+    if person_id not in hass.states.async_entity_ids("person"):
+        _LOGGER.error("Person entity not found: %s", person_id)
+        raise ValueError(f"Person entity not found: {person_id}")
+
+    # Basic validation for accent_color format
+    if accent_color is not None:
+        import re
+
+        # Check if hex color (#RRGGBB or #RGB) or CSS variable (var(--...))
+        hex_pattern = r"^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$"
+        css_var_pattern = r"^var\(--[a-zA-Z0-9-]+\)$"
+
+        if not (
+            re.match(hex_pattern, accent_color)
+            or re.match(css_var_pattern, accent_color)
+        ):
+            _LOGGER.error("Invalid accent_color format: %s", accent_color)
+            raise ValueError(
+                f"Invalid accent_color format. Expected hex code (#RRGGBB) or CSS variable (var(--name)), got: {accent_color}"
+            )
+
+    _LOGGER.info("Updating person profile for %s", person_id)
+
+    success = await people_store.async_update_person_profile(
+        person_id=person_id,
+        accent_color=accent_color,
+    )
+
+    if not success:
+        _LOGGER.error("Failed to update person profile: %s", person_id)
+        raise ValueError(f"Failed to update person profile: {person_id}")
+
+    _LOGGER.info("Person profile updated successfully: %s", person_id)
+
+    # Trigger immediate sensor update
+    points_sensor = hass.data[DOMAIN].get("points_sensor")
+    if points_sensor:
+        points_sensor.async_write_ha_state()
+        _LOGGER.debug("Triggered points sensor update after person profile update")
+
+
 async def _handle_update_list(
     call: ServiceCall,
     hass: HomeAssistant,
@@ -660,6 +720,12 @@ async def _handle_update_list(
         raise ValueError(f"List not found: {list_id}")
 
     _LOGGER.info("List updated successfully: %s", list_id)
+
+    # Trigger immediate entity state update so frontend sees the change
+    entities = hass.data[DOMAIN].get("entities", {})
+    if entity := entities.get(list_id):
+        entity.async_write_ha_state()
+        _LOGGER.debug("Triggered entity state update after list update: %s", list_id)
 
 
 async def _handle_manage_section(
@@ -781,6 +847,14 @@ async def _handle_manage_section(
 
     # Save updated sections
     await store.async_set_sections(list_id, sections)
+
+    # Trigger immediate entity state update so frontend sees the change
+    entities = hass.data[DOMAIN].get("entities", {})
+    if entity := entities.get(list_id):
+        entity.async_write_ha_state()
+        _LOGGER.debug(
+            "Triggered entity state update after section %s: %s", action, list_id
+        )
 
 
 async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> None:
@@ -1041,6 +1115,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             handle_sync_people,
         )
         _LOGGER.info("Service registered: %s", SERVICE_SYNC_PEOPLE)
+
+    # Register chorebot.manage_person service
+    if people_store:
+
+        async def handle_manage_person(call: ServiceCall) -> None:
+            await _handle_manage_person(call, hass, people_store)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_MANAGE_PERSON,
+            handle_manage_person,
+            schema=MANAGE_PERSON_SCHEMA,
+        )
+        _LOGGER.info("Service registered: %s", SERVICE_MANAGE_PERSON)
 
     # Register chorebot.update_list service
     async def handle_update_list(call: ServiceCall) -> None:
