@@ -39,7 +39,7 @@ export interface ChoreBotBaseConfig {
   hide_card_background?: boolean;
   show_dateless_tasks?: boolean;
   filter_section_id?: string;
-  task_background_color?: string;
+  accent_color?: string;
   task_text_color?: string;
   show_points?: boolean; // Default: true
 }
@@ -147,6 +147,7 @@ export interface ChoreBotPersonRewardsConfig {
   show_disabled_rewards?: boolean; // Default: false
   sort_by?: "cost" | "name" | "created"; // Default: "cost"
   show_add_reward_button?: boolean; // Default: true
+  accent_color?: string; // Default: var(--primary-color) - used for icons, costs, and buttons
 }
 
 export interface PersonPoints {

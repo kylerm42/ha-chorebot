@@ -198,7 +198,7 @@ export class ChoreBotListCard extends LitElement {
       show_progress: config.show_progress !== false,
       show_dateless_tasks: config.show_dateless_tasks !== false,
       hide_card_background: config.hide_card_background === true,
-      task_background_color: config.task_background_color || "",
+      accent_color: config.accent_color || "",
       task_text_color: config.task_text_color || "",
       show_points: config.show_points !== false,
     };
@@ -262,8 +262,7 @@ export class ChoreBotListCard extends LitElement {
 
     return tasks.map((task) => {
       const isCompleted = task.status === "completed";
-      const bgColor =
-        this._config!.task_background_color || "var(--primary-color)";
+      const bgColor = this._config!.accent_color || "var(--primary-color)";
       const textColor = this._config!.task_text_color || "white";
 
       return html`
@@ -313,8 +312,7 @@ export class ChoreBotListCard extends LitElement {
     }
 
     // Get configured colors
-    const bgColor =
-      this._config!.task_background_color || "var(--primary-color)";
+    const bgColor = this._config!.accent_color || "var(--primary-color)";
     const textColor = this._config!.task_text_color || "white";
 
     // Check if this is a recurring task with upcoming bonus
@@ -407,8 +405,7 @@ export class ChoreBotListCard extends LitElement {
 
   private _playCompletionConfetti(origin: { x: number; y: number }) {
     // Get base color from config
-    const baseColor =
-      this._config!.task_background_color || "var(--primary-color)";
+    const baseColor = this._config!.accent_color || "var(--primary-color)";
 
     // Extract color variants (lighter and darker shades)
     const colors = extractColorVariants(baseColor);
@@ -431,8 +428,7 @@ export class ChoreBotListCard extends LitElement {
   }
 
   private _playAllCompleteStarShower() {
-    const baseColor =
-      this._config!.task_background_color || "var(--primary-color)";
+    const baseColor = this._config!.accent_color || "var(--primary-color)";
     const colors = extractColorVariants(baseColor);
     playStarShower(colors);
   }
@@ -603,7 +599,7 @@ export class ChoreBotListCard extends LitElement {
       show_dateless_tasks: true,
       filter_section_id: "",
       hide_card_background: false,
-      task_background_color: "",
+      accent_color: "",
       task_text_color: "",
     };
   }
@@ -650,7 +646,7 @@ export class ChoreBotListCard extends LitElement {
           selector: { boolean: {} },
         },
         {
-          name: "task_background_color",
+          name: "accent_color",
           selector: { text: {} },
         },
         {
@@ -667,7 +663,7 @@ export class ChoreBotListCard extends LitElement {
           show_dateless_tasks: "Show Tasks Without Due Date",
           filter_section_id: "Filter by Section",
           hide_card_background: "Hide Card Background",
-          task_background_color: "Task Background Color",
+          accent_color: "Accent Color",
           task_text_color: "Task Text Color",
         };
         return labels[schema.name] || undefined;
@@ -683,8 +679,8 @@ export class ChoreBotListCard extends LitElement {
             'Enter section name (e.g., "SECOND SECTION"). Leave empty to show all sections.',
           hide_card_background:
             "Hide the card background and padding for a seamless look",
-          task_background_color:
-            "Background color for task items (hex code or CSS variable like var(--primary-color))",
+          accent_color:
+            "Accent color for task items (hex code or CSS variable like var(--primary-color))",
           task_text_color:
             "Text color for task items (hex code or CSS variable)",
         };

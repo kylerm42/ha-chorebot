@@ -25,6 +25,28 @@
         "created": "2025-12-03T15:59:13.006526Z",
         "modified": "2025-12-03T15:59:13.006526Z",
         "person_id": "person.kyle"
+      },
+      {
+        "id": "reward_f96eb6e1",
+        "name": "Can't Redeem",
+        "cost": 9999,
+        "icon": "mdi:gift",
+        "enabled": true,
+        "description": "Can't touch this",
+        "created": "2025-12-03T18:34:04.705644Z",
+        "modified": "2025-12-03T18:34:04.705644Z",
+        "person_id": "person.courtney"
+      },
+      {
+        "id": "reward_c19b87c4",
+        "name": "A reward",
+        "cost": 50,
+        "icon": "mdi:gift",
+        "enabled": true,
+        "description": "",
+        "created": "2025-12-03T18:48:07.248787Z",
+        "modified": "2025-12-03T18:48:07.248787Z",
+        "person_id": "person.courtney"
       }
     ]
   }

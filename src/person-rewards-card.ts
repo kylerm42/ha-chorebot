@@ -80,15 +80,16 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .reward-card {
-      padding: 16px;
       border-radius: 12px;
       background: var(--card-background-color);
       border: 1px solid var(--divider-color);
       display: flex;
-      flex-direction: column;
-      gap: 12px;
+      flex-direction: row;
+      overflow: hidden;
       cursor: pointer;
       transition: all 0.2s ease;
+      min-height: 100px;
+      height: 100px;
     }
 
     .reward-card:hover {
@@ -98,100 +99,124 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
     .reward-card.disabled {
       opacity: 0.6;
-      cursor: not-allowed;
     }
 
-    .reward-card.disabled:hover {
-      transform: none;
-      box-shadow: none;
+    .reward-icon-section {
+      flex-shrink: 0;
+      width: 100px;
+      background: var(--accent-color, var(--primary-color));
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .reward-icon {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: var(--primary-color);
       color: white;
-      margin: 0 auto;
     }
 
     .reward-icon ha-icon {
-      --mdi-icon-size: 32px;
+      --mdi-icon-size: 48px;
+    }
+
+    .reward-info {
+      flex: 1;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      min-width: 0;
     }
 
     .reward-name {
       font-size: 18px;
       font-weight: 500;
-      text-align: center;
       color: var(--primary-text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .reward-cost {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: bold;
-      text-align: center;
-      color: var(--primary-color);
+      color: var(--accent-color, var(--primary-color));
     }
 
     .reward-description {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--secondary-text-color);
-      text-align: center;
-      margin-top: -4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.3;
     }
 
     /* Add Reward Card */
     .add-reward-card {
-      padding: 16px;
       border-radius: 12px;
-      background: color-mix(
-        in srgb,
-        var(--card-background-color) 50%,
-        transparent
-      );
+      background: var(--card-background-color);
       border: 2px dashed var(--divider-color);
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
+      flex-direction: row;
+      overflow: hidden;
       cursor: pointer;
       transition: all 0.2s ease;
-      min-height: 200px;
+      min-height: 100px;
+      height: 100px;
     }
 
     .add-reward-card:hover {
       border-color: var(--primary-color);
-      background: color-mix(
-        in srgb,
-        var(--primary-color) 10%,
-        var(--card-background-color)
-      );
       transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
-    .add-reward-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: var(--divider-color);
-      color: var(--secondary-text-color);
+    .add-reward-icon-section {
+      flex-shrink: 0;
+      width: 100px;
+      background: color-mix(in srgb, var(--divider-color) 50%, transparent);
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s ease;
     }
 
+    .add-reward-card:hover .add-reward-icon-section {
+      background: color-mix(
+        in srgb,
+        var(--primary-color) 20%,
+        var(--card-background-color)
+      );
+    }
+
+    .add-reward-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--secondary-text-color);
+      transition: all 0.2s ease;
+    }
+
     .add-reward-card:hover .add-reward-icon {
-      background: var(--primary-color);
-      color: white;
+      color: var(--primary-color);
     }
 
     .add-reward-icon ha-icon {
-      --mdi-icon-size: 32px;
+      --mdi-icon-size: 48px;
+    }
+
+    .add-reward-info {
+      flex: 1;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .add-reward-text {
@@ -323,7 +348,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       width: 48px;
       height: 48px;
       border-radius: 8px;
-      background: var(--primary-color);
+      background: var(--accent-color, var(--primary-color));
       color: white;
       display: flex;
       align-items: center;
@@ -361,7 +386,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .modal-button.confirm {
-      background: var(--primary-color);
+      background: var(--accent-color, var(--primary-color));
       color: white;
     }
 
@@ -407,6 +432,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       show_disabled_rewards: config.show_disabled_rewards === true,
       sort_by: config.sort_by || "cost",
       show_add_reward_button: config.show_add_reward_button !== false,
+      accent_color: config.accent_color || "",
     };
   }
 
@@ -420,6 +446,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       show_disabled_rewards: false,
       sort_by: "cost",
       show_add_reward_button: true,
+      accent_color: "",
     };
   }
 
@@ -472,6 +499,10 @@ export class ChoreBotPersonRewardsCard extends LitElement {
           default: true,
           selector: { boolean: {} },
         },
+        {
+          name: "accent_color",
+          selector: { text: {} },
+        },
       ],
       computeLabel: (schema: any) => {
         const labels: { [key: string]: string } = {
@@ -482,6 +513,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
           show_disabled_rewards: "Show Disabled Rewards",
           sort_by: "Sort Rewards By",
           show_add_reward_button: "Show Add Reward Button",
+          accent_color: "Accent Color",
         };
         return labels[schema.name] || undefined;
       },
@@ -498,6 +530,8 @@ export class ChoreBotPersonRewardsCard extends LitElement {
           sort_by: "Choose how to sort the rewards in the grid",
           show_add_reward_button:
             "Show the 'Add Reward' card for creating new rewards",
+          accent_color:
+            "Accent color for reward icons and buttons (hex code or CSS variable like var(--primary-color))",
         };
         return helpers[schema.name] || undefined;
       },
@@ -507,6 +541,12 @@ export class ChoreBotPersonRewardsCard extends LitElement {
   render() {
     if (!this.hass || !this._config) {
       return html`<ha-card>Loading...</ha-card>`;
+    }
+
+    // Set CSS variable for accent color
+    const accentColor = this._config.accent_color || "";
+    if (accentColor) {
+      this.style.setProperty("--accent-color", accentColor);
     }
 
     // Validate person entity exists
@@ -565,6 +605,8 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
     const personName = this._getPersonName(personId);
     const remainingPoints = person.points_balance - reward.cost;
+    const canAfford = person.points_balance >= reward.cost;
+    const canRedeem = reward.enabled && canAfford;
 
     return html`
       <div class="modal-overlay" @click="${this._cancelRedemption}">
@@ -572,7 +614,9 @@ export class ChoreBotPersonRewardsCard extends LitElement {
           class="modal-content"
           @click="${(e: Event) => e.stopPropagation()}"
         >
-          <div class="modal-header">Are you sure?</div>
+          <div class="modal-header">
+            ${canRedeem ? "Are you sure?" : "Reward Details"}
+          </div>
           <div class="modal-body">
             <div class="modal-info">
               <div class="modal-info-row">
@@ -595,8 +639,28 @@ export class ChoreBotPersonRewardsCard extends LitElement {
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Remaining Balance:</span>
-                <span class="modal-info-value">${remainingPoints} pts</span>
+                <span
+                  class="modal-info-value"
+                  style="color: ${remainingPoints < 0
+                    ? "var(--error-color)"
+                    : "inherit"}"
+                  >${remainingPoints} pts</span
+                >
               </div>
+              ${!reward.enabled
+                ? html`<div
+                    style="margin-top: 12px; color: var(--warning-color); font-size: 14px; text-align: center;"
+                  >
+                    This reward is currently disabled.
+                  </div>`
+                : ""}
+              ${!canAfford
+                ? html`<div
+                    style="margin-top: 12px; color: var(--error-color); font-size: 14px; text-align: center;"
+                  >
+                    Not enough points to redeem this reward.
+                  </div>`
+                : ""}
             </div>
           </div>
           <div class="modal-actions">
@@ -604,10 +668,11 @@ export class ChoreBotPersonRewardsCard extends LitElement {
               class="modal-button cancel"
               @click="${this._cancelRedemption}"
             >
-              Cancel
+              ${canRedeem ? "Cancel" : "Close"}
             </button>
             <button
               class="modal-button confirm"
+              ?disabled="${!canRedeem}"
               @click="${this._confirmRedemption}"
             >
               Redeem
@@ -773,14 +838,18 @@ export class ChoreBotPersonRewardsCard extends LitElement {
         class="reward-card ${isDisabled ? "disabled" : ""}"
         @click="${() => this._handleRewardClick(reward, canAfford)}"
       >
-        <div class="reward-icon">
-          <ha-icon icon="${reward.icon}"></ha-icon>
+        <div class="reward-icon-section">
+          <div class="reward-icon">
+            <ha-icon icon="${reward.icon}"></ha-icon>
+          </div>
         </div>
-        <div class="reward-name">${reward.name}</div>
-        <div class="reward-cost">${reward.cost} pts</div>
-        ${reward.description
-          ? html`<div class="reward-description">${reward.description}</div>`
-          : ""}
+        <div class="reward-info">
+          <div class="reward-name">${reward.name}</div>
+          <div class="reward-cost">${reward.cost} pts</div>
+          ${reward.description
+            ? html`<div class="reward-description">${reward.description}</div>`
+            : ""}
+        </div>
       </div>
     `;
   }
@@ -788,10 +857,14 @@ export class ChoreBotPersonRewardsCard extends LitElement {
   private _renderAddRewardCard() {
     return html`
       <div class="add-reward-card" @click="${this._openAddRewardModal}">
-        <div class="add-reward-icon">
-          <ha-icon icon="mdi:plus"></ha-icon>
+        <div class="add-reward-icon-section">
+          <div class="add-reward-icon">
+            <ha-icon icon="mdi:plus"></ha-icon>
+          </div>
         </div>
-        <div class="add-reward-text">Add Reward</div>
+        <div class="add-reward-info">
+          <div class="add-reward-text">Add Reward</div>
+        </div>
       </div>
     `;
   }
@@ -814,12 +887,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
   }
 
   private _handleRewardClick(reward: Reward, canAfford: boolean) {
-    // Don't open modal if reward is disabled or person can't afford
-    if (!reward.enabled || !canAfford) {
-      return;
-    }
-
-    // Open confirmation modal
+    // Always open modal to show reward details (button will be disabled if can't redeem)
     this._pendingRedemption = {
       personId: this._config!.person_entity,
       rewardId: reward.id,
@@ -863,9 +931,11 @@ export class ChoreBotPersonRewardsCard extends LitElement {
   }
 
   private _showRedemptionSuccess() {
-    // Get base color from primary color
+    // Get base color from accent color (fallback to primary color)
     const baseColor =
-      getComputedStyle(this).getPropertyValue("--primary-color") || "#03a9f4";
+      this._config!.accent_color ||
+      getComputedStyle(this).getPropertyValue("--primary-color") ||
+      "#03a9f4";
 
     // Extract color variants (lighter and darker shades)
     const colors = extractColorVariants(baseColor);

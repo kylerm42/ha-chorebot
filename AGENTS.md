@@ -75,9 +75,16 @@ Two services run in parallel:
 The frontend cards are built with TypeScript and Lit:
 
 1. **Automatic building**: The `card-builder` service runs `npm run watch` by default
-2. **Edit TypeScript**: Changes to `src/` trigger automatic rebuilds
-3. **Check build logs**: `docker-compose logs -f card-builder`
+2. **Edit TypeScript**: Changes to `src/` trigger automatic rebuilds within seconds
+3. **Check build logs**: `docker logs -f chorebot-card-builder` or `docker-compose logs -f card-builder`
 4. **View in browser**: Hard refresh (Ctrl+Shift+R) to see changes
+
+**IMPORTANT**:
+
+- **DO NOT manually run `npm run build`** - the `card-builder` container handles this automatically via `npm run watch`
+- Watch mode uses Rollup's `--watch` flag to monitor `src/` for changes and rebuild immediately
+- If builds fail, check `docker logs chorebot-card-builder` for errors
+- File permission issues on built files indicate the container rebuilt them as root - this is normal and doesn't affect functionality
 
 **Build Tools:**
 
@@ -86,19 +93,26 @@ The frontend cards are built with TypeScript and Lit:
 - **Lit**: Web Components framework for building the card UI
 - **Terser**: Minifies production builds
 
-**Output (4 cards in `dist/`):**
+**Output (6 cards in `dist/`):**
 
 - `chorebot-list-card.js` - Today-focused flat view (47KB)
 - `chorebot-grouped-card.js` - Tag-based grouped view (55KB)
 - `chorebot-add-task-card.js` - Add task dialog (29KB)
 - `chorebot-rewards-card.js` - Points & rewards (37KB)
+- `chorebot-person-points-card.js` - Person points display with progress bar
+- `chorebot-person-rewards-card.js` - Person-specific rewards with inline creation/redemption
 
 ### Testing Changes
 
 - **Python changes**: `docker-compose restart homeassistant` or restart from Developer Tools → Server Controls
 - **Frontend changes**: Automatic rebuild + hard refresh browser (Ctrl+Shift+R)
+  - The `card-builder` container automatically detects changes to `src/*.ts` files
+  - Rebuilds happen within seconds (typically < 1 second after saving)
+  - No manual build commands needed - just save and refresh browser
 - **Config flow changes**: Remove and re-add the integration
-- **View logs**: `docker-compose logs -f homeassistant` or check `dev-config/home-assistant.log`
+- **View logs**:
+  - Home Assistant: `docker-compose logs -f homeassistant` or check `dev-config/home-assistant.log`
+  - Card builds: `docker logs -f chorebot-card-builder`
 
 ### Config and Data Location
 

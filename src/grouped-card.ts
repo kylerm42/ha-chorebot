@@ -304,7 +304,7 @@ export class ChoreBotGroupedCard extends LitElement {
       show_title: config.show_title !== false,
       show_dateless_tasks: config.show_dateless_tasks !== false,
       hide_card_background: config.hide_card_background === true,
-      task_background_color: config.task_background_color || "",
+      accent_color: config.accent_color || "",
       task_text_color: config.task_text_color || "",
       show_points: config.show_points !== false,
       untagged_header: config.untagged_header || "Untagged",
@@ -321,8 +321,7 @@ export class ChoreBotGroupedCard extends LitElement {
   willUpdate(changedProperties: Map<string, any>) {
     // Recalculate color shades when config changes
     if (changedProperties.has("_config") && this._config) {
-      const baseColor =
-        this._config.task_background_color || "var(--primary-color)";
+      const baseColor = this._config.accent_color || "var(--primary-color)";
       this.shades = calculateColorShades(baseColor);
       this.shadesArray = Object.values(this.shades);
     }
@@ -346,7 +345,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._config.show_future_tasks === true,
       this._config.untagged_header || "Untagged",
       "Upcoming",
-      this._config.filter_section_id
+      this._config.filter_section_id,
     );
 
     // Sort groups
@@ -354,7 +353,7 @@ export class ChoreBotGroupedCard extends LitElement {
       newGroups,
       this._config.tag_group_order,
       this._config.untagged_header,
-      "Upcoming"
+      "Upcoming",
     );
 
     // Preserve collapse state from existing groups
@@ -563,7 +562,7 @@ export class ChoreBotGroupedCard extends LitElement {
     return filterTodayTasks(
       entity,
       this._config!.show_dateless_tasks !== false,
-      this._config?.filter_section_id
+      this._config?.filter_section_id,
     );
   }
 
@@ -590,7 +589,7 @@ export class ChoreBotGroupedCard extends LitElement {
     tagName: string,
     progress: { completed: number; total: number },
     allComplete: boolean,
-    isCollapsed: boolean
+    isCollapsed: boolean,
   ) {
     const previousProgress = this._previousGroupProgress.get(tagName);
 
@@ -633,7 +632,7 @@ export class ChoreBotGroupedCard extends LitElement {
 
   private async _toggleTask(
     task: Task,
-    confettiOrigin?: { x: number; y: number }
+    confettiOrigin?: { x: number; y: number },
   ) {
     const newStatus =
       task.status === "completed" ? "needs_action" : "completed";
@@ -787,7 +786,7 @@ export class ChoreBotGroupedCard extends LitElement {
       this._saving,
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
-      () => this._saveTask()
+      () => this._saveTask(),
     );
   }
 
@@ -920,7 +919,7 @@ export class ChoreBotGroupedCard extends LitElement {
       show_future_tasks: false,
       filter_section_id: "",
       hide_card_background: false,
-      task_background_color: "",
+      accent_color: "",
       task_text_color: "",
       untagged_header: "Untagged",
       tag_group_order: [],
@@ -969,7 +968,7 @@ export class ChoreBotGroupedCard extends LitElement {
           selector: { boolean: {} },
         },
         {
-          name: "task_background_color",
+          name: "accent_color",
           selector: { text: {} },
         },
         {
@@ -1001,7 +1000,7 @@ export class ChoreBotGroupedCard extends LitElement {
           show_future_tasks: "Show Future Tasks",
           filter_section_id: "Filter by Section",
           hide_card_background: "Hide Card Background",
-          task_background_color: "Task Background Color",
+          accent_color: "Accent Color",
           task_text_color: "Task Text Color",
           untagged_header: "Untagged Tasks Header",
           tag_group_order: "Tag Display Order",
@@ -1020,8 +1019,8 @@ export class ChoreBotGroupedCard extends LitElement {
             'Enter section name (e.g., "SECOND SECTION"). Leave empty to show all sections.',
           hide_card_background:
             "Hide the card background and padding for a seamless look",
-          task_background_color:
-            "Background color for task items (hex code or CSS variable like var(--primary-color))",
+          accent_color:
+            "Accent color for task items and headers (hex code or CSS variable like var(--primary-color))",
           task_text_color:
             "Text color for task items (hex code or CSS variable)",
           untagged_header:

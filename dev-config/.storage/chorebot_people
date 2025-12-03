@@ -6,7 +6,7 @@
     "people": {
       "person.kyle": {
         "entity_id": "person.kyle",
-        "points_balance": 0,
+        "points_balance": 1000,
         "lifetime_points": 30,
         "last_updated": "2025-11-17T21:34:50.945725Z"
       },
