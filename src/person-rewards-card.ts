@@ -184,7 +184,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .add-reward-card:hover {
-      border-color: var(--primary-color);
+      border-color: var(--accent-color, var(--primary-color));
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
@@ -202,7 +202,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     .add-reward-card:hover .add-reward-icon-section {
       background: color-mix(
         in srgb,
-        var(--primary-color) 20%,
+        var(--accent-color, var(--primary-color)) 20%,
         var(--card-background-color)
       );
     }
@@ -216,7 +216,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .add-reward-card:hover .add-reward-icon {
-      color: var(--primary-color);
+      color: var(--accent-color, var(--primary-color));
     }
 
     .add-reward-icon ha-icon {
@@ -239,7 +239,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .add-reward-card:hover .add-reward-text {
-      color: var(--primary-color);
+      color: var(--accent-color, var(--primary-color));
     }
 
     /* Modal Overlay */
