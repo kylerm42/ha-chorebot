@@ -12,6 +12,10 @@ import {
   extractColorVariants,
   playStarShower,
 } from "./utils/confetti-utils.js";
+import {
+  getPointsDisplayParts,
+  getPointsTermLowercase,
+} from "./utils/points-display-utils.js";
 
 // ============================================================================
 // ChoreBot Person Rewards Card (TypeScript)
@@ -144,6 +148,14 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       font-size: 20px;
       font-weight: bold;
       color: var(--accent-color, var(--primary-color));
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .reward-cost ha-icon {
+      --mdc-icon-size: 16px;
+      vertical-align: middle;
     }
 
     .reward-description {
@@ -293,6 +305,14 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       color: var(--primary-text-color);
       font-size: 14px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .modal-info-value ha-icon {
+      --mdc-icon-size: 14px;
+      vertical-align: middle;
     }
 
     /* Add Reward Form */
@@ -620,6 +640,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     const remainingPoints = person.points_balance - reward.cost;
     const canAfford = person.points_balance >= reward.cost;
     const canRedeem = reward.enabled && canAfford;
+    const parts = getPointsDisplayParts(this.hass!);
 
     return html`
       <div class="modal-overlay" @click="${this._cancelRedemption}">
@@ -642,12 +663,22 @@ export class ChoreBotPersonRewardsCard extends LitElement {
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Cost:</span>
-                <span class="modal-info-value">${reward.cost} pts</span>
+                <span class="modal-info-value"
+                  >${reward.cost}
+                  ${parts.icon
+                    ? html`<ha-icon icon="${parts.icon}"></ha-icon>`
+                    : ""}
+                  ${parts.text ? parts.text : ""}</span
+                >
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Current Balance:</span>
                 <span class="modal-info-value"
-                  >${person.points_balance} pts</span
+                  >${person.points_balance}
+                  ${parts.icon
+                    ? html`<ha-icon icon="${parts.icon}"></ha-icon>`
+                    : ""}
+                  ${parts.text ? parts.text : ""}</span
                 >
               </div>
               <div class="modal-info-row">
@@ -657,7 +688,11 @@ export class ChoreBotPersonRewardsCard extends LitElement {
                   style="color: ${remainingPoints < 0
                     ? "var(--error-color)"
                     : "inherit"}"
-                  >${remainingPoints} pts</span
+                  >${remainingPoints}
+                  ${parts.icon
+                    ? html`<ha-icon icon="${parts.icon}"></ha-icon>`
+                    : ""}
+                  ${parts.text ? parts.text : ""}</span
                 >
               </div>
               ${!reward.enabled
@@ -700,6 +735,9 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     if (!this._config) return "";
 
     const isValid = this._newReward.name.trim().length > 0;
+    const pointsTerm = getPointsTermLowercase(this.hass!);
+    const pointsTermCap =
+      pointsTerm.charAt(0).toUpperCase() + pointsTerm.slice(1);
 
     return html`
       <div class="modal-overlay" @click="${this._closeAddRewardModal}">
@@ -726,7 +764,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
             </div>
 
             <div class="form-field">
-              <label class="form-label">Cost (Points)</label>
+              <label class="form-label">Cost (${pointsTermCap})</label>
               <input
                 type="number"
                 class="form-input"
@@ -740,7 +778,9 @@ export class ChoreBotPersonRewardsCard extends LitElement {
                   };
                 }}"
               />
-              <div class="form-helper">Cost between 1 and 10,000 points</div>
+              <div class="form-helper">
+                Cost between 1 and 10,000 ${pointsTerm}
+              </div>
             </div>
 
             <div class="form-field">
@@ -845,6 +885,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
   private _renderRewardCard(reward: Reward, person: PersonPoints | undefined) {
     const canAfford = person ? person.points_balance >= reward.cost : false;
     const isDisabled = !reward.enabled || !canAfford;
+    const parts = getPointsDisplayParts(this.hass!);
 
     return html`
       <div
@@ -858,7 +899,11 @@ export class ChoreBotPersonRewardsCard extends LitElement {
         </div>
         <div class="reward-info">
           <div class="reward-name">${reward.name}</div>
-          <div class="reward-cost">${reward.cost} pts</div>
+          <div class="reward-cost">
+            ${reward.cost}
+            ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+            ${parts.text ? parts.text : ""}
+          </div>
           ${reward.description
             ? html`<div class="reward-description">${reward.description}</div>`
             : ""}

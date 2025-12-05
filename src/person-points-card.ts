@@ -14,6 +14,7 @@ import {
   calculateDatedTasksProgress,
 } from "./utils/task-utils.js";
 import { calculateColorShades, ColorShades } from "./utils/color-utils.js";
+import { getPointsDisplayParts } from "./utils/points-display-utils.js";
 
 // ============================================================================
 // ChoreBot Person Points Card (TypeScript)
@@ -159,6 +160,14 @@ export class ChoreBotPersonPointsCard extends LitElement {
       font-weight: bold;
       color: var(--primary-color);
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .person-points ha-icon {
+      --mdc-icon-size: 24px;
+      vertical-align: middle;
     }
 
     .error-message {
@@ -415,6 +424,7 @@ export class ChoreBotPersonPointsCard extends LitElement {
   private _renderPersonDisplay(personEntity: any, personData: PersonPoints) {
     const pictureUrl = personEntity.attributes.entity_picture;
     const name = this._getPersonName(this._config!.person_entity);
+    const parts = getPointsDisplayParts(this.hass!);
 
     return html`
       <div class="person-container">
@@ -434,7 +444,9 @@ export class ChoreBotPersonPointsCard extends LitElement {
           </div>
         </div>
         <div class="person-points" style="color: #${this.shades.base}">
-          ${personData.points_balance} pts
+          ${personData.points_balance}
+          ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+          ${parts.text ? parts.text : ""}
         </div>
       </div>
     `;

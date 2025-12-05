@@ -175,6 +175,34 @@ data:
   list_id: todo.chorebot_family_tasks
 ```
 
+## Configuration
+
+### Customizing Points Display
+
+You can customize how points are displayed throughout ChoreBot to match your family's preferences:
+
+1. Go to **Settings** → **Devices & Services**
+2. Find **ChoreBot** and click **Configure** (options button)
+3. Set custom terminology and/or icon:
+   - **Points Terminology**: Custom text like "stars", "coins", "gems", etc. (max 50 characters)
+   - **Points Icon**: Optional MDI icon like "mdi:star", "mdi:currency-usd", etc.
+
+**Examples:**
+
+- **Text only**: "stars" → displays as "437 stars"
+- **Text with emoji**: "⭐ stars" → displays as "437 ⭐ stars"
+- **Icon + text**: icon="mdi:star" + text="stars" → displays as "437 🌟 stars" (MDI icon)
+- **Both**: icon="mdi:currency-usd" + text="coins" → displays as "437 💲 coins"
+
+**Note:** Both icon and text display together when both are provided. The custom terminology automatically updates in:
+
+- Person points cards (balance display)
+- Reward costs and redemption buttons
+- Points badges on tasks
+- Task edit dialog field labels ("Stars Value", "Streak Bonus Stars", etc.)
+
+**Default:** If not configured, ChoreBot displays "points" as the default terminology.
+
 ## Cards
 
 ChoreBot provides several custom Lovelace cards:

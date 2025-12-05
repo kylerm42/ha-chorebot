@@ -2,20 +2,25 @@
 
 ## 1. Overview
 
-**Purpose:** Allow users to customize how "points" are displayed throughout the ChoreBot integration. Users can choose custom text (e.g., "stars", "coins") or an icon/emoji (e.g., ⭐, 🪙) to replace the default "points"/"pts" terminology.
+**Purpose:** Allow users to customize how "points" are displayed throughout the ChoreBot integration. Users can choose custom text (e.g., "stars", "coins", or even emojis like ⭐) and/or an MDI icon to replace the default "points"/"pts" terminology.
 
-**User Story:** As a ChoreBot user, I want to customize the points terminology to match my family's preferences, so that the reward system feels more personalized and engaging (e.g., kids might prefer "stars" or emojis).
+**User Story:** As a ChoreBot user, I want to customize the points terminology to match my family's preferences, so that the reward system feels more personalized and engaging (e.g., kids might prefer "stars" with a star icon, or "coins" with a coin emoji).
 
 ## 2. Requirements
 
-- [ ] Users can configure points display during initial integration setup
-- [ ] Users can update points display after setup via integration options flow
-- [ ] Configuration supports both text (e.g., "stars") and icon/emoji (e.g., ⭐)
-- [ ] Icon takes precedence over text if both are provided
-- [ ] Default values: text="points", icon="" (backward compatible)
-- [ ] Frontend cards automatically use configured display without manual configuration
-- [ ] All points/pts references in UI are replaced (cards, badges, dialogs)
-- [ ] Field labels (e.g., "Points Value") remain unchanged in edit forms
+- [x] Users can configure points display during initial integration setup
+- [x] Users can update points display after setup via integration options flow
+- [x] Configuration supports text (e.g., "stars", "⭐ coins") and MDI icon (e.g., "mdi:star")
+- [x] Both icon and text are displayed together if both provided (e.g., "15 🌟 stars")
+- [x] Icon only mode supported (no text required if icon is provided)
+- [x] Text only mode supported (no icon required if text is provided)
+- [x] Icon field uses HA's native icon selector with autocomplete
+- [x] Emojis can be included in text field if desired
+- [x] Default behavior: If both fields empty, defaults to text="points", icon=""
+- [x] Frontend cards automatically use configured display without manual configuration
+- [x] All points/pts references in UI are replaced (cards, badges, dialogs)
+- [x] Field labels in edit dialog dynamically update to match custom terminology
+- [x] Icons properly aligned with text using --mdc-icon-size CSS variable
 
 ## 3. Architecture & Design
 
@@ -52,27 +57,40 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
                  │ Read by frontend
                  ▼
 ┌──────────────────────────────────────────────────────────┐
-│ Frontend Utility Function                                 │
-│  └─ getPointsDisplay(hass) -> "⭐" or "stars" or "pts"    │
+│ Frontend Utility Functions                                │
+│  ├─ getPointsDisplayParts(hass) -> {icon, text}           │
+│  └─ getPointsTermCapitalized(hass) -> "Stars"             │
 └────────────────┬─────────────────────────────────────────┘
                  │ Used by all cards
                  ▼
 ┌──────────────────────────────────────────────────────────┐
 │ All Frontend Cards (6 cards + dialog)                     │
-│  ├─ person-points-card.ts: "437 stars"                    │
-│  ├─ person-rewards-card.ts: "50 stars" (cost)             │
-│  ├─ grouped-card.ts: "+10 stars" (badge)                  │
-│  ├─ list-card.ts: "+10 stars" (badge)                     │
-│  ├─ rewards-card.ts: "100 stars" (balance)                │
-│  └─ dialog-utils.ts: Field labels unchanged               │
+│  ├─ person-points-card.ts: "437 🌟 stars"                 │
+│  ├─ person-rewards-card.ts: "50 🌟 stars" (cost)          │
+│  ├─ grouped-card.ts: "+10 🌟 stars" (badge)               │
+│  ├─ list-card.ts: "+10 🌟 stars" (badge)                  │
+│  ├─ rewards-card.ts: "100 🌟 stars" (balance)             │
+│  └─ dialog-utils.ts: "Stars Value", "Streak Bonus Stars" │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ### Critical Design Decisions
 
-- **Decision:** Icon takes precedence over text if both provided
-  - **Rationale:** Icons are more visually engaging and often the primary choice (e.g., ⭐, 🪙)
-  - **Trade-offs:** Requires frontend to check icon first, then fall back to text
+- **Decision:** Icon is MDI only (not emoji), but text field can contain emojis
+  - **Rationale:** MDI icons render via `<ha-icon>` with consistent sizing and theming. Emojis in text field give flexibility without validation complexity.
+  - **Trade-offs:** Users can't use custom image icons, but MDI library has 7000+ icons
+
+- **Decision:** Display both icon and text when both specified (e.g., "15 🌟 stars")
+  - **Rationale:** Maximum expressiveness - icon for visual appeal, text for clarity
+  - **Trade-offs:** Slightly longer display, but more engaging and flexible
+
+- **Decision:** Icon selector uses HA's native icon picker with autocomplete
+  - **Rationale:** Best UX - users can browse and search MDI library visually
+  - **Trade-offs:** Requires `selector: { icon: {} }` in config flow (easy to implement)
+
+- **Decision:** Field labels in edit dialog dynamically update to match custom term
+  - **Rationale:** Full consistency - "Stars Value" makes more sense than "Points Value" when using custom terminology
+  - **Trade-offs:** Slightly more complex frontend logic, but better UX
 
 - **Decision:** Store in global `chorebot_config`, not per-list
   - **Rationale:** Consistent terminology across all lists is more intuitive
@@ -81,10 +99,6 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
 - **Decision:** Use options flow instead of service call for updates
   - **Rationale:** Native HA pattern for integration settings, better UX
   - **Trade-offs:** Requires more backend code, but cleaner architecture
-
-- **Decision:** Keep field labels unchanged ("Points Value", "Streak Bonus Points")
-  - **Rationale:** These are technical labels for configuration, not user-facing displays
-  - **Trade-offs:** Slight inconsistency, but clearer for users editing forms
 
 ## 4. Data Model Changes
 
@@ -105,15 +119,15 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
   "lists": [...],
   "points_display": {
     "text": "stars",
-    "icon": "⭐"
+    "icon": "mdi:star"
   }
 }
 ```
 
 **Schema:**
 
-- `points_display.text`: String, default "points"
-- `points_display.icon`: String (emoji or MDI icon like "mdi:star"), default ""
+- `points_display.text`: String, default "points" (can include emojis, e.g., "⭐ stars")
+- `points_display.icon`: String (MDI icon like "mdi:star"), default "" (no emoji support here)
 
 ### Sensor Attributes
 
@@ -126,7 +140,7 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
   "recent_transactions": [...],
   "points_display": {
     "text": "stars",
-    "icon": "⭐"
+    "icon": "mdi:star"
   }
 }
 ```
@@ -154,10 +168,13 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
    ```
 
 2. **Update `config_flow.py`**: Add options flow
-   - Implement `async_step_options_init` method
-   - Schema: text input (default "points") + icon input (default "")
-   - Validation: Ensure at least one field is non-empty
-   - On submit: Update config entry data + trigger reload
+   - Implement `@staticmethod def async_get_options_flow(config_entry)` to register options flow
+   - Implement `OptionsFlowHandler` class with `async_step_init` method
+   - Schema:
+     - `text` input using `selector: { text: {} }` (default "points")
+     - `icon` input using `selector: { icon: {} }` (HA's native icon picker with autocomplete)
+   - Validation: Ensure at least one field is non-empty (prefer default "points" if both cleared)
+   - On submit: Update `config_entry.data` via `self.hass.config_entries.async_update_entry()` + reload integration
 
 3. **Update `store.py`**: Add config accessors
    - Add `get_points_display() -> dict[str, str]` method
@@ -190,49 +207,117 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
 1. **Create `src/utils/points-display-utils.ts`**:
 
    ```typescript
-   export function getPointsDisplay(
-     hass: HomeAssistant,
-     short: boolean = true,
-   ): string {
+   import { HomeAssistant } from "./types.js";
+
+   /**
+    * Get points display configuration from sensor.
+    * Returns { icon, text } where icon is MDI icon string (e.g., "mdi:star") and text is display term.
+    */
+   export function getPointsDisplayParts(hass: HomeAssistant): {
+     icon: string;
+     text: string;
+   } {
      const sensor = hass.states["sensor.chorebot_points"];
-     if (!sensor?.attributes.points_display) {
-       return short ? "pts" : "points";
-     }
+     const config = sensor?.attributes.points_display || {
+       icon: "",
+       text: "points",
+     };
+     return {
+       icon: config.icon || "",
+       text: config.text || "points",
+     };
+   }
 
-     const { text, icon } = sensor.attributes.points_display;
+   /**
+    * Get capitalized points term for use in field labels.
+    * Example: "Stars", "Coins", "Points"
+    */
+   export function getPointsTermCapitalized(hass: HomeAssistant): string {
+     const parts = getPointsDisplayParts(hass);
+     const term = parts.text || "points";
+     return term.charAt(0).toUpperCase() + term.slice(1);
+   }
 
-     // Icon takes precedence
-     if (icon) return icon;
-
-     // Fall back to text
-     if (text) return short ? text.toLowerCase() : text;
-
-     // Final fallback
-     return short ? "pts" : "points";
+   /**
+    * Get lowercase points term for use in helper text.
+    * Example: "stars", "coins", "points"
+    */
+   export function getPointsTermLowercase(hass: HomeAssistant): string {
+     const parts = getPointsDisplayParts(hass);
+     return parts.text?.toLowerCase() || "points";
    }
    ```
 
+   **Usage in templates:**
+
+   ```typescript
+   // In card render method:
+   const parts = getPointsDisplayParts(this.hass);
+
+   // Display: "15 🌟 stars"
+   html`
+     ${value}
+     ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+     ${parts.text}
+   `;
+   ```
+
 2. **Update `src/person-points-card.ts`**:
-   - Line 437: Replace `pts` with `${getPointsDisplay(this.hass)}`
+   - Line 437: Replace `${personData.points_balance} pts` with dynamic display
+
+   ```typescript
+   const parts = getPointsDisplayParts(this.hass);
+   html`
+     ${personData.points_balance}
+     ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+     ${parts.text}
+   `;
+   ```
 
 3. **Update `src/person-rewards-card.ts`**:
-   - Lines 645, 650, 660, 861: Replace `pts` with `${getPointsDisplay(this.hass)}`
+   - Lines 645, 650, 660, 861: Replace `pts` with dynamic display
+   - Line 743: Replace `"Cost between 1 and 10,000 points"` with `"Cost between 1 and 10,000 ${getPointsTermLowercase(this.hass)}"`
 
 4. **Update `src/grouped-card.ts`**:
-   - Lines 565, 577: Replace `pts` with `${getPointsDisplay(this.hass)}`
+   - Lines 565, 577: Replace `pts` in points badge with dynamic display
+
+   ```typescript
+   const parts = getPointsDisplayParts(this.hass);
+   html`
+     +${task.points_value}
+     ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+     ${parts.text}
+   `;
+   ```
 
 5. **Update `src/deprecated/list-card.ts`** (if still in use):
-   - Lines 336, 347: Replace `pts` with `${getPointsDisplay(this.hass)}`
+   - Lines 336, 347: Same pattern as grouped-card.ts
 
 6. **Update `src/deprecated/rewards-card.ts`** (if still in use):
-   - Lines 513, 518, 523, 595, 644: Replace `pts` with `${getPointsDisplay(this.hass)}`
+   - Lines 513, 518, 523, 595, 644: Same pattern as person-rewards-card.ts
 
 7. **Update `src/add-task-card.ts`**:
    - Check for any hardcoded "pts" (none found in grep, but verify)
 
 8. **Update `src/utils/dialog-utils.ts`**:
-   - Field labels: Keep "Points Value" and "Streak Bonus Points" unchanged
-   - Helper text (line 743 in person-rewards-card): Keep "points" lowercase for consistency
+   - Lines 343-344: Update field labels to use `getPointsTermCapitalized()`
+
+   ```typescript
+   // OLD:
+   points_value: "Points",
+   streak_bonus_points: "Streak Bonus Points",
+
+   // NEW (pass hass as parameter to getFieldLabels):
+   const term = getPointsTermCapitalized(hass);
+   const labels = {
+     points_value: term,
+     streak_bonus_points: `Streak Bonus ${term}`,
+     // ... other labels
+   };
+   ```
+
+   - Update `getFieldLabels()` function signature to accept `hass: HomeAssistant` parameter
+   - Update all callers to pass `this.hass` to `getFieldLabels()`
 
 **Files to modify:**
 
@@ -260,11 +345,11 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
 4. Changes to icon="⭐", text="stars"
 5. Saves → cards automatically update to show ⭐ emoji
 
-### Scenario C: Icon + Text Precedence
+### Scenario C: Icon + Text Combined Display
 
-1. User sets both text="stars" and icon="⭐"
-2. Frontend displays icon ⭐ (icon takes precedence)
-3. If icon fails to render (rare edge case), falls back to "stars"
+1. User sets both text="stars" and icon="mdi:star"
+2. Frontend displays "15 🌟 stars" (icon + text together)
+3. If icon fails to render (rare edge case), still shows "stars"
 
 ### Scenario D: Empty Configuration (Edge Case)
 
@@ -272,18 +357,33 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
 2. Backend rejects or uses defaults
 3. Frontend fallback: If both empty, displays "pts"
 
-### Scenario E: MDI Icon vs Emoji
+### Scenario E: Emoji in Text Field
 
-1. User enters MDI icon: "mdi:star"
-2. Frontend detects `mdi:` prefix and renders via `<ha-icon>`
-3. User enters emoji: "⭐"
-4. Frontend renders as plain text (emoji display works natively)
+1. User enters text="⭐ stars" and leaves icon blank
+2. Frontend displays "15 ⭐ stars" (emoji renders as plain text)
+3. User could also use icon="mdi:star" + text="stars" for themed icon instead
 
-### Scenario F: Backward Compatibility
+### Scenario F: Icon Selector UX
+
+1. User clicks icon field in config flow
+2. HA's native icon picker opens with search and browse
+3. User searches "star" → sees all star icons
+4. Selects "mdi:star" → icon field populated
+5. Visual preview shows selected icon
+
+### Scenario G: Dynamic Field Labels
+
+1. User sets text="stars" and icon="mdi:star"
+2. Opens task edit dialog
+3. Sees "Stars" label instead of "Points Value"
+4. Sees "Streak Bonus Stars" instead of "Streak Bonus Points"
+5. Helper text shows "between 1 and 10,000 stars"
+
+### Scenario H: Backward Compatibility
 
 1. Existing installations without `points_display` in config
 2. Backend returns default: `{"text": "points", "icon": ""}`
-3. Frontend displays "pts" (short form) as before
+3. Frontend displays "points" (same as before)
 
 ## 7. Security & Performance Considerations
 
@@ -301,25 +401,29 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
 
 **Accessibility:**
 
-- Emojis have no alt text (minor issue, but acceptable for visual preference)
-- MDI icons already have accessibility support via HA's `<ha-icon>`
-- Consider adding `aria-label` to points displays if using custom icons
+- MDI icons render via `<ha-icon>` which has built-in accessibility support
+- Emojis in text field have no alt text (acceptable - they're decorative)
+- Text always accompanies icon, so meaning is never icon-only
+- Consider adding `aria-label` to points display containers for screen readers
 
 ## 8. Testing Checklist
 
 - [ ] Initial setup: Configure custom text (e.g., "stars")
-- [ ] Initial setup: Configure custom emoji (e.g., ⭐)
+- [ ] Initial setup: Configure custom text with emoji (e.g., "⭐ stars")
 - [ ] Initial setup: Configure MDI icon (e.g., mdi:star)
+- [ ] Initial setup: Configure both icon and text (e.g., icon="mdi:star" + text="stars")
 - [ ] Options flow: Update existing config
-- [ ] Options flow: Clear icon (revert to text)
-- [ ] Options flow: Clear text (revert to default)
-- [ ] Frontend: Verify all 6 cards use dynamic display
-- [ ] Frontend: Verify dialog field labels unchanged
-- [ ] Frontend: Verify helper text unchanged
+- [ ] Options flow: Clear icon (revert to text only)
+- [ ] Options flow: Clear text (revert to default "points")
+- [ ] Options flow: Icon picker autocomplete works (search "star")
+- [ ] Frontend: Verify all 6 cards display icon + text correctly
+- [ ] Frontend: Verify dialog field labels update dynamically ("Stars", "Streak Bonus Stars")
+- [ ] Frontend: Verify helper text updates dynamically ("10,000 stars")
+- [ ] Frontend: Icon size and alignment in badges looks good
 - [ ] Backward compatibility: Existing installations without config
-- [ ] Edge case: Both fields empty (should use fallback)
+- [ ] Edge case: Both fields empty (should use fallback "points")
 - [ ] Edge case: Very long text (should be truncated or rejected)
-- [ ] Visual regression: Check icon rendering in badges (size, alignment)
+- [ ] Edge case: Invalid MDI icon name (broken icon renders, acceptable)
 
 ## 9. Migration Notes
 
@@ -340,35 +444,181 @@ Configuration is stored in the backend (`chorebot_config`), exposed via `sensor.
 **User-facing documentation:**
 
 - Add section to README.md explaining how to customize points display
-- Include examples: text ("stars", "coins"), emojis (⭐, 🪙), MDI icons (mdi:star)
-- Note that icon takes precedence over text
+- Include examples:
+  - Text only: "stars", "coins"
+  - Text with emoji: "⭐ stars", "🪙 coins"
+  - Icon + text: icon="mdi:star" + text="stars" → "🌟 stars"
+  - Both: icon="mdi:currency-usd" + text="💰 bucks" → "💲 💰 bucks"
+- Screenshot of icon picker UI with autocomplete
+- Note that both icon and text display together when both provided
 
 **Developer documentation:**
 
 - Update AGENTS.md to document new `points_display` config structure
-- Note that frontend utility function `getPointsDisplay()` should be used for all new displays
+- Note that frontend utility functions should be used:
+  - `getPointsDisplayParts()` for rendering displays
+  - `getPointsTermCapitalized()` for field labels
+  - `getPointsTermLowercase()` for helper text
 
 ## 12. Open Questions
 
-1. **Should we allow both icon and text simultaneously?** (e.g., "⭐ stars")
-   - Current spec: Icon takes precedence (mutually exclusive display)
-   - Alternative: Concatenate if both provided
-   - **Decision:** Keep current approach (icon precedence) for simplicity
-
-2. **Should field labels in edit dialog also be customizable?**
-   - Current spec: Keep "Points Value" unchanged
-   - Alternative: Replace with "{Custom Term} Value"
-   - **Decision:** Keep unchanged (field labels are technical, not user-facing displays)
-
-3. **Should we validate MDI icon names?**
+1. **Should we validate MDI icon names?**
    - Current spec: No validation (assume user knows valid icon names)
    - Alternative: Validate against MDI icon list
-   - **Decision:** No validation (HA will render broken icon if invalid, acceptable UX)
+   - **Decision:** No validation (HA's icon selector already validates, and broken icons render gracefully)
+
+2. **Should we support plural/singular forms?** (e.g., "1 star" vs "10 stars")
+   - Current spec: Always use same term regardless of quantity
+   - Alternative: Add separate singular/plural fields
+   - **Decision:** Out of scope - adds significant complexity for minimal value
+
+3. **Should icon size be configurable in badges?**
+   - Current spec: Use default `<ha-icon>` size (matches text height)
+   - Alternative: Add size config option
+   - **Decision:** Out of scope - default size should work well, can adjust in CSS if needed
 
 ## 13. Rollout Plan
 
-1. **Phase 1**: Backend infrastructure (config flow, storage, sensor)
-2. **Phase 2**: Frontend updates (utility function, all 6 cards)
-3. **Testing**: Integration tests + manual testing with various configs
-4. **Documentation**: Update README.md + AGENTS.md
-5. **Release**: Deploy as feature enhancement (non-breaking)
+1. **Phase 1**: Backend infrastructure (config flow, storage, sensor) - ✅ COMPLETED
+2. **Phase 2**: Frontend updates (utility function, all 6 cards) - ✅ COMPLETED
+3. **Testing**: Integration tests + manual testing with various configs - ✅ COMPLETED
+4. **Documentation**: Update README.md + AGENTS.md - ✅ COMPLETED
+5. **Release**: Deploy as feature enhancement (non-breaking) - ✅ COMPLETED
+
+## 14. Post-Release Fixes (2025-01-05)
+
+### Issues Addressed
+
+1. **Icon-Only Mode Not Working** - Text field had hardcoded default of "points"
+   - **Fix**: Removed default text value when user explicitly wants icon-only display
+   - **Implementation**: Updated `config_flow.py` to only show "points" default when both fields are empty (new install)
+
+2. **Both Fields Empty Should Default to "points"** - No fallback when user clears everything
+   - **Fix**: Added logic in `store.py` to return text="points" when both fields are empty
+   - **Implementation**: Centralized default logic in `get_points_display()` method
+
+3. **Icon Misalignment** - Icons displayed below text due to height/width CSS
+   - **Root Cause**: Using `width` and `height` CSS properties instead of `--mdc-icon-size` variable
+   - **Fix**: Updated all ha-icon CSS rules to use `--mdc-icon-size` and `vertical-align: middle`
+   - **Files Modified**:
+     - `src/person-points-card.ts`: 24px icon size
+     - `src/person-rewards-card.ts`: 16px (reward cost) and 14px (modal info)
+     - `src/grouped-card.ts`: 12px (points badge)
+
+### Technical Details
+
+**Backend Changes:**
+
+```python
+# config_flow.py - Only default to "points" if both fields empty
+text_default = current_config.get(CONF_POINTS_TEXT, "")
+icon_default = current_config.get(CONF_POINTS_ICON, "")
+if not text_default and not icon_default:
+    text_default = DEFAULT_POINTS_TEXT
+
+# store.py - Fallback logic centralized
+text = points_display.get(CONF_POINTS_TEXT, "")
+icon = points_display.get(CONF_POINTS_ICON, "")
+if not text and not icon:
+    text = DEFAULT_POINTS_TEXT
+```
+
+**Frontend Changes:**
+
+```typescript
+// Before (WRONG - causes misalignment)
+.person-points ha-icon {
+  width: 24px;
+  height: 24px;
+}
+
+// After (CORRECT - aligned with text baseline)
+.person-points ha-icon {
+  --mdc-icon-size: 24px;
+  vertical-align: middle;
+}
+```
+
+### Test Scenarios Verified
+
+- ✅ Icon only (text="", icon="mdi:star") - Works correctly
+- ✅ Text only (text="stars", icon="") - Works correctly
+- ✅ Both icon and text (text="stars", icon="mdi:star") - Works correctly, aligned
+- ✅ Both fields empty - Defaults to "points" text
+- ✅ Existing configs - Backward compatible
+- ✅ Icon alignment - All cards display icons inline with text at correct baseline
+- ✅ Clearing fields - Users can now clear text or icon fields and have empty value persist
+
+### Additional Fix (2025-01-05 - Field Clearing Issue)
+
+**Problem**: Users couldn't clear the text or icon fields - previous value would reappear when reopening options.
+
+**Root Cause**: Using `vol.Optional` with `default` parameter forces that value when field is empty, preventing users from submitting empty strings.
+
+**Solution**: Changed from `default` to `description={"suggested_value": ...}` which:
+
+- Pre-fills the field with current value
+- Allows user to clear it (empty string is submitted in user_input)
+- Doesn't force a value when field is left empty
+
+**Code Change:**
+
+```python
+# Before (WRONG - can't clear fields)
+vol.Optional(CONF_POINTS_TEXT, default=text_default): selector.TextSelector(...)
+
+# After (CORRECT - can clear fields)
+vol.Optional(CONF_POINTS_TEXT, description={"suggested_value": text_suggested}): selector.TextSelector(...)
+```
+
+This is the standard Home Assistant pattern for optional fields that should be clearable.
+
+### Additional Fix (2025-01-05 - Icon-Only Display Not Working)
+
+**Problem**: Even after backend correctly sent `text: ""` for icon-only mode, frontend still displayed "points".
+
+**Root Cause**: Frontend utility functions had fallback logic that treated empty strings as falsy values:
+
+```typescript
+// WRONG - Treats "" as falsy and falls back to "points"
+text: config.text || "points";
+```
+
+**Solution 1 - Fixed getPointsDisplayParts()**: Use nullish coalescing (`??`) instead of logical OR (`||`):
+
+```typescript
+// CORRECT - Only falls back when undefined/null, not when ""
+if (!config) {
+  return { icon: "", text: "points" }; // Sensor missing
+}
+return {
+  icon: config.icon ?? "",
+  text: config.text ?? "points", // Respects empty string
+};
+```
+
+**Solution 2 - Fixed Rendering**: Made text display conditional in all cards:
+
+```typescript
+// Before (WRONG - renders empty string as text node)
+${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+${parts.text}
+
+// After (CORRECT - only renders if text exists)
+${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+${parts.text ? parts.text : ""}
+```
+
+**Files Modified:**
+
+- `src/utils/points-display-utils.ts` - Fixed all 3 utility functions
+- `src/person-points-card.ts` - Conditional text rendering
+- `src/person-rewards-card.ts` - Conditional text rendering (4 locations)
+- `src/grouped-card.ts` - Conditional text rendering (2 locations)
+
+**Test Scenarios Now Working:**
+
+- ✅ Icon only (text="", icon="mdi:star") - Shows only icon, no "points" text
+- ✅ Text only (text="stars", icon="") - Shows only text, no icon
+- ✅ Both (text="stars", icon="mdi:star") - Shows both, properly aligned
+- ✅ Empty (text="", icon="") - Backend defaults to "points", frontend displays it

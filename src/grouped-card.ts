@@ -20,13 +20,18 @@ import {
   filterAndGroupTasks,
   sortGroups,
 } from "./utils/task-utils.js";
-import { formatRelativeDate, isOverdue } from "./utils/date-utils.js";
-import { buildRrule } from "./utils/rrule-utils.js";
+import {
+  formatRelativeDate,
+  isOverdue,
+  parseUTCToLocal,
+} from "./utils/date-utils.js";
+import { buildRrule, parseRrule } from "./utils/rrule-utils.js";
 import {
   prepareTaskForEditing,
   renderTaskDialog,
 } from "./utils/dialog-utils.js";
 import { calculateColorShades, ColorShades } from "./utils/color-utils.js";
+import { getPointsDisplayParts } from "./utils/points-display-utils.js";
 import {
   playCompletionBurst,
   playFireworks,
@@ -234,12 +239,18 @@ export class ChoreBotGroupedCard extends LitElement {
     .points-badge {
       display: inline-flex;
       align-items: center;
+      gap: 3px;
       padding: 2px 8px;
       border-radius: 12px;
       font-size: 11px;
       font-weight: bold;
       white-space: nowrap;
       opacity: 0.9;
+    }
+
+    .points-badge ha-icon {
+      --mdc-icon-size: 12px;
+      vertical-align: middle;
     }
 
     .points-badge.bonus-pending {
@@ -541,8 +552,9 @@ export class ChoreBotGroupedCard extends LitElement {
       return html``;
     }
 
-    // Get configured text color
+    // Get configured text color and points display parts
     const textColor = this._config!.task_text_color || "white";
+    const parts = getPointsDisplayParts(this.hass!);
 
     // Check if this is a recurring task with upcoming bonus
     const entity = this.hass?.states[this._config.entity];
@@ -562,7 +574,9 @@ export class ChoreBotGroupedCard extends LitElement {
             class="points-badge bonus-pending"
             style="color: ${textColor};"
           >
-            +${task.points_value} + ${template.streak_bonus_points} pts
+            +${task.points_value} + ${template.streak_bonus_points}
+            ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+            ${parts.text ? parts.text : ""}
           </span>`;
         }
       }
@@ -574,7 +588,9 @@ export class ChoreBotGroupedCard extends LitElement {
       style="background: #${this.shades
         .lighter}; color: ${textColor}; border: 1px solid ${textColor};"
     >
-      +${task.points_value} pts
+      +${task.points_value}
+      ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
+      ${parts.text ? parts.text : ""}
     </span>`;
   }
 

@@ -12,9 +12,27 @@
         }
       }
     },
+    "options": {
+      "step": {
+        "init": {
+          "title": "Configure Points Display",
+          "description": "Customize how points are displayed throughout ChoreBot. You can use custom text (e.g., 'stars', '⭐ coins') and/or an MDI icon (e.g., 'mdi:star').",
+          "data": {
+            "text": "Points Text",
+            "icon": "Points Icon"
+          },
+          "data_description": {
+            "text": "Display name for points (can include emojis)",
+            "icon": "Optional MDI icon (e.g., mdi:star)"
+          }
+        }
+      }
+    },
     "error": {
       "invalid_auth": "Invalid authentication credentials",
-      "cannot_connect": "Failed to connect to TickTick"
+      "cannot_connect": "Failed to connect to TickTick",
+      "text_too_long": "Points text must be 50 characters or less",
+      "icon_too_long": "Icon name must be 100 characters or less"
     },
     "abort": {
       "already_configured": "ChoreBot is already configured",

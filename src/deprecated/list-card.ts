@@ -23,6 +23,7 @@ import {
   playCompletionBurst,
   playStarShower,
 } from "./utils/confetti-utils.js";
+import { getPointsDisplayParts } from "./utils/points-display-utils.js";
 
 // Card-specific config interface
 interface ChoreBotConfig extends ChoreBotBaseConfig {

@@ -12,6 +12,10 @@ import {
 } from "./types.js";
 import { parseUTCToLocal } from "./date-utils.js";
 import { parseRrule } from "./rrule-utils.js";
+import {
+  getPointsTermCapitalized,
+  getPointsTermLowercase,
+} from "./points-display-utils.js";
 
 /**
  * Prepare a task for editing by flattening custom fields and parsing dates/rrule
@@ -321,30 +325,34 @@ export function buildEditDialogData(
 }
 
 /**
- * Get label text for form fields
- * @param schema - Form schema object
- * @returns Human-readable label
+ * Get label text for form fields (factory function that accepts hass for dynamic labels)
+ * @param hass - Home Assistant instance for dynamic points terminology
+ * @returns Function that computes labels for form fields
  */
-export function computeLabel(schema: any): string {
-  const labels: { [key: string]: string } = {
-    summary: "Task Name",
-    has_due_date: "Has Due Date",
-    is_all_day: "All Day",
-    due_date: "Date",
-    due_time: "Time",
-    description: "Description",
-    section_id: "Section",
-    tags: "Tags",
-    has_recurrence: "Recurring Task",
-    recurrence_frequency: "Frequency",
-    recurrence_interval: "Repeat Every",
-    recurrence_byweekday: "Days of Week",
-    recurrence_bymonthday: "Day of Month",
-    points_value: "Points",
-    streak_bonus_points: "Streak Bonus Points",
-    streak_bonus_interval: "Bonus Every X Days (0 = no bonus)",
+export function getFieldLabels(hass: HomeAssistant) {
+  const pointsTerm = getPointsTermCapitalized(hass);
+
+  return function computeLabel(schema: any): string {
+    const labels: { [key: string]: string } = {
+      summary: "Task Name",
+      has_due_date: "Has Due Date",
+      is_all_day: "All Day",
+      due_date: "Date",
+      due_time: "Time",
+      description: "Description",
+      section_id: "Section",
+      tags: "Tags",
+      has_recurrence: "Recurring Task",
+      recurrence_frequency: "Frequency",
+      recurrence_interval: "Repeat Every",
+      recurrence_byweekday: "Days of Week",
+      recurrence_bymonthday: "Day of Month",
+      points_value: pointsTerm,
+      streak_bonus_points: `Streak Bonus ${pointsTerm}`,
+      streak_bonus_interval: "Bonus Every X Days (0 = no bonus)",
+    };
+    return labels[schema.name] || schema.name;
   };
-  return labels[schema.name] || schema.name;
 }
 
 /**
@@ -379,6 +387,7 @@ export function renderTaskDialog(
 
   const schema = buildEditDialogSchema(task, sections, availableTags);
   const data = buildEditDialogData(task, sections);
+  const computeLabel = getFieldLabels(hass);
 
   return html`
     <ha-dialog open @closed=${onClose} .heading=${dialogTitle}>

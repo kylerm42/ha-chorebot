@@ -7,10 +7,25 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlowResult
-from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.core import callback
+from homeassistant.helpers import config_entry_oauth2_flow, selector
 
-from .const import BACKEND_TICKTICK, CONF_SYNC_BACKEND, CONF_SYNC_ENABLED, DOMAIN
+from .const import (
+    BACKEND_TICKTICK,
+    CONF_POINTS_DISPLAY,
+    CONF_POINTS_ICON,
+    CONF_POINTS_TEXT,
+    CONF_SYNC_BACKEND,
+    CONF_SYNC_ENABLED,
+    DEFAULT_POINTS_ICON,
+    DEFAULT_POINTS_TEXT,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,4 +99,83 @@ class ChoreBotConfigFlow(
         return self.async_create_entry(
             title="ChoreBot",
             data=data,
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Get the options flow for this handler."""
+        return ChoreBotOptionsFlowHandler()
+
+
+class ChoreBotOptionsFlowHandler(OptionsFlow):
+    """Handle options flow for ChoreBot."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options for ChoreBot."""
+        # Get store to read current config
+        store = self.hass.data[DOMAIN]["store"]
+        current_config = store.get_points_display()
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Validate inputs
+            text = user_input.get(CONF_POINTS_TEXT, "").strip()
+            icon = user_input.get(CONF_POINTS_ICON, "").strip()
+
+            # Validation: at least one field must be non-empty
+            if not text and not icon:
+                text = DEFAULT_POINTS_TEXT  # Use default if both empty
+
+            # Validate text length
+            if len(text) > 50:
+                errors[CONF_POINTS_TEXT] = "text_too_long"
+
+            # Validate icon length
+            if len(icon) > 100:
+                errors[CONF_POINTS_ICON] = "icon_too_long"
+
+            if not errors:
+                # Update config in store
+                async with store._lock:
+                    store._config_data[CONF_POINTS_DISPLAY] = {
+                        CONF_POINTS_TEXT: text,
+                        CONF_POINTS_ICON: icon,
+                    }
+                    await store.async_save_config()
+
+                # Reload integration to apply changes
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+
+                return self.async_create_entry(title="", data={})
+
+        # Show form with current values
+        # Use suggested_value instead of default to allow clearing fields
+        text_suggested = current_config.get(CONF_POINTS_TEXT, "")
+        icon_suggested = current_config.get(CONF_POINTS_ICON, "")
+
+        # If both are empty (new install), suggest "points" for text
+        if not text_suggested and not icon_suggested:
+            text_suggested = DEFAULT_POINTS_TEXT
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_POINTS_TEXT,
+                        description={"suggested_value": text_suggested},
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+                    ),
+                    vol.Optional(
+                        CONF_POINTS_ICON,
+                        description={"suggested_value": icon_suggested},
+                    ): selector.IconSelector(),
+                }
+            ),
+            errors=errors,
         )

@@ -32,10 +32,15 @@ FIELD_SECTION_ID = "section_id"
 CONF_SYNC_ENABLED = "sync_enabled"
 CONF_SYNC_BACKEND = "sync_backend"  # "ticktick", "todoist", etc.
 CONF_SYNC_INTERVAL_MINUTES = "sync_interval_minutes"
+CONF_POINTS_DISPLAY = "points_display"
+CONF_POINTS_TEXT = "text"
+CONF_POINTS_ICON = "icon"
 
 # Default values
 DEFAULT_SYNC_INTERVAL_MINUTES = 15
 DEFAULT_SYNC_BACKEND = "ticktick"
+DEFAULT_POINTS_TEXT = "points"
+DEFAULT_POINTS_ICON = ""
 
 # Sync backends
 BACKEND_TICKTICK = "ticktick"

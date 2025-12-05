@@ -131,7 +131,7 @@ ChoreBot uses a **split storage model** with separate files optimized for differ
 
 ```
 .storage/
-├── chorebot_config                    # Global: list registry
+├── chorebot_config                    # Global: list registry, points display config
 ├── chorebot_people                    # Hot: person points balances only
 ├── chorebot_rewards                   # Hot: rewards catalog
 ├── chorebot_transactions              # Cold: audit trail (rarely read, append-only)
@@ -388,7 +388,7 @@ Build Configuration:
 - **`store.py`**: Storage management with two-array structure (`recurring_templates` and `tasks`), cache as two-dictionary model, archive handling, and query methods (`get_tasks_for_list()`, `get_templates_for_list()`, `get_instances_for_template()`, `async_archive_old_instances()`). Uses `chorebot_list_{list_id}` prefix for list files.
 - **`todo.py`**: TodoListEntity implementation. Filters templates from UI. Completion logic creates new instances and checks for duplicates. Triggers sync coordinator for push operations.
 - **`__init__.py`**: Entry point with OAuth2 setup, backend initialization, service handlers (`create_list`, `add_task`, `sync`). Daily maintenance job handles archival, soft-deletion, and streak resets. Sets up periodic pull sync.
-- **`config_flow.py`**: OAuth2 configuration flow using `AbstractOAuth2FlowHandler`. Integrates with HA's native `application_credentials` system.
+- **`config_flow.py`**: OAuth2 configuration flow using `AbstractOAuth2FlowHandler`. Integrates with HA's native `application_credentials` system. Includes options flow for customizing points display terminology and icons.
 - **`sync_backend.py`**: Abstract base class defining the interface for sync backends. Methods for push/pull/delete/complete operations.
 - **`sync_coordinator.py`**: Generic coordinator that orchestrates sync operations with any backend. Handles locking, polling intervals, and error handling. Backend-agnostic.
 - **`ticktick_backend.py`**: TickTick-specific implementation of `SyncBackend`. Handles metadata encoding/decoding, task conversion, TickTick date normalization (`_normalize_ticktick_date()` converts TickTick format to ISO Z), and TickTick API interactions.
@@ -566,6 +566,63 @@ data:
 - Validation: Service accepts hex `#RRGGBB`/`#RGB` or CSS variables `var(--name)`
 - See `.holocode/person-accent-color-system.md` for full specification
 
+### Points Display Configuration
+
+**Overview**: Customizable points terminology system allowing users to replace "points" with custom text (e.g., "stars", "coins") and optional MDI icons throughout the UI.
+
+**Data Model**: Points display configuration stored in `chorebot_config` global storage:
+
+```json
+{
+  "lists": [...],
+  "points_display": {
+    "text": "stars",
+    "icon": "mdi:star"
+  }
+}
+```
+
+**Storage & Exposure**:
+
+- Stored in `chorebot_config` file (global configuration)
+- Field: `points_display.text` (string, max 50 chars, default "points")
+- Field: `points_display.icon` (MDI icon string like "mdi:star", max 100 chars, default "")
+- Exposed via `sensor.chorebot_points` attributes
+- Read by frontend utility functions: `getPointsDisplayParts()`, `getPointsTermCapitalized()`, `getPointsTermLowercase()`
+
+**Configuration**:
+
+Users configure via Integration Options Flow:
+
+- Settings → Devices & Services → ChoreBot → Configure
+- Text field: Custom terminology (can include emojis, e.g., "⭐ stars")
+- Icon field: MDI icon selector (HA's native picker with autocomplete)
+- Both fields optional; at least one must be non-empty (defaults to "points")
+- Integration reloads automatically after changes
+
+**Display Behavior**:
+
+- Both icon and text render together when both provided: `437 🌟 stars`
+- Icon only: `437 🌟` (not recommended for clarity)
+- Text only: `437 stars`
+- Default: `437 points` (if not configured)
+
+**Frontend Integration**:
+
+All cards automatically use custom display via shared utilities:
+
+- `chorebot-person-points-card` - Balance display
+- `chorebot-person-rewards-card` - Reward costs and buttons
+- `chorebot-grouped-card` - Points badges
+- `chorebot-list-card` - Points badges
+- Edit dialogs - Field labels ("Stars Value", "Streak Bonus Stars")
+
+**Implementation Files**:
+
+- Backend: `const.py` (constants), `store.py` (accessor), `config_flow.py` (options flow), `sensor.py` (exposure)
+- Frontend: `src/utils/points-display-utils.ts` (utilities), all card files import and use utilities
+- See `.holocode/configurable-points-display.md` for full specification
+
 ## Important Reminders
 
 - **NEVER** permanently delete tasks from local storage - always use soft deletes via `deleted_at`
@@ -736,6 +793,35 @@ data:
       - Consistency: All cards for same person use same color automatically
       - Flexibility: Manual per-card override still works
       - Extensibility: `PersonProfile` model ready for future enhancements
+
+13. **Configurable Points Display** (Completed 2025-01-04):
+    - **Backend**:
+      - Constants added to `const.py`: `CONF_POINTS_DISPLAY`, `CONF_POINTS_TEXT`, `CONF_POINTS_ICON`
+      - Storage accessor `get_points_display()` in `store.py` with defaults
+      - Options flow in `config_flow.py` with validation (text ≤50 chars, icon ≤100 chars)
+      - Sensor attribute exposure in `sensor.py` via `sensor.chorebot_points`
+      - Configuration stored in `chorebot_config` file (global)
+    - **Frontend**:
+      - New utility: `src/utils/points-display-utils.ts` with 3 functions
+        - `getPointsDisplayParts(hass)` - Returns `{icon, text}` from sensor
+        - `getPointsTermCapitalized(hass)` - For field labels (e.g., "Stars")
+        - `getPointsTermLowercase(hass)` - For helper text (e.g., "stars")
+      - Updated `dialog-utils.ts` to accept `hass` parameter for dynamic labels
+      - Updated 3 active cards: `person-points-card`, `person-rewards-card`, `grouped-card`
+      - All hardcoded "pts" references replaced with dynamic display
+      - CSS enhancements for icon+text alignment across all cards
+    - **Features**:
+      - Users configure via Settings → Devices & Services → ChoreBot → Configure
+      - Text field supports emojis (e.g., "⭐ stars")
+      - Icon field uses HA's native MDI icon picker with autocomplete
+      - Both icon and text display together when both provided (e.g., "437 🌟 stars")
+      - Dynamic field labels in edit dialogs ("Stars Value", "Streak Bonus Stars")
+      - Backward compatible: Defaults to "points" if not configured
+    - **Benefits**:
+      - Single source of truth: Configure once, applies to all cards and dialogs
+      - No per-card configuration needed
+      - Consistent terminology throughout UI
+      - Enhances engagement (e.g., kids prefer "stars" over "points")
 
 ### 🚧 In Progress / Next Steps
 

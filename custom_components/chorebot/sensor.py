@@ -23,9 +23,10 @@ async def async_setup_entry(
     """Set up ChoreBot sensor platform."""
     _LOGGER.info("Setting up ChoreBot sensor platform")
     people_store: PeopleStore = hass.data[DOMAIN]["people_store"]
+    store = hass.data[DOMAIN]["store"]
 
     # Create sensor entity
-    sensor = ChoreBotPointsSensor(people_store)
+    sensor = ChoreBotPointsSensor(people_store, store)
     async_add_entities([sensor])
 
     # Store sensor entity in hass.data for triggering updates
@@ -41,9 +42,10 @@ class ChoreBotPointsSensor(SensorEntity):
     _attr_name = "ChoreBot Points"
     _attr_unique_id = f"{DOMAIN}_points_sensor"
 
-    def __init__(self, people_store: PeopleStore) -> None:
+    def __init__(self, people_store: PeopleStore, store) -> None:
         """Initialize the sensor."""
         self._people_store = people_store
+        self._store = store
 
     @property
     def native_value(self) -> int:  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -57,6 +59,9 @@ class ChoreBotPointsSensor(SensorEntity):
         people_data = self._people_store.async_get_all_people()
         rewards = self._people_store.async_get_all_rewards()
         transactions = self._people_store.async_get_transactions(limit=20)
+
+        # Get points display config from main store
+        points_display = self._store.get_points_display()
 
         return {
             "people": {
@@ -93,4 +98,5 @@ class ChoreBotPointsSensor(SensorEntity):
                 }
                 for t in transactions
             ],
+            "points_display": points_display,
         }

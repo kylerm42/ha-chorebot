@@ -535,3 +535,32 @@ class ChoreBotStore:
         # Find section with highest sort_order
         default_section = max(sections, key=lambda s: s.get("sort_order", 0))
         return default_section.get("id")
+
+    def get_points_display(self) -> dict[str, str]:
+        """Get points display configuration.
+
+        Returns:
+            dict with "text" and "icon" keys for points display.
+            If both are empty, defaults to {"text": "points", "icon": ""}.
+            If only one is configured, returns that one with the other empty.
+        """
+        from .const import (
+            CONF_POINTS_DISPLAY,
+            CONF_POINTS_ICON,
+            CONF_POINTS_TEXT,
+            DEFAULT_POINTS_ICON,
+            DEFAULT_POINTS_TEXT,
+        )
+
+        points_display = self._config_data.get(CONF_POINTS_DISPLAY, {})
+        text = points_display.get(CONF_POINTS_TEXT, "")
+        icon = points_display.get(CONF_POINTS_ICON, "")
+
+        # If both are empty, default to "points" text
+        if not text and not icon:
+            text = DEFAULT_POINTS_TEXT
+
+        return {
+            CONF_POINTS_TEXT: text,
+            CONF_POINTS_ICON: icon,
+        }
