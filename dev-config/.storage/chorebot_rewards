@@ -17,13 +17,13 @@
       },
       {
         "id": "reward_1e4b5b76",
-        "name": "Kyle Test",
-        "cost": 50,
-        "icon": "mdi:television",
+        "name": "Kyle Testz",
+        "cost": 501,
+        "icon": "mdi:account-group",
         "enabled": true,
-        "description": "Oh here's a description",
+        "description": "Oh here's a descriptionz",
         "created": "2025-12-03T15:59:13.006526Z",
-        "modified": "2025-12-03T15:59:13.006526Z",
+        "modified": "2025-12-05T23:20:14.335530Z",
         "person_id": "person.kyle"
       },
       {

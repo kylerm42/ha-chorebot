@@ -53,6 +53,8 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     icon: "mdi:gift",
     description: "",
   }; // Reward form data for ha-form
+  @state() private _showEditRewardModal: boolean = false;
+  @state() private _editingRewardId: string | null = null;
 
   private _rewardFormSchema = [
     { name: "name", required: true, selector: { text: {} } },
@@ -294,10 +296,37 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .modal-header {
+      position: relative; /* For absolute positioning of edit button */
       font-size: 20px;
       font-weight: 500;
       margin-bottom: 16px;
       color: var(--primary-text-color);
+    }
+
+    .edit-button {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      padding: 8px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+      transition: all 0.2s;
+    }
+
+    .edit-button:hover {
+      opacity: 1;
+      background: var(--secondary-background-color);
+    }
+
+    .edit-button ha-icon {
+      --mdc-icon-size: 20px;
     }
 
     .modal-body {
@@ -583,6 +612,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       </ha-card>
       ${this._showConfirmModal ? this._renderConfirmModal(people, rewards) : ""}
       ${this._showAddRewardModal ? this._renderAddRewardModal() : ""}
+      ${this._showEditRewardModal ? this._renderEditRewardModal() : ""}
     `;
   }
 
@@ -612,6 +642,13 @@ export class ChoreBotPersonRewardsCard extends LitElement {
         >
           <div class="modal-header">
             ${canRedeem ? "Are you sure?" : "Reward Details"}
+            <button
+              class="edit-button"
+              @click="${() => this._handleEditButtonClick(reward.id)}"
+              title="Edit Reward"
+            >
+              <ha-icon icon="mdi:pencil"></ha-icon>
+            </button>
           </div>
           <div class="modal-body">
             <div class="modal-info">
@@ -745,6 +782,38 @@ export class ChoreBotPersonRewardsCard extends LitElement {
           Create
         </ha-button>
         <ha-button slot="secondaryAction" @click=${this._closeAddRewardModal}>
+          Cancel
+        </ha-button>
+      </ha-dialog>
+    `;
+  }
+
+  private _renderEditRewardModal() {
+    if (!this._config) return "";
+
+    return html`
+      <ha-dialog
+        open
+        @closed=${this._closeEditRewardModal}
+        heading="Edit Reward"
+      >
+        <ha-form
+          .hass=${this.hass}
+          .schema=${this._rewardFormSchema}
+          .data=${this._rewardFormData}
+          .computeLabel=${this._computeRewardFieldLabel}
+          .computeHelper=${this._computeRewardFieldHelper}
+          @value-changed=${this._handleRewardFormChange}
+        ></ha-form>
+
+        <ha-button
+          slot="primaryAction"
+          @click=${this._updateReward}
+          ?disabled=${!this._rewardFormData.name?.trim()}
+        >
+          Update
+        </ha-button>
+        <ha-button slot="secondaryAction" @click=${this._closeEditRewardModal}>
           Cancel
         </ha-button>
       </ha-dialog>
@@ -950,6 +1019,83 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       // Show error message
       const errorMessage =
         err.message || "Failed to create reward. Please try again.";
+      alert(errorMessage);
+    }
+  }
+
+  private _openEditRewardModal(rewardId: string) {
+    if (!this.hass) return;
+
+    // Find reward in sensor attributes
+    const sensor = this.hass.states["sensor.chorebot_points"];
+    if (!sensor) return;
+
+    const rewards = sensor.attributes.rewards || [];
+    const reward = rewards.find((r: Reward) => r.id === rewardId);
+
+    if (!reward) {
+      alert("Reward not found");
+      return;
+    }
+
+    // Populate form with existing reward data
+    this._rewardFormData = {
+      name: reward.name,
+      cost: reward.cost,
+      icon: reward.icon,
+      description: reward.description || "",
+    };
+
+    this._editingRewardId = rewardId;
+    this._showEditRewardModal = true;
+  }
+
+  private _closeEditRewardModal() {
+    this._showEditRewardModal = false;
+    this._editingRewardId = null;
+    // Reset form to defaults
+    this._rewardFormData = {
+      name: "",
+      cost: 50,
+      icon: "mdi:gift",
+      description: "",
+    };
+  }
+
+  private _handleEditButtonClick(rewardId: string) {
+    // Close redemption modal
+    this._showConfirmModal = false;
+    this._pendingRedemption = null;
+
+    // Open edit modal
+    this._openEditRewardModal(rewardId);
+  }
+
+  private async _updateReward() {
+    if (!this._config || !this._editingRewardId) return;
+
+    const { name, cost, icon, description } = this._rewardFormData;
+
+    if (!name.trim()) {
+      alert("Reward name is required");
+      return;
+    }
+
+    try {
+      await this.hass!.callService("chorebot", "manage_reward", {
+        reward_id: this._editingRewardId, // Key difference from _createReward
+        name: name.trim(),
+        cost: Math.max(1, Math.min(10000, cost)),
+        icon: icon || "mdi:gift",
+        description: description.trim(),
+        person_id: this._config.person_entity,
+      });
+
+      // Close modal
+      this._closeEditRewardModal();
+    } catch (err: any) {
+      const errorMessage =
+        err.message || "Failed to update reward. Please try again.";
       alert(errorMessage);
     }
   }

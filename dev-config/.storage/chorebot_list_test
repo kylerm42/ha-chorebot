@@ -187,21 +187,22 @@
       {
         "id": "6914de074c0c4c7fe64ddd9a",
         "name": "Campbell",
-        "sort_order": 2199023255552
+        "sort_order": 2199023255552,
+        "person_id": "person.campbell"
       },
       {
         "id": "6914c0834c0c4c7fe64ddd2c",
         "name": "Courtney",
-        "sort_order": 1099511627776
+        "sort_order": 1099511627776,
+        "person_id": "person.courtney"
       },
       {
         "id": "6914ddf84c0c4c7fe64ddd8e",
         "name": "Kyle",
-        "sort_order": 0
+        "sort_order": 0,
+        "person_id": "person.kyle"
       }
     ],
-    "metadata": {
-      "person_id": "person.kyle"
-    }
+    "metadata": {}
   }
 }
