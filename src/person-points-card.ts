@@ -167,7 +167,7 @@ export class ChoreBotPersonPointsCard extends LitElement {
 
     .person-points ha-icon {
       --mdc-icon-size: 24px;
-      vertical-align: middle;
+      display: flex;
     }
 
     .error-message {

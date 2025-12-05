@@ -42,7 +42,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     personId: string;
     rewardId: string;
   } | null = null; // Pending redemption details
-  @state() private _newReward: {
+  @state() private _rewardFormData: {
     name: string;
     cost: number;
     icon: string;
@@ -52,11 +52,29 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     cost: 50,
     icon: "mdi:gift",
     description: "",
-  }; // New reward form data
+  }; // Reward form data for ha-form
+
+  private _rewardFormSchema = [
+    { name: "name", required: true, selector: { text: {} } },
+    { name: "cost", selector: { number: { min: 1, max: 10000, mode: "box" } } },
+    { name: "icon", selector: { icon: {} } },
+    { name: "description", selector: { text: { multiline: true } } },
+  ];
 
   static styles = css`
     :host {
       display: block;
+      /* HA Dialog styling */
+      --mdc-dialog-content-ink-color: var(--primary-text-color);
+      --mdc-dialog-heading-ink-color: var(--primary-text-color);
+      --mdc-dialog-max-width: 400px;
+      /* HA Form field styling */
+      --mdc-text-field-outlined-idle-border-color: var(--divider-color);
+      --mdc-text-field-outlined-hover-border-color: var(--primary-color);
+      --mdc-theme-primary: var(--primary-color);
+      --mdc-text-field-fill-color: var(--card-background-color);
+      --mdc-text-field-ink-color: var(--primary-text-color);
+      --mdc-text-field-label-ink-color: var(--primary-text-color);
     }
 
     ha-card {
@@ -68,6 +86,14 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       padding: 0;
       background: transparent;
       box-shadow: none;
+    }
+
+    ha-dialog {
+      --mdc-dialog-min-width: 90%;
+    }
+
+    ha-form {
+      display: block;
     }
 
     .card-header {
@@ -155,7 +181,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
     .reward-cost ha-icon {
       --mdc-icon-size: 16px;
-      vertical-align: middle;
+      display: flex;
     }
 
     .reward-description {
@@ -312,74 +338,10 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
     .modal-info-value ha-icon {
       --mdc-icon-size: 14px;
-      vertical-align: middle;
-    }
-
-    /* Add Reward Form */
-    .form-field {
-      margin-bottom: 16px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--primary-text-color);
-      margin-bottom: 8px;
-    }
-
-    .form-input,
-    .form-textarea {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid var(--divider-color);
-      border-radius: 8px;
-      background: var(--card-background-color);
-      color: var(--primary-text-color);
-      font-size: 14px;
-      font-family: inherit;
-      box-sizing: border-box;
-    }
-
-    .form-textarea {
-      min-height: 80px;
-      resize: vertical;
-    }
-
-    .form-input:focus,
-    .form-textarea:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
-
-    .form-helper {
-      font-size: 12px;
-      color: var(--secondary-text-color);
-      margin-top: 4px;
-    }
-
-    .icon-picker {
       display: flex;
-      align-items: center;
-      gap: 8px;
     }
 
-    .icon-preview {
-      width: 48px;
-      height: 48px;
-      border-radius: 8px;
-      background: var(--accent-color, var(--primary-color));
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .icon-preview ha-icon {
-      --mdi-icon-size: 24px;
-    }
-
-    /* Modal Actions */
+    /* Modal Actions (used by confirmation modal only) */
     .modal-actions {
       display: flex;
       gap: 12px;
@@ -731,115 +693,61 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     `;
   }
 
-  private _renderAddRewardModal() {
-    if (!this._config) return "";
-
-    const isValid = this._newReward.name.trim().length > 0;
+  private _computeRewardFieldLabel = (schema: any): string => {
     const pointsTerm = getPointsTermLowercase(this.hass!);
     const pointsTermCap =
       pointsTerm.charAt(0).toUpperCase() + pointsTerm.slice(1);
+    const labels: { [key: string]: string } = {
+      name: "Name",
+      cost: `Cost (${pointsTermCap})`,
+      icon: "Icon",
+      description: "Description (Optional)",
+    };
+    return labels[schema.name] || schema.name;
+  };
+
+  private _computeRewardFieldHelper = (schema: any): string => {
+    const pointsTerm = getPointsTermLowercase(this.hass!);
+    const helpers: { [key: string]: string } = {
+      cost: `Cost between 1 and 10,000 ${pointsTerm}`,
+      icon: "Use Material Design Icons (e.g., mdi:gift, mdi:ice-cream)",
+    };
+    return helpers[schema.name] || "";
+  };
+
+  private _handleRewardFormChange = (ev: CustomEvent) => {
+    this._rewardFormData = ev.detail.value;
+  };
+
+  private _renderAddRewardModal() {
+    if (!this._config) return "";
 
     return html`
-      <div class="modal-overlay" @click="${this._closeAddRewardModal}">
-        <div
-          class="modal-content"
-          @click="${(e: Event) => e.stopPropagation()}"
+      <ha-dialog
+        open
+        @closed=${this._closeAddRewardModal}
+        heading="Add New Reward"
+      >
+        <ha-form
+          .hass=${this.hass}
+          .schema=${this._rewardFormSchema}
+          .data=${this._rewardFormData}
+          .computeLabel=${this._computeRewardFieldLabel}
+          .computeHelper=${this._computeRewardFieldHelper}
+          @value-changed=${this._handleRewardFormChange}
+        ></ha-form>
+
+        <ha-button
+          slot="primaryAction"
+          @click=${this._createReward}
+          ?disabled=${!this._rewardFormData.name?.trim()}
         >
-          <div class="modal-header">Add New Reward</div>
-          <div class="modal-body">
-            <div class="form-field">
-              <label class="form-label">Name</label>
-              <input
-                type="text"
-                class="form-input"
-                .value="${this._newReward.name}"
-                @input="${(e: Event) => {
-                  this._newReward = {
-                    ...this._newReward,
-                    name: (e.target as HTMLInputElement).value,
-                  };
-                }}"
-                placeholder="e.g., Extra Screen Time"
-              />
-            </div>
-
-            <div class="form-field">
-              <label class="form-label">Cost (${pointsTermCap})</label>
-              <input
-                type="number"
-                class="form-input"
-                min="1"
-                max="10000"
-                .value="${this._newReward.cost}"
-                @input="${(e: Event) => {
-                  this._newReward = {
-                    ...this._newReward,
-                    cost: parseInt((e.target as HTMLInputElement).value) || 50,
-                  };
-                }}"
-              />
-              <div class="form-helper">
-                Cost between 1 and 10,000 ${pointsTerm}
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label class="form-label">Icon</label>
-              <div class="icon-picker">
-                <div class="icon-preview">
-                  <ha-icon icon="${this._newReward.icon}"></ha-icon>
-                </div>
-                <input
-                  type="text"
-                  class="form-input"
-                  .value="${this._newReward.icon}"
-                  @input="${(e: Event) => {
-                    this._newReward = {
-                      ...this._newReward,
-                      icon: (e.target as HTMLInputElement).value,
-                    };
-                  }}"
-                  placeholder="e.g., mdi:television"
-                  style="flex: 1;"
-                />
-              </div>
-              <div class="form-helper">
-                Use Material Design Icons (e.g., mdi:gift, mdi:ice-cream)
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label class="form-label">Description (Optional)</label>
-              <textarea
-                class="form-textarea"
-                .value="${this._newReward.description}"
-                @input="${(e: Event) => {
-                  this._newReward = {
-                    ...this._newReward,
-                    description: (e.target as HTMLTextAreaElement).value,
-                  };
-                }}"
-                placeholder="e.g., Get 30 extra minutes of screen time"
-              ></textarea>
-            </div>
-          </div>
-          <div class="modal-actions">
-            <button
-              class="modal-button cancel"
-              @click="${this._closeAddRewardModal}"
-            >
-              Cancel
-            </button>
-            <button
-              class="modal-button confirm"
-              ?disabled="${!isValid}"
-              @click="${this._createReward}"
-            >
-              Create
-            </button>
-          </div>
-        </div>
-      </div>
+          Create
+        </ha-button>
+        <ha-button slot="secondaryAction" @click=${this._closeAddRewardModal}>
+          Cancel
+        </ha-button>
+      </ha-dialog>
     `;
   }
 
@@ -1004,7 +912,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
   private _openAddRewardModal() {
     // Reset form
-    this._newReward = {
+    this._rewardFormData = {
       name: "",
       cost: 50,
       icon: "mdi:gift",
@@ -1020,7 +928,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
   private async _createReward() {
     if (!this._config) return;
 
-    const { name, cost, icon, description } = this._newReward;
+    const { name, cost, icon, description } = this._rewardFormData;
 
     if (!name.trim()) {
       alert("Reward name is required");

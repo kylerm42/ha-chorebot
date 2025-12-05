@@ -250,7 +250,7 @@ export class ChoreBotGroupedCard extends LitElement {
 
     .points-badge ha-icon {
       --mdc-icon-size: 12px;
-      vertical-align: middle;
+      display: flex;
     }
 
     .points-badge.bonus-pending {

@@ -167,18 +167,18 @@
         "summary": "TT Kyle Afternoon",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.146303Z",
-        "modified": "2025-11-25T17:41:57.777425Z",
+        "modified": "2025-12-05T21:52:36.424008Z",
         "tags": [
           "afternoon"
         ],
-        "last_completed": "2025-11-25T17:41:56.604944Z",
+        "last_completed": "2025-12-05T21:52:31.680992Z",
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "69176f1672b70c0c7e70f2f0",
             "status": "synced",
-            "etag": "8ya633s6",
-            "last_synced_at": "2025-11-25T17:41:58.019075Z"
+            "etag": "khk5jg0r",
+            "last_synced_at": "2025-12-05T21:52:36.526225Z"
           }
         }
       }
