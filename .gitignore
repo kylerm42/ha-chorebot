@@ -2,6 +2,11 @@ __pycache__/
 node_modules/
 dist/
 
+# Allow built cards inside integration directory (needed for HACS)
+!custom_components/chorebot/www/
+!custom_components/chorebot/www/*.js
+!custom_components/chorebot/www/*.js.map
+
 # Dev config - exclude runtime and sensitive files
 dev-config/.storage/*
 !dev-config/.storage/chorebot_*

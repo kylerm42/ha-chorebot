@@ -98,11 +98,13 @@ The Docker Compose setup uses these mounts:
 homeassistant:
   - ./dev-config → /config # HA config
   - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code
-  - ./dist → /config/www/chorebot # Built cards
+  - ./custom_components/chorebot/www → /config/www/chorebot # Built cards (HACS-compatible path)
 
 card-builder:
   - ./ → /app # Entire project for building
 ```
+
+**Note**: Cards are mounted from `custom_components/chorebot/www/` to ensure the development environment matches HACS installations.
 
 ## Common Commands
 
@@ -173,8 +175,8 @@ docker exec -it homeassistant-chorebot-dev tail -f /config/home-assistant.log
 
 1. Check build errors: `docker-compose logs -f card-builder`
 2. Browser console for runtime errors (F12)
-3. Verify files exist: `ls -la dist/`
-4. Check HA is serving files: http://localhost:8123/local/chorebot/
+3. Verify files exist: `ls -la custom_components/chorebot/www/`
+4. Check HA is serving files: http://localhost:8123/local/chorebot/ or http://localhost:8123/hacsfiles/chorebot/
 
 ## Testing Changes
 
@@ -224,12 +226,16 @@ The card builder uses:
 - **Lit**: Web Components framework
 - **Terser**: Minification for production
 
-Build outputs (in `dist/`):
+**IMPORTANT FOR HACS COMPATIBILITY:**
 
-- `chorebot-list-card.js` - Today-focused flat view
+Cards **MUST** be built to `custom_components/chorebot/www/` directory. HACS only copies the `custom_components/chorebot/` directory when installing, so cards in the root `dist/` folder will NOT be included. The build output path is configured in `rollup.config.mjs`.
+
+Build outputs (in `custom_components/chorebot/www/`):
+
 - `chorebot-grouped-card.js` - Tag-based grouped view
 - `chorebot-add-task-card.js` - Add task dialog
-- `chorebot-rewards-card.js` - Points & rewards
+- `chorebot-person-points-card.js` - Person points display
+- `chorebot-person-rewards-card.js` - Person-specific rewards
 
 ### Manual Build (Outside Container)
 
@@ -295,8 +301,9 @@ sudo chown -R $USER:$USER dev-config/
 
 1. Check build succeeded: `docker-compose logs card-builder`
 2. Hard refresh browser: `Ctrl+Shift+R`
-3. Check file was updated: `ls -la dist/chorebot-list-card.js`
-4. Clear browser cache if still not working
+3. Check file was updated: `ls -la custom_components/chorebot/www/chorebot-grouped-card.js`
+4. Verify the mount point exists: `docker exec homeassistant-chorebot-dev ls -la /config/www/chorebot/`
+5. Clear browser cache if still not working
 
 ### HA Won't Start
 
@@ -324,13 +331,15 @@ sudo chown -R $USER:$USER dev-config/
 
 ## File Locations
 
-| What             | Old Location                     | New Location                       |
-| ---------------- | -------------------------------- | ---------------------------------- |
-| HA Config        | `core/config/`                   | `ha-chorebot/dev-config/`          |
-| Integration Code | `ha-chorebot/custom_components/` | (same)                             |
-| Frontend Source  | `ha-chorebot/src/`               | (same)                             |
-| Built Cards      | `ha-chorebot/dist/`              | (same)                             |
-| Storage Data     | `core/config/.storage/`          | `ha-chorebot/dev-config/.storage/` |
+| What             | Old Location                     | New Location                                |
+| ---------------- | -------------------------------- | ------------------------------------------- |
+| HA Config        | `core/config/`                   | `ha-chorebot/dev-config/`                   |
+| Integration Code | `ha-chorebot/custom_components/` | (same)                                      |
+| Frontend Source  | `ha-chorebot/src/`               | (same)                                      |
+| Built Cards      | `ha-chorebot/dist/`              | `ha-chorebot/custom_components/chorebot/www/` |
+| Storage Data     | `core/config/.storage/`          | `ha-chorebot/dev-config/.storage/`          |
+
+**Note**: Built cards moved from `dist/` to `custom_components/chorebot/www/` for HACS compatibility.
 
 ## Additional Resources
 

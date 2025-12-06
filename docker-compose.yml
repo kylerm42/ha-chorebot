@@ -8,8 +8,8 @@ services:
       - ./dev-config:/config
       # Mount integration Python files (live editing)
       - ./custom_components/chorebot:/config/custom_components/chorebot
-      # Mount built frontend cards
-      - ./dist:/config/www/chorebot
+      # Mount built frontend cards (from www/ subdirectory for HACS compatibility)
+      - ./custom_components/chorebot/www:/config/www/chorebot
     ports:
       - "8123:8123"
     restart: unless-stopped
