@@ -20,6 +20,7 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
+from homeassistant.components.frontend import add_extra_js_url
 
 from .const import (
     BACKEND_TICKTICK,
@@ -48,6 +49,23 @@ from .ticktick_backend import TickTickBackend
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.TODO, Platform.SENSOR]
+
+# Frontend card filenames (must match dist/ output)
+FRONTEND_CARDS = [
+    "chorebot-grouped-card.js",
+    "chorebot-add-task-card.js",
+    "chorebot-person-points-card.js",
+    "chorebot-person-rewards-card.js",
+]
+
+
+def _register_frontend_resources(hass: HomeAssistant) -> None:
+    """Register Lovelace resources for ChoreBot cards."""
+    for card_file in FRONTEND_CARDS:
+        # HACS installs cards to /local/community/chorebot/
+        url = f"/hacsfiles/chorebot/{card_file}"
+        add_extra_js_url(hass, url)
+        _LOGGER.debug("Registered frontend resource: %s", url)
 
 # Service schema for chorebot.create_list
 CREATE_LIST_SCHEMA = vol.Schema(
@@ -923,6 +941,9 @@ async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ChoreBot from a config entry."""
     hass.data.setdefault(DOMAIN, {})
+
+    # Register frontend resources (Lovelace cards)
+    _register_frontend_resources(hass)
 
     # Initialize data storage layer
     store = ChoreBotStore(hass)
