@@ -120,8 +120,8 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       overflow: hidden;
       cursor: pointer;
       transition: all 0.2s ease;
-      min-height: 100px;
-      height: 100px;
+      min-height: 80px;
+      height: 80px;
     }
 
     .reward-card:hover {
@@ -135,7 +135,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
     .reward-icon-section {
       flex-shrink: 0;
-      width: 100px;
+      width: 80px;
       background: var(--accent-color, var(--primary-color));
       display: flex;
       align-items: center;
@@ -150,7 +150,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .reward-icon ha-icon {
-      --mdc-icon-size: 48px;
+      --mdc-icon-size: 36px;
     }
 
     .reward-info {
@@ -159,8 +159,16 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 4px;
+      gap: 6px;
       min-width: 0;
+    }
+
+    .reward-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      line-height: 1;
     }
 
     .reward-name {
@@ -170,15 +178,21 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      line-height: 1;
     }
 
     .reward-cost {
       font-size: 20px;
       font-weight: bold;
       color: var(--accent-color, var(--primary-color));
+      white-space: nowrap;
       display: flex;
       align-items: center;
       gap: 4px;
+      flex-shrink: 0;
+      line-height: 1;
     }
 
     .reward-cost ha-icon {
@@ -207,8 +221,8 @@ export class ChoreBotPersonRewardsCard extends LitElement {
       overflow: hidden;
       cursor: pointer;
       transition: all 0.2s ease;
-      min-height: 100px;
-      height: 100px;
+      min-height: 80px;
+      height: 80px;
     }
 
     .add-reward-card:hover {
@@ -219,7 +233,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
 
     .add-reward-icon-section {
       flex-shrink: 0;
-      width: 100px;
+      width: 80px;
       background: color-mix(in srgb, var(--divider-color) 50%, transparent);
       display: flex;
       align-items: center;
@@ -248,7 +262,7 @@ export class ChoreBotPersonRewardsCard extends LitElement {
     }
 
     .add-reward-icon ha-icon {
-      --mdi-icon-size: 48px;
+      --mdi-icon-size: 36px;
     }
 
     .add-reward-info {
@@ -875,11 +889,15 @@ export class ChoreBotPersonRewardsCard extends LitElement {
           </div>
         </div>
         <div class="reward-info">
-          <div class="reward-name">${reward.name}</div>
-          <div class="reward-cost">
-            ${reward.cost}
-            ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
-            ${parts.text ? parts.text : ""}
+          <div class="reward-header">
+            <div class="reward-name">${reward.name}</div>
+            <div class="reward-cost">
+              ${reward.cost}
+              ${parts.icon
+                ? html`<ha-icon icon="${parts.icon}"></ha-icon>`
+                : ""}
+              ${parts.text ? parts.text : ""}
+            </div>
           </div>
           ${reward.description
             ? html`<div class="reward-description">${reward.description}</div>`

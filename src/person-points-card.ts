@@ -66,16 +66,11 @@ export class ChoreBotPersonPointsCard extends LitElement {
     .person-container {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
     }
 
     .person-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1;
-      min-width: 0; /* Allow text truncation */
+      flex-shrink: 0;
     }
 
     .person-avatar {
@@ -109,18 +104,29 @@ export class ChoreBotPersonPointsCard extends LitElement {
     .person-info {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      min-width: 0; /* Allow truncation */
+      gap: 6px;
       flex: 1;
+      min-width: 0; /* Allow truncation */
+    }
+
+    .person-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      line-height: 1;
     }
 
     .person-name {
-      font-size: 20px;
+      font-size: 24px;
       font-weight: 500;
       color: var(--primary-text-color);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      line-height: 1;
     }
 
     .progress-bar {
@@ -128,8 +134,8 @@ export class ChoreBotPersonPointsCard extends LitElement {
       border-radius: 12px;
       height: 24px;
       overflow: hidden;
-      margin-top: 4px;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+      width: 100%; /* Full width of person-info */
     }
 
     .progress-bar-fill {
@@ -156,17 +162,19 @@ export class ChoreBotPersonPointsCard extends LitElement {
     }
 
     .person-points {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: bold;
       color: var(--primary-color);
       white-space: nowrap;
       display: flex;
       align-items: center;
       gap: 4px;
+      flex-shrink: 0;
+      line-height: 1;
     }
 
     .person-points ha-icon {
-      --mdc-icon-size: 24px;
+      --mdc-icon-size: 20px;
       display: flex;
     }
 
@@ -189,11 +197,15 @@ export class ChoreBotPersonPointsCard extends LitElement {
       }
 
       .person-name {
-        font-size: 18px;
+        font-size: 20px;
       }
 
       .person-points {
-        font-size: 24px;
+        font-size: 20px;
+      }
+
+      .person-points ha-icon {
+        --mdc-icon-size: 18px;
       }
     }
   `;
@@ -436,17 +448,21 @@ export class ChoreBotPersonPointsCard extends LitElement {
             : html`<div class="person-avatar initials">
                 ${this._getPersonInitials(this._config!.person_entity)}
               </div>`}
-          <div class="person-info">
-            <div class="person-name">${name}</div>
-            ${this._config!.show_progress && this._progress
-              ? this._renderProgressBar(this._progress)
-              : ""}
-          </div>
         </div>
-        <div class="person-points" style="color: #${this.shades.base}">
-          ${personData.points_balance}
-          ${parts.icon ? html`<ha-icon icon="${parts.icon}"></ha-icon>` : ""}
-          ${parts.text ? parts.text : ""}
+        <div class="person-info">
+          <div class="person-header">
+            <div class="person-name">${name}</div>
+            <div class="person-points" style="color: #${this.shades.base}">
+              ${personData.points_balance}
+              ${parts.icon
+                ? html`<ha-icon icon="${parts.icon}"></ha-icon>`
+                : ""}
+              ${parts.text ? parts.text : ""}
+            </div>
+          </div>
+          ${this._config!.show_progress && this._progress
+            ? this._renderProgressBar(this._progress)
+            : ""}
         </div>
       </div>
     `;

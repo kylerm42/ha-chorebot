@@ -536,15 +536,40 @@ class TickTickBackend(SyncBackend):
                         json.dumps(column_map, indent=2, default=str),
                     )
 
-                    # Store sections in local storage
-                    sections = [
-                        {
-                            "id": col.get("id"),
+                    # CRITICAL: Merge TickTick section data with existing local sections
+                    # to preserve local-only fields like person_id.
+                    #
+                    # Bug Fix (2025-12-05): Previously, this code replaced sections
+                    # wholesale with TickTick data, losing person_id assignments on
+                    # every sync. Now we merge: TickTick provides id/name/sort_order
+                    # (source of truth for structure), while local data preserves
+                    # ChoreBot-specific extensions like person_id.
+                    existing_sections = self.store.get_sections_for_list(local_list_id)
+                    existing_sections_map = {s["id"]: s for s in existing_sections}
+
+                    # Merge TickTick data with existing sections
+                    sections = []
+                    for col in columns:
+                        col_id = col.get("id")
+                        # Start with existing section if it exists (preserves person_id and other local fields)
+                        section = existing_sections_map.get(col_id, {}).copy()
+                        # Update with TickTick data (name and sort_order from remote)
+                        section.update({
+                            "id": col_id,
                             "name": col.get("name"),
                             "sort_order": col.get("sortOrder", 0),
-                        }
-                        for col in columns
-                    ]
+                        })
+                        sections.append(section)
+                        
+                        # Log if we preserved a person_id during merge
+                        if "person_id" in section:
+                            _LOGGER.info(
+                                "[SECTION_SYNC] Preserved person_id='%s' for section '%s' (id: %s) during sync",
+                                section["person_id"],
+                                section["name"],
+                                col_id,
+                            )
+
                     await self.store.async_set_sections(local_list_id, sections)
                 else:
                     _LOGGER.info("No columns/sections found in project data")

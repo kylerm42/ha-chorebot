@@ -330,7 +330,7 @@ export function buildEditDialogData(
  * @returns Function that computes labels for form fields
  */
 export function getFieldLabels(hass: HomeAssistant) {
-  const pointsTerm = getPointsTermCapitalized(hass);
+  const pointsTerm = getPointsTermCapitalized(hass) || "Points";
 
   return function computeLabel(schema: any): string {
     const labels: { [key: string]: string } = {
@@ -347,7 +347,7 @@ export function getFieldLabels(hass: HomeAssistant) {
       recurrence_interval: "Repeat Every",
       recurrence_byweekday: "Days of Week",
       recurrence_bymonthday: "Day of Month",
-      points_value: pointsTerm,
+      points_value: `${pointsTerm} Value`,
       streak_bonus_points: `Streak Bonus ${pointsTerm}`,
       streak_bonus_interval: "Bonus Every X Days (0 = no bonus)",
     };
