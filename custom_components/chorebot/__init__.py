@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 from datetime import UTC, datetime, timedelta
 import logging
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import voluptuous as vol
@@ -21,6 +22,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
 from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 
 from .const import (
     BACKEND_TICKTICK,
@@ -59,10 +61,29 @@ FRONTEND_CARDS = [
 ]
 
 
-def _register_frontend_resources(hass: HomeAssistant) -> None:
-    """Register Lovelace resources for ChoreBot cards."""
+async def _register_frontend_resources(hass: HomeAssistant) -> None:
+    """Register Lovelace resources for ChoreBot cards.
+    
+    This function:
+    1. Registers a static path to serve frontend card files
+    2. Adds each card to Home Assistant's frontend module system
+    
+    Note: The /hacsfiles/ endpoint is NOT automatically created by HACS.
+    Integrations must explicitly register the static path themselves.
+    """
+    # Register static path for www directory
+    www_path = Path(__file__).parent / "www"
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(
+            url="/hacsfiles/chorebot",  # URL path (no trailing slash)
+            path=str(www_path),          # Physical directory path
+            cache_headers=True           # Enable browser caching
+        )
+    ])
+    _LOGGER.info("Registered static path: /hacsfiles/chorebot -> %s", www_path)
+    
+    # Register each card with the frontend
     for card_file in FRONTEND_CARDS:
-        # HACS installs cards to /local/community/chorebot/
         url = f"/hacsfiles/chorebot/{card_file}"
         add_extra_js_url(hass, url)
         _LOGGER.debug("Registered frontend resource: %s", url)
@@ -943,7 +964,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     # Register frontend resources (Lovelace cards)
-    _register_frontend_resources(hass)
+    await _register_frontend_resources(hass)
 
     # Initialize data storage layer
     store = ChoreBotStore(hass)
