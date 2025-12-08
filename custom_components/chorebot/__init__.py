@@ -91,9 +91,9 @@ async def _register_frontend_resources(hass: HomeAssistant) -> None:
     try:
         await hass.http.async_register_static_paths([
             StaticPathConfig(
-                url="/hacsfiles/chorebot",  # URL path (no trailing slash)
-                path=str(www_path),          # Physical directory path
-                cache_headers=True           # Enable browser caching
+                url_path="/hacsfiles/chorebot",  # URL path (no trailing slash)
+                path=str(www_path),               # Physical directory path
+                cache_headers=True                # Enable browser caching
             )
         ])
         _LOGGER.info("✅ Successfully registered static path: /hacsfiles/chorebot -> %s", www_path)
