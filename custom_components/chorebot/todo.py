@@ -103,7 +103,11 @@ class ChoreBotList(TodoListEntity):
         visible_templates = [t for t in templates if not t.is_deleted()]
 
         # Get sections for this list
-        sections = self._store.get_sections_for_list(self._list_id)
+        # CRITICAL: Deep copy to ensure HA's state change detection works
+        # The state machine compares attribute dicts, and if we return the same
+        # list/dict references, it won't detect that the contents changed
+        import copy
+        sections = copy.deepcopy(self._store.get_sections_for_list(self._list_id))
 
         # Extract all unique tags from tasks and templates
         all_tags = set()
