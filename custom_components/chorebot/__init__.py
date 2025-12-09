@@ -71,44 +71,27 @@ async def _register_frontend_resources(hass: HomeAssistant) -> None:
     Note: The /hacsfiles/ endpoint is NOT automatically created by HACS.
     Integrations must explicitly register the static path themselves.
     """
-    _LOGGER.warning("ChoreBot: Starting frontend resource registration (cards)")
-    
-    # Check if HTTP component is available
-    if not hasattr(hass, 'http') or hass.http is None:
-        _LOGGER.error("ChoreBot: HTTP component not available! Cannot register static paths.")
-        return
-    
     # Register static path for www directory
     www_path = Path(__file__).parent / "www"
-    _LOGGER.info("WWW path resolved to: %s", www_path)
-    _LOGGER.info("WWW path exists: %s", www_path.exists())
-    _LOGGER.info("WWW path is directory: %s", www_path.is_dir())
-    
-    if www_path.exists():
-        files = list(www_path.glob("*.js"))
-        _LOGGER.info("Found %d JS files in www directory: %s", len(files), [f.name for f in files])
     
     try:
         await hass.http.async_register_static_paths([
             StaticPathConfig(
-                url_path="/hacsfiles/chorebot",  # URL path (no trailing slash)
-                path=str(www_path),               # Physical directory path
-                cache_headers=True                # Enable browser caching
+                url_path="/hacsfiles/chorebot",
+                path=str(www_path),
+                cache_headers=True
             )
         ])
-        _LOGGER.warning("ChoreBot: ✅ Successfully registered static path: /hacsfiles/chorebot -> %s", www_path)
+        _LOGGER.debug("Registered static path: /hacsfiles/chorebot")
     except Exception as e:
-        _LOGGER.error("❌ Failed to register static path: %s", e, exc_info=True)
+        _LOGGER.error("Failed to register static path: %s", e, exc_info=True)
         return
     
     # Register each card with the frontend
     for card_file in FRONTEND_CARDS:
         url = f"/hacsfiles/chorebot/{card_file}"
-        try:
-            add_extra_js_url(hass, url)
-            _LOGGER.warning("ChoreBot: ✅ Registered frontend module: %s", url)
-        except Exception as e:
-            _LOGGER.error("❌ Failed to register frontend resource %s: %s", url, e, exc_info=True)
+        add_extra_js_url(hass, url)
+        _LOGGER.debug("Registered frontend resource: %s", url)
 
 # Service schema for chorebot.create_list
 CREATE_LIST_SCHEMA = vol.Schema(
