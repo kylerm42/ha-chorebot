@@ -521,12 +521,8 @@ class ChoreBotStore:
                 _LOGGER.error("Cannot set sections for unknown list: %s", list_id)
                 return
 
-            # CRITICAL FIX: Create a deep copy of the sections list to ensure
-            # Home Assistant's state update mechanism recognizes the change.
-            # When modifying sections in-place, the list object ID doesn't change,
-            # which can cause HA to skip state updates due to internal caching.
-            import copy
-            self._sections_cache[list_id] = copy.deepcopy(sections)
+            # Store the sections list directly - caller has already modified it
+            self._sections_cache[list_id] = sections
             await self.async_save_tasks(list_id)
 
     def get_default_section_id(self, list_id: str) -> str | None:
