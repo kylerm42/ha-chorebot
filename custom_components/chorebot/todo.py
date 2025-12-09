@@ -103,9 +103,10 @@ class ChoreBotList(TodoListEntity):
         visible_templates = [t for t in templates if not t.is_deleted()]
 
         # Get sections for this list
-        # CRITICAL: Deep copy to ensure HA's state change detection works
-        # The state machine compares attribute dicts, and if we return the same
-        # list/dict references, it won't detect that the contents changed
+        # CRITICAL: Deep copy sections to ensure HA detects state changes
+        # When extra_state_attributes returns the same list/dict references,
+        # HA's state machine won't recognize that the contents changed, causing
+        # the UI to show stale data until restart. Deep copy ensures new references.
         import copy
         sections = copy.deepcopy(self._store.get_sections_for_list(self._list_id))
 

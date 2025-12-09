@@ -844,10 +844,6 @@ async def _handle_manage_section(
             section["sort_order"] = call.data["sort_order"]
 
         # Handle person_id
-        _LOGGER.warning("[DEBUG] clear_person value: %s, type: %s", call.data.get("clear_person"), type(call.data.get("clear_person")))
-        _LOGGER.warning("[DEBUG] 'person_id' in call.data: %s", "person_id" in call.data)
-        _LOGGER.warning("[DEBUG] Section BEFORE modification: %s", section)
-        
         if call.data.get("clear_person"):
             section.pop("person_id", None)
             _LOGGER.info("Cleared person assignment from section: %s", section_id)
@@ -856,12 +852,9 @@ async def _handle_manage_section(
             if person_id not in hass.states.async_entity_ids("person"):
                 _LOGGER.error("Person entity not found: %s", person_id)
                 raise ValueError(f"Person entity not found: {person_id}")
-            _LOGGER.warning("[DEBUG] About to set section['person_id'] = %s", person_id)
             section["person_id"] = person_id
-            _LOGGER.warning("[DEBUG] Section AFTER setting person_id: %s", section)
             _LOGGER.info("Assigned person %s to section: %s", person_id, section_id)
 
-        _LOGGER.warning("[DEBUG] Section at end of update block: %s", section)
         _LOGGER.info("Updated section: %s", section_id)
 
     elif action == "delete":
@@ -897,14 +890,7 @@ async def _handle_manage_section(
         raise ValueError(f"Invalid action: {action}")
 
     # Save updated sections
-    _LOGGER.warning("[DEBUG] Sections list before save: %s", sections)
-    # CRITICAL: Create a new list object so HA's state change detection recognizes the update
-    # We use list() to create a shallow copy with new list identity but preserve dict references
-    await store.async_set_sections(list_id, list(sections))
-    
-    # Verify what's in cache after save
-    saved_sections = store.get_sections_for_list(list_id)
-    _LOGGER.warning("[DEBUG] Sections from cache after save: %s", saved_sections)
+    await store.async_set_sections(list_id, sections)
 
     # Trigger immediate entity state update so frontend sees the change
     entities = hass.data[DOMAIN].get("entities", {})
