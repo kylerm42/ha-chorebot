@@ -71,11 +71,11 @@ async def _register_frontend_resources(hass: HomeAssistant) -> None:
     Note: The /hacsfiles/ endpoint is NOT automatically created by HACS.
     Integrations must explicitly register the static path themselves.
     """
-    _LOGGER.info("Starting frontend resource registration")
+    _LOGGER.warning("ChoreBot: Starting frontend resource registration (cards)")
     
     # Check if HTTP component is available
     if not hasattr(hass, 'http') or hass.http is None:
-        _LOGGER.error("HTTP component not available! Cannot register static paths.")
+        _LOGGER.error("ChoreBot: HTTP component not available! Cannot register static paths.")
         return
     
     # Register static path for www directory
@@ -96,7 +96,7 @@ async def _register_frontend_resources(hass: HomeAssistant) -> None:
                 cache_headers=True                # Enable browser caching
             )
         ])
-        _LOGGER.info("✅ Successfully registered static path: /hacsfiles/chorebot -> %s", www_path)
+        _LOGGER.warning("ChoreBot: ✅ Successfully registered static path: /hacsfiles/chorebot -> %s", www_path)
     except Exception as e:
         _LOGGER.error("❌ Failed to register static path: %s", e, exc_info=True)
         return
@@ -106,7 +106,7 @@ async def _register_frontend_resources(hass: HomeAssistant) -> None:
         url = f"/hacsfiles/chorebot/{card_file}"
         try:
             add_extra_js_url(hass, url)
-            _LOGGER.info("✅ Registered frontend resource: %s", url)
+            _LOGGER.warning("ChoreBot: ✅ Registered frontend module: %s", url)
         except Exception as e:
             _LOGGER.error("❌ Failed to register frontend resource %s: %s", url, e, exc_info=True)
 
