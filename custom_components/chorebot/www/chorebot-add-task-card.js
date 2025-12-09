@@ -1,81 +1,821 @@
-function t(t,e,s,i){var n,o=arguments.length,r=o<3?e:null===i?i=Object.getOwnPropertyDescriptor(e,s):i;if("object"==typeof Reflect&&"function"==typeof Reflect.decorate)r=Reflect.decorate(t,e,s,i);else for(var a=t.length-1;a>=0;a--)(n=t[a])&&(r=(o<3?n(r):o>3?n(e,s,r):n(e,s))||r);return o>3&&r&&Object.defineProperty(e,s,r),r}"function"==typeof SuppressedError&&SuppressedError;
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
+
+
+function __decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+
+typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+    var e = new Error(message);
+    return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+};
+
 /**
  * @license
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const e=globalThis,s=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,i=Symbol(),n=new WeakMap;let o=class{constructor(t,e,s){if(this._$cssResult$=!0,s!==i)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e}get styleSheet(){let t=this.o;const e=this.t;if(s&&void 0===t){const s=void 0!==e&&1===e.length;s&&(t=n.get(e)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),s&&n.set(e,t))}return t}toString(){return this.cssText}};const r=s?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return(t=>new o("string"==typeof t?t:t+"",void 0,i))(e)})(t):t,{is:a,defineProperty:c,getOwnPropertyDescriptor:l,getOwnPropertyNames:d,getOwnPropertySymbols:h,getPrototypeOf:u}=Object,_=globalThis,p=_.trustedTypes,m=p?p.emptyScript:"",f=_.reactiveElementPolyfillSupport,g=(t,e)=>t,y={toAttribute(t,e){switch(e){case Boolean:t=t?m:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t)}return t},fromAttribute(t,e){let s=t;switch(e){case Boolean:s=null!==t;break;case Number:s=null===t?null:Number(t);break;case Object:case Array:try{s=JSON.parse(t)}catch(t){s=null}}return s}},b=(t,e)=>!a(t,e),$={attribute:!0,type:String,converter:y,reflect:!1,useDefault:!1,hasChanged:b};
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */Symbol.metadata??=Symbol("metadata"),_.litPropertyMetadata??=new WeakMap;let v=class extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,e=$){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(t)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(t,e),!e.noAccessor){const s=Symbol(),i=this.getPropertyDescriptor(t,s,e);void 0!==i&&c(this.prototype,t,i)}}static getPropertyDescriptor(t,e,s){const{get:i,set:n}=l(this.prototype,t)??{get(){return this[e]},set(t){this[e]=t}};return{get:i,set(e){const o=i?.call(this);n?.call(this,e),this.requestUpdate(t,o,s)},configurable:!0,enumerable:!0}}static getPropertyOptions(t){return this.elementProperties.get(t)??$}static _$Ei(){if(this.hasOwnProperty(g("elementProperties")))return;const t=u(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties)}static finalize(){if(this.hasOwnProperty(g("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(g("properties"))){const t=this.properties,e=[...d(t),...h(t)];for(const s of e)this.createProperty(s,t[s])}const t=this[Symbol.metadata];if(null!==t){const e=litPropertyMetadata.get(t);if(void 0!==e)for(const[t,s]of e)this.elementProperties.set(t,s)}this._$Eh=new Map;for(const[t,e]of this.elementProperties){const s=this._$Eu(t,e);void 0!==s&&this._$Eh.set(s,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(t){const e=[];if(Array.isArray(t)){const s=new Set(t.flat(1/0).reverse());for(const t of s)e.unshift(r(t))}else void 0!==t&&e.push(r(t));return e}static _$Eu(t,e){const s=e.attribute;return!1===s?void 0:"string"==typeof s?s:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this))}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.()}removeController(t){this._$EO?.delete(t)}_$E_(){const t=new Map,e=this.constructor.elementProperties;for(const s of e.keys())this.hasOwnProperty(s)&&(t.set(s,this[s]),delete this[s]);t.size>0&&(this._$Ep=t)}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((t,i)=>{if(s)t.adoptedStyleSheets=i.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const s of i){const i=document.createElement("style"),n=e.litNonce;void 0!==n&&i.setAttribute("nonce",n),i.textContent=s.cssText,t.appendChild(i)}})(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(t=>t.hostConnected?.())}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.())}attributeChangedCallback(t,e,s){this._$AK(t,s)}_$ET(t,e){const s=this.constructor.elementProperties.get(t),i=this.constructor._$Eu(t,s);if(void 0!==i&&!0===s.reflect){const n=(void 0!==s.converter?.toAttribute?s.converter:y).toAttribute(e,s.type);this._$Em=t,null==n?this.removeAttribute(i):this.setAttribute(i,n),this._$Em=null}}_$AK(t,e){const s=this.constructor,i=s._$Eh.get(t);if(void 0!==i&&this._$Em!==i){const t=s.getPropertyOptions(i),n="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:y;this._$Em=i;const o=n.fromAttribute(e,t.type);this[i]=o??this._$Ej?.get(i)??o,this._$Em=null}}requestUpdate(t,e,s){if(void 0!==t){const i=this.constructor,n=this[t];if(s??=i.getPropertyOptions(t),!((s.hasChanged??b)(n,e)||s.useDefault&&s.reflect&&n===this._$Ej?.get(t)&&!this.hasAttribute(i._$Eu(t,s))))return;this.C(t,e,s)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(t,e,{useDefault:s,reflect:i,wrapped:n},o){s&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,o??e??this[t]),!0!==n||void 0!==o)||(this._$AL.has(t)||(this.hasUpdated||s||(e=void 0),this._$AL.set(t,e)),!0===i&&this._$Em!==t&&(this._$Eq??=new Set).add(t))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,e]of this._$Ep)this[t]=e;this._$Ep=void 0}const t=this.constructor.elementProperties;if(t.size>0)for(const[e,s]of t){const{wrapped:t}=s,i=this[e];!0!==t||this._$AL.has(e)||void 0===i||this.C(e,void 0,s,i)}}let t=!1;const e=this._$AL;try{t=this.shouldUpdate(e),t?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(e){throw t=!1,this._$EM(),e}t&&this._$AE(e)}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(t)),this.updated(t)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return!0}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(t){}firstUpdated(t){}};v.elementStyles=[],v.shadowRootOptions={mode:"open"},v[g("elementProperties")]=new Map,v[g("finalized")]=new Map,f?.({ReactiveElement:v}),(_.reactiveElementVersions??=[]).push("2.1.1");
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
-const A=globalThis,w=A.trustedTypes,k=w?w.createPolicy("lit-html",{createHTML:t=>t}):void 0,x="$lit$",S=`lit$${Math.random().toFixed(9).slice(2)}$`,E="?"+S,T=`<${E}>`,C=document,P=()=>C.createComment(""),O=t=>null===t||"object"!=typeof t&&"function"!=typeof t,U=Array.isArray,M="[ \t\n\f\r]",D=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,H=/-->/g,N=/>/g,R=RegExp(`>|${M}(?:([^\\s"'>=/]+)(${M}*=${M}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),L=/'/g,z=/"/g,B=/^(?:script|style|textarea|title)$/i,j=(t=>(e,...s)=>({_$litType$:t,strings:e,values:s}))(1),I=Symbol.for("lit-noChange"),q=Symbol.for("lit-nothing"),Y=new WeakMap,W=C.createTreeWalker(C,129);function V(t,e){if(!U(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==k?k.createHTML(e):e}const F=(t,e)=>{const s=t.length-1,i=[];let n,o=2===e?"<svg>":3===e?"<math>":"",r=D;for(let e=0;e<s;e++){const s=t[e];let a,c,l=-1,d=0;for(;d<s.length&&(r.lastIndex=d,c=r.exec(s),null!==c);)d=r.lastIndex,r===D?"!--"===c[1]?r=H:void 0!==c[1]?r=N:void 0!==c[2]?(B.test(c[2])&&(n=RegExp("</"+c[2],"g")),r=R):void 0!==c[3]&&(r=R):r===R?">"===c[0]?(r=n??D,l=-1):void 0===c[1]?l=-2:(l=r.lastIndex-c[2].length,a=c[1],r=void 0===c[3]?R:'"'===c[3]?z:L):r===z||r===L?r=R:r===H||r===N?r=D:(r=R,n=void 0);const h=r===R&&t[e+1].startsWith("/>")?" ":"";o+=r===D?s+T:l>=0?(i.push(a),s.slice(0,l)+x+s.slice(l)+S+h):s+S+(-2===l?e:h)}return[V(t,o+(t[s]||"<?>")+(2===e?"</svg>":3===e?"</math>":"")),i]};class K{constructor({strings:t,_$litType$:e},s){let i;this.parts=[];let n=0,o=0;const r=t.length-1,a=this.parts,[c,l]=F(t,e);if(this.el=K.createElement(c,s),W.currentNode=this.el.content,2===e||3===e){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes)}for(;null!==(i=W.nextNode())&&a.length<r;){if(1===i.nodeType){if(i.hasAttributes())for(const t of i.getAttributeNames())if(t.endsWith(x)){const e=l[o++],s=i.getAttribute(t).split(S),r=/([.?@])?(.*)/.exec(e);a.push({type:1,index:n,name:r[2],strings:s,ctor:"."===r[1]?G:"?"===r[1]?tt:"@"===r[1]?et:X}),i.removeAttribute(t)}else t.startsWith(S)&&(a.push({type:6,index:n}),i.removeAttribute(t));if(B.test(i.tagName)){const t=i.textContent.split(S),e=t.length-1;if(e>0){i.textContent=w?w.emptyScript:"";for(let s=0;s<e;s++)i.append(t[s],P()),W.nextNode(),a.push({type:2,index:++n});i.append(t[e],P())}}}else if(8===i.nodeType)if(i.data===E)a.push({type:2,index:n});else{let t=-1;for(;-1!==(t=i.data.indexOf(S,t+1));)a.push({type:7,index:n}),t+=S.length-1}n++}}static createElement(t,e){const s=C.createElement("template");return s.innerHTML=t,s}}function J(t,e,s=t,i){if(e===I)return e;let n=void 0!==i?s._$Co?.[i]:s._$Cl;const o=O(e)?void 0:e._$litDirective$;return n?.constructor!==o&&(n?._$AO?.(!1),void 0===o?n=void 0:(n=new o(t),n._$AT(t,s,i)),void 0!==i?(s._$Co??=[])[i]=n:s._$Cl=n),void 0!==n&&(e=J(t,n._$AS(t,e.values),n,i)),e}class Z{constructor(t,e){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:e},parts:s}=this._$AD,i=(t?.creationScope??C).importNode(e,!0);W.currentNode=i;let n=W.nextNode(),o=0,r=0,a=s[0];for(;void 0!==a;){if(o===a.index){let e;2===a.type?e=new Q(n,n.nextSibling,this,t):1===a.type?e=new a.ctor(n,a.name,a.strings,this,t):6===a.type&&(e=new st(n,this,t)),this._$AV.push(e),a=s[++r]}o!==a?.index&&(n=W.nextNode(),o++)}return W.currentNode=C,i}p(t){let e=0;for(const s of this._$AV)void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,e),e+=s.strings.length-2):s._$AI(t[e])),e++}}class Q{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,e,s,i){this.type=2,this._$AH=q,this._$AN=void 0,this._$AA=t,this._$AB=e,this._$AM=s,this.options=i,this._$Cv=i?.isConnected??!0}get parentNode(){let t=this._$AA.parentNode;const e=this._$AM;return void 0!==e&&11===t?.nodeType&&(t=e.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,e=this){t=J(this,t,e),O(t)?t===q||null==t||""===t?(this._$AH!==q&&this._$AR(),this._$AH=q):t!==this._$AH&&t!==I&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):(t=>U(t)||"function"==typeof t?.[Symbol.iterator])(t)?this.k(t):this._(t)}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t))}_(t){this._$AH!==q&&O(this._$AH)?this._$AA.nextSibling.data=t:this.T(C.createTextNode(t)),this._$AH=t}$(t){const{values:e,_$litType$:s}=t,i="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=K.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===i)this._$AH.p(e);else{const t=new Z(i,this),s=t.u(this.options);t.p(e),this.T(s),this._$AH=t}}_$AC(t){let e=Y.get(t.strings);return void 0===e&&Y.set(t.strings,e=new K(t)),e}k(t){U(this._$AH)||(this._$AH=[],this._$AR());const e=this._$AH;let s,i=0;for(const n of t)i===e.length?e.push(s=new Q(this.O(P()),this.O(P()),this,this.options)):s=e[i],s._$AI(n),i++;i<e.length&&(this._$AR(s&&s._$AB.nextSibling,i),e.length=i)}_$AR(t=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);t!==this._$AB;){const e=t.nextSibling;t.remove(),t=e}}setConnected(t){void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t))}}class X{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,e,s,i,n){this.type=1,this._$AH=q,this._$AN=void 0,this.element=t,this.name=e,this._$AM=i,this.options=n,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=q}_$AI(t,e=this,s,i){const n=this.strings;let o=!1;if(void 0===n)t=J(this,t,e,0),o=!O(t)||t!==this._$AH&&t!==I,o&&(this._$AH=t);else{const i=t;let r,a;for(t=n[0],r=0;r<n.length-1;r++)a=J(this,i[s+r],e,r),a===I&&(a=this._$AH[r]),o||=!O(a)||a!==this._$AH[r],a===q?t=q:t!==q&&(t+=(a??"")+n[r+1]),this._$AH[r]=a}o&&!i&&this.j(t)}j(t){t===q?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"")}}class G extends X{constructor(){super(...arguments),this.type=3}j(t){this.element[this.name]=t===q?void 0:t}}class tt extends X{constructor(){super(...arguments),this.type=4}j(t){this.element.toggleAttribute(this.name,!!t&&t!==q)}}class et extends X{constructor(t,e,s,i,n){super(t,e,s,i,n),this.type=5}_$AI(t,e=this){if((t=J(this,t,e,0)??q)===I)return;const s=this._$AH,i=t===q&&s!==q||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,n=t!==q&&(s===q||i);i&&this.element.removeEventListener(this.name,this,s),n&&this.element.addEventListener(this.name,this,t),this._$AH=t}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t)}}class st{constructor(t,e,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=e,this.options=s}get _$AU(){return this._$AM._$AU}_$AI(t){J(this,t)}}const it=A.litHtmlPolyfillSupport;it?.(K,Q),(A.litHtmlVersions??=[]).push("3.3.1");const nt=globalThis;
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */class ot extends v{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=((t,e,s)=>{const i=s?.renderBefore??e;let n=i._$litPart$;if(void 0===n){const t=s?.renderBefore??null;i._$litPart$=n=new Q(e.insertBefore(P(),t),t,void 0,s??{})}return n._$AI(t),n})(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return I}}ot._$litElement$=!0,ot.finalized=!0,nt.litElementHydrateSupport?.({LitElement:ot});const rt=nt.litElementPolyfillSupport;rt?.({LitElement:ot}),(nt.litElementVersions??=[]).push("4.2.1");
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
-const at={attribute:!0,type:String,converter:y,reflect:!1,hasChanged:b},ct=(t=at,e,s)=>{const{kind:i,metadata:n}=s;let o=globalThis.litPropertyMetadata.get(n);if(void 0===o&&globalThis.litPropertyMetadata.set(n,o=new Map),"setter"===i&&((t=Object.create(t)).wrapped=!0),o.set(s.name,t),"accessor"===i){const{name:i}=s;return{set(s){const n=e.get.call(this);e.set.call(this,s),this.requestUpdate(i,n,t)},init(e){return void 0!==e&&this.C(i,void 0,t,e),e}}}if("setter"===i){const{name:i}=s;return function(s){const n=this[i];e.call(this,s),this.requestUpdate(i,n,t)}}throw Error("Unsupported decorator location: "+i)};
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */function lt(t){return(e,s)=>"object"==typeof s?ct(t,e,s):((t,e,s)=>{const i=e.hasOwnProperty(s);return e.constructor.createProperty(s,t),i?Object.getOwnPropertyDescriptor(e,s):void 0})(t,e,s)}
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */function dt(t){return lt({...t,state:!0,attribute:!1})}function ht(t,e){const s=void 0!==t.has_due_date?t.has_due_date:!!t.due,i=void 0!==t.is_all_day&&t.is_all_day;let n=t.due_date||null,o=t.due_time||null;if(!n&&t.due){const e=function(t){try{const e=new Date(t);if(isNaN(e.getTime()))return{date:null,time:null};const s=e.getFullYear(),i=String(e.getMonth()+1).padStart(2,"0"),n=String(e.getDate()).padStart(2,"0");return{date:`${s}-${i}-${n}`,time:`${String(e.getHours()).padStart(2,"0")}:${String(e.getMinutes()).padStart(2,"0")}`}}catch(e){return console.error("Date parsing error:",e,t),{date:null,time:null}}}(t.due);n=e.date,o=e.time}return{summary:t.summary||"",has_due_date:s,is_all_day:i,due_date:n||null,due_time:o||"00:00",description:t.description||"",section_id:t.section_id||(e.length>0?e.sort((t,e)=>e.sort_order-t.sort_order)[0].id:void 0),tags:t.tags||[],has_recurrence:s&&t.has_recurrence||!1,recurrence_frequency:t.recurrence_frequency||"DAILY",recurrence_interval:t.recurrence_interval||1,recurrence_byweekday:t.recurrence_byweekday||[],recurrence_bymonthday:t.recurrence_bymonthday||1,points_value:t.points_value||0,streak_bonus_points:t.streak_bonus_points||0,streak_bonus_interval:t.streak_bonus_interval||0}}let ut=class extends ot{constructor(){super(...arguments),this._dialogOpen=!1,this._newTask=null,this._saving=!1}setConfig(t){if(!t.entity)throw new Error("You need to define an entity");this._config={entity:t.entity,button_text:t.button_text||"Add Task",button_icon:t.button_icon||"mdi:plus",button_color:t.button_color||"var(--primary-color)",button_text_color:t.button_text_color||"white",button_size:t.button_size||"medium",hide_card_background:!0===t.hide_card_background,default_section_id:t.default_section_id,default_tags:t.default_tags||[]}}getCardSize(){return 1}render(){if(!this.hass||!this._config)return j`<ha-card>Loading...</ha-card>`;return this.hass.states[this._config.entity]?j`
-      <ha-card
-        class="${this._config.hide_card_background?"no-background":""}"
-      >
-        <div class="button-container">
-          <button
-            class="add-button ${this._config.button_size} ${this._config.button_text?"":"icon-only"}"
-            style="background: ${this._config.button_color}; color: ${this._config.button_text_color};"
-            @click=${this._openDialog}
-          >
-            <ha-icon icon="${this._config.button_icon}"></ha-icon>
-            ${this._config.button_text?j`<span>${this._config.button_text}</span>`:""}
-          </button>
-        </div>
-      </ha-card>
+const t$2=globalThis,e$2=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$4=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$4.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$4.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce(((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1]),t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map((t=>t instanceof CSSStyleSheet?t:t.styleSheet));else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
 
-      ${this._renderDialog()}
-    `:j`<ha-card>
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$3,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$3(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise((t=>this.enableUpdating=t)),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach((t=>t(this)));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach((t=>t.hostConnected?.()));}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach((t=>t.hostDisconnected?.()));}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i){if(void 0!==t){const e=this.constructor,h=this[t];if(i??=e.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(e._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach((t=>t.hostUpdate?.())),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach((t=>t.hostUpdated?.())),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach((t=>this._$ET(t,this[t]))),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.1");
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t$1=globalThis,i$1=t$1.trustedTypes,s$1=i$1?i$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,e="$lit$",h=`lit$${Math.random().toFixed(9).slice(2)}$`,o$2="?"+h,n$1=`<${o$2}>`,r$2=document,l=()=>r$2.createComment(""),c=t=>null===t||"object"!=typeof t&&"function"!=typeof t,a=Array.isArray,u=t=>a(t)||"function"==typeof t?.[Symbol.iterator],d="[ \t\n\f\r]",f=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,v=/-->/g,_=/>/g,m=RegExp(`>|${d}(?:([^\\s"'>=/]+)(${d}*=${d}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),p=/'/g,g=/"/g,$=/^(?:script|style|textarea|title)$/i,y=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),x=y(1),T=Symbol.for("lit-noChange"),E=Symbol.for("lit-nothing"),A=new WeakMap,C=r$2.createTreeWalker(r$2,129);function P(t,i){if(!a(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==s$1?s$1.createHTML(i):i}const V=(t,i)=>{const s=t.length-1,o=[];let r,l=2===i?"<svg>":3===i?"<math>":"",c=f;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,y=0;for(;y<s.length&&(c.lastIndex=y,u=c.exec(s),null!==u);)y=c.lastIndex,c===f?"!--"===u[1]?c=v:void 0!==u[1]?c=_:void 0!==u[2]?($.test(u[2])&&(r=RegExp("</"+u[2],"g")),c=m):void 0!==u[3]&&(c=m):c===m?">"===u[0]?(c=r??f,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?m:'"'===u[3]?g:p):c===g||c===p?c=m:c===v||c===_?c=f:(c=m,r=void 0);const x=c===m&&t[i+1].startsWith("/>")?" ":"";l+=c===f?s+n$1:d>=0?(o.push(a),s.slice(0,d)+e+s.slice(d)+h+x):s+h+(-2===d?i:x);}return [P(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),o]};class N{constructor({strings:t,_$litType$:s},n){let r;this.parts=[];let c=0,a=0;const u=t.length-1,d=this.parts,[f,v]=V(t,s);if(this.el=N.createElement(f,n),C.currentNode=this.el.content,2===s||3===s){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=C.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(e)){const i=v[a++],s=r.getAttribute(t).split(h),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:c,name:e[2],strings:s,ctor:"."===e[1]?H:"?"===e[1]?I:"@"===e[1]?L:k}),r.removeAttribute(t);}else t.startsWith(h)&&(d.push({type:6,index:c}),r.removeAttribute(t));if($.test(r.tagName)){const t=r.textContent.split(h),s=t.length-1;if(s>0){r.textContent=i$1?i$1.emptyScript:"";for(let i=0;i<s;i++)r.append(t[i],l()),C.nextNode(),d.push({type:2,index:++c});r.append(t[s],l());}}}else if(8===r.nodeType)if(r.data===o$2)d.push({type:2,index:c});else {let t=-1;for(;-1!==(t=r.data.indexOf(h,t+1));)d.push({type:7,index:c}),t+=h.length-1;}c++;}}static createElement(t,i){const s=r$2.createElement("template");return s.innerHTML=t,s}}function S(t,i,s=t,e){if(i===T)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=c(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=S(t,h._$AS(t,i.values),h,e)),i}class M{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??r$2).importNode(i,true);C.currentNode=e;let h=C.nextNode(),o=0,n=0,l=s[0];for(;void 0!==l;){if(o===l.index){let i;2===l.type?i=new R(h,h.nextSibling,this,t):1===l.type?i=new l.ctor(h,l.name,l.strings,this,t):6===l.type&&(i=new z(h,this,t)),this._$AV.push(i),l=s[++n];}o!==l?.index&&(h=C.nextNode(),o++);}return C.currentNode=r$2,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class R{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=E,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=S(this,t,i),c(t)?t===E||null==t||""===t?(this._$AH!==E&&this._$AR(),this._$AH=E):t!==this._$AH&&t!==T&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):u(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==E&&c(this._$AH)?this._$AA.nextSibling.data=t:this.T(r$2.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=N.createElement(P(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new M(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=A.get(t.strings);return void 0===i&&A.set(t.strings,i=new N(t)),i}k(t){a(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new R(this.O(l()),this.O(l()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,i){for(this._$AP?.(false,true,i);t!==this._$AB;){const i=t.nextSibling;t.remove(),t=i;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class k{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=E,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=E;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=S(this,t,i,0),o=!c(t)||t!==this._$AH&&t!==T,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=S(this,e[s+n],i,n),r===T&&(r=this._$AH[n]),o||=!c(r)||r!==this._$AH[n],r===E?t=E:t!==E&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===E?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class H extends k{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===E?void 0:t;}}class I extends k{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==E);}}class L extends k{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=S(this,t,i,0)??E)===T)return;const s=this._$AH,e=t===E&&s!==E||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==E&&(s===E||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){S(this,t);}}const j=t$1.litHtmlPolyfillSupport;j?.(N,R),(t$1.litHtmlVersions??=[]).push("3.3.1");const B=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new R(i.insertBefore(l(),t),t,void 0,s??{});}return h._$AI(t),h};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=B(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return T}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o$1=s.litElementPolyfillSupport;o$1?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.1");
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t=t=>(e,o)=>{ void 0!==o?o.addInitializer((()=>{customElements.define(t,e);})):customElements.define(t,e);};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const o={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$1},r$1=(t=o,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t);}}throw Error("Unsupported decorator location: "+n)};function n(t){return (e,o)=>"object"==typeof o?r$1(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */function r(r){return n({...r,state:true,attribute:false})}
+
+// ============================================================================
+// Recurrence Rule (rrule) Utility Functions for ChoreBot Cards
+// ============================================================================
+/**
+ * Parse an rrule string into component parts
+ * @param rrule - rrule string (e.g., "FREQ=DAILY;INTERVAL=1")
+ * @returns Parsed rrule object or null if invalid
+ */
+/**
+ * Build an rrule string from editing task data
+ * @param editingTask - Task being edited with recurrence fields
+ * @returns rrule string or null if recurrence disabled
+ */
+function buildRrule(editingTask) {
+    if (!editingTask || !editingTask.has_recurrence) {
+        return null;
+    }
+    const { recurrence_frequency, recurrence_interval, recurrence_byweekday, recurrence_bymonthday, } = editingTask;
+    if (!recurrence_frequency) {
+        return null;
+    }
+    const interval = recurrence_interval || 1;
+    let rrule = `FREQ=${recurrence_frequency};INTERVAL=${interval}`;
+    if (recurrence_frequency === "WEEKLY" &&
+        recurrence_byweekday &&
+        recurrence_byweekday.length > 0) {
+        rrule += `;BYDAY=${recurrence_byweekday.join(",").toUpperCase()}`;
+    }
+    else if (recurrence_frequency === "MONTHLY" && recurrence_bymonthday) {
+        const day = Math.max(1, Math.min(31, recurrence_bymonthday));
+        rrule += `;BYMONTHDAY=${day}`;
+    }
+    return rrule;
+}
+
+// ============================================================================
+// Date/Time Utility Functions for ChoreBot Cards
+// ============================================================================
+/**
+ * Parse UTC timestamp to local date and time strings
+ * @param utcString - ISO 8601 UTC timestamp
+ * @returns Object with separate date and time strings in local timezone
+ */
+function parseUTCToLocal(utcString) {
+    try {
+        const date = new Date(utcString);
+        if (isNaN(date.getTime()))
+            return { date: null, time: null };
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        return {
+            date: `${year}-${month}-${day}`,
+            time: `${hours}:${minutes}`,
+        };
+    }
+    catch (e) {
+        console.error("Date parsing error:", e, utcString);
+        return { date: null, time: null };
+    }
+}
+
+// ============================================================================
+// Points Display Utilities for ChoreBot Cards
+// ============================================================================
+/**
+ * Get points display configuration from sensor.
+ * Returns { icon, text } where icon is MDI icon string (e.g., "mdi:star")
+ * and text is display term (e.g., "stars", "coins", "points").
+ *
+ * Falls back to { icon: "", text: "points" } if sensor is missing or
+ * attribute is undefined.
+ *
+ * Respects empty strings: If backend sends text="" with an icon, that's
+ * intentional (icon-only mode) and won't be overridden with "points".
+ *
+ * @param hass - Home Assistant instance
+ * @returns Object with icon and text properties
+ */
+function getPointsDisplayParts(hass) {
+    const sensor = hass.states["sensor.chorebot_points"];
+    const config = sensor?.attributes.points_display;
+    // If sensor or attribute missing entirely, use defaults
+    if (!config) {
+        return {
+            icon: "",
+            text: "points",
+        };
+    }
+    // Otherwise respect exact values from backend (including empty strings)
+    return {
+        icon: config.icon ?? "",
+        text: config.text ?? "points",
+    };
+}
+/**
+ * Get capitalized points term for use in field labels.
+ * Example: "Stars", "Coins", "Points"
+ *
+ * Falls back to "Points" if sensor is missing or attribute is undefined.
+ * Returns empty string if text is intentionally empty (icon-only mode).
+ *
+ * @param hass - Home Assistant instance
+ * @returns Capitalized term string or empty string
+ */
+function getPointsTermCapitalized(hass) {
+    const parts = getPointsDisplayParts(hass);
+    if (!parts.text) {
+        return "";
+    }
+    return parts.text.charAt(0).toUpperCase() + parts.text.slice(1);
+}
+
+// ============================================================================
+// Dialog Utility Functions for ChoreBot Cards
+// ============================================================================
+/**
+ * Build the schema for the edit dialog form
+ * @param task - Task being edited
+ * @param sections - Available sections from entity
+ * @param availableTags - Available tags from entity
+ * @returns Array of form schema objects
+ */
+function buildEditDialogSchema(task, sections, availableTags) {
+    const hasDueDate = task.has_due_date !== undefined ? task.has_due_date : !!task.due;
+    const isAllDay = task.is_all_day !== undefined ? task.is_all_day : false;
+    const schema = [
+        {
+            name: "summary",
+            required: true,
+            selector: { text: {} },
+        },
+        {
+            name: "description",
+            selector: { text: { multiline: true } },
+        },
+    ];
+    // Add section dropdown if sections are available
+    if (sections.length > 0) {
+        schema.push({
+            name: "section_id",
+            selector: {
+                select: {
+                    options: sections
+                        .sort((a, b) => b.sort_order - a.sort_order)
+                        .map((section) => ({
+                        label: section.name,
+                        value: section.id,
+                    })),
+                },
+            },
+        });
+    }
+    // Add tags multi-select
+    schema.push({
+        name: "tags",
+        selector: {
+            select: {
+                multiple: true,
+                custom_value: true,
+                options: availableTags.map((tag) => ({
+                    label: tag,
+                    value: tag,
+                })),
+            },
+        },
+    });
+    schema.push({
+        name: "has_due_date",
+        selector: { boolean: {} },
+    });
+    if (hasDueDate) {
+        schema.push({
+            name: "due_date",
+            selector: { date: {} },
+        });
+        if (!isAllDay) {
+            schema.push({
+                name: "due_time",
+                selector: { time: {} },
+            });
+        }
+        schema.push({
+            name: "is_all_day",
+            selector: { boolean: {} },
+        });
+    }
+    // Recurrence section - only show if task has a due date
+    if (hasDueDate) {
+        const hasRecurrence = task.has_recurrence !== undefined ? task.has_recurrence : false;
+        const recurrenceFrequency = task.recurrence_frequency || "DAILY";
+        // Add recurrence toggle
+        schema.push({
+            name: "has_recurrence",
+            selector: { boolean: {} },
+        });
+        // If recurrence is enabled, add recurrence fields
+        if (hasRecurrence) {
+            schema.push({
+                name: "recurrence_frequency",
+                selector: {
+                    select: {
+                        options: [
+                            { label: "Daily", value: "DAILY" },
+                            { label: "Weekly", value: "WEEKLY" },
+                            { label: "Monthly", value: "MONTHLY" },
+                        ],
+                    },
+                },
+            });
+            schema.push({
+                name: "recurrence_interval",
+                selector: {
+                    number: {
+                        min: 1,
+                        max: 999,
+                        mode: "box",
+                    },
+                },
+            });
+            // Frequency-specific fields
+            if (recurrenceFrequency === "WEEKLY") {
+                schema.push({
+                    name: "recurrence_byweekday",
+                    selector: {
+                        select: {
+                            multiple: true,
+                            options: [
+                                { label: "Monday", value: "MO" },
+                                { label: "Tuesday", value: "TU" },
+                                { label: "Wednesday", value: "WE" },
+                                { label: "Thursday", value: "TH" },
+                                { label: "Friday", value: "FR" },
+                                { label: "Saturday", value: "SA" },
+                                { label: "Sunday", value: "SU" },
+                            ],
+                        },
+                    },
+                });
+            }
+            else if (recurrenceFrequency === "MONTHLY") {
+                schema.push({
+                    name: "recurrence_bymonthday",
+                    selector: {
+                        number: {
+                            min: 1,
+                            max: 31,
+                            mode: "box",
+                        },
+                    },
+                });
+            }
+        }
+    }
+    // Points section
+    schema.push({
+        name: "points_value",
+        selector: {
+            number: {
+                min: 0,
+                max: 10000,
+                mode: "box",
+            },
+        },
+    });
+    // Streak bonus section (only for recurring tasks)
+    if (hasDueDate && task.has_recurrence) {
+        schema.push({
+            name: "streak_bonus_points",
+            selector: {
+                number: {
+                    min: 0,
+                    max: 10000,
+                    mode: "box",
+                },
+            },
+        });
+        schema.push({
+            name: "streak_bonus_interval",
+            selector: {
+                number: {
+                    min: 0,
+                    max: 999,
+                    mode: "box",
+                },
+            },
+        });
+    }
+    return schema;
+}
+/**
+ * Build the initial data object for the edit dialog form
+ * @param task - Task being edited
+ * @param sections - Available sections from entity
+ * @returns Data object for form initialization
+ */
+function buildEditDialogData(task, sections) {
+    const hasDueDate = task.has_due_date !== undefined ? task.has_due_date : !!task.due;
+    const isAllDay = task.is_all_day !== undefined ? task.is_all_day : false;
+    let dateValue = task.due_date || null;
+    let timeValue = task.due_time || null;
+    if (!dateValue && task.due) {
+        const parsed = parseUTCToLocal(task.due);
+        dateValue = parsed.date;
+        timeValue = parsed.time;
+    }
+    return {
+        summary: task.summary || "",
+        has_due_date: hasDueDate,
+        is_all_day: isAllDay,
+        due_date: dateValue || null,
+        due_time: timeValue || "00:00",
+        description: task.description || "",
+        section_id: task.section_id ||
+            (sections.length > 0
+                ? sections.sort((a, b) => b.sort_order - a.sort_order)[0].id
+                : undefined),
+        tags: task.tags || [],
+        has_recurrence: hasDueDate ? task.has_recurrence || false : false,
+        recurrence_frequency: task.recurrence_frequency || "DAILY",
+        recurrence_interval: task.recurrence_interval || 1,
+        recurrence_byweekday: task.recurrence_byweekday || [],
+        recurrence_bymonthday: task.recurrence_bymonthday || 1,
+        points_value: task.points_value || 0,
+        streak_bonus_points: task.streak_bonus_points || 0,
+        streak_bonus_interval: task.streak_bonus_interval || 0,
+    };
+}
+/**
+ * Get label text for form fields (factory function that accepts hass for dynamic labels)
+ * @param hass - Home Assistant instance for dynamic points terminology
+ * @returns Function that computes labels for form fields
+ */
+function getFieldLabels(hass) {
+    const pointsTerm = getPointsTermCapitalized(hass) || "Points";
+    return function computeLabel(schema) {
+        const labels = {
+            summary: "Task Name",
+            has_due_date: "Has Due Date",
+            is_all_day: "All Day",
+            due_date: "Date",
+            due_time: "Time",
+            description: "Description",
+            section_id: "Section",
+            tags: "Tags",
+            has_recurrence: "Recurring Task",
+            recurrence_frequency: "Frequency",
+            recurrence_interval: "Repeat Every",
+            recurrence_byweekday: "Days of Week",
+            recurrence_bymonthday: "Day of Month",
+            points_value: `${pointsTerm} Value`,
+            streak_bonus_points: `Streak Bonus ${pointsTerm}`,
+            streak_bonus_interval: "Bonus Every X Days (0 = no bonus)",
+        };
+        return labels[schema.name] || schema.name;
+    };
+}
+/**
+ * Render the task dialog (for editing or creating tasks)
+ * @param isOpen - Whether dialog is open
+ * @param task - Task being edited/created
+ * @param hass - Home Assistant instance
+ * @param sections - Available sections
+ * @param availableTags - Available tags from entity
+ * @param saving - Whether save is in progress
+ * @param onClose - Callback when dialog closes
+ * @param onValueChanged - Callback when form values change
+ * @param onSave - Callback when save is clicked
+ * @param dialogTitle - Optional dialog title (defaults to "Edit Task")
+ * @returns Lit HTML template
+ */
+function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, onClose, onValueChanged, onSave, dialogTitle = "Edit Task") {
+    if (!isOpen || !task) {
+        return x ``;
+    }
+    const schema = buildEditDialogSchema(task, sections, availableTags);
+    const data = buildEditDialogData(task, sections);
+    const computeLabel = getFieldLabels(hass);
+    return x `
+    <ha-dialog open @closed=${onClose} .heading=${dialogTitle}>
+      <ha-form
+        .hass=${hass}
+        .schema=${schema}
+        .data=${data}
+        .computeLabel=${computeLabel}
+        @value-changed=${onValueChanged}
+      ></ha-form>
+      <ha-button slot="primaryAction" @click=${onSave} .disabled=${saving}>
+        ${saving ? "Saving..." : "Save"}
+      </ha-button>
+      <ha-button slot="secondaryAction" @click=${onClose} .disabled=${saving}>
+        Cancel
+      </ha-button>
+    </ha-dialog>
+  `;
+}
+
+// ============================================================================
+// ChoreBot Add Task Card (TypeScript)
+// ============================================================================
+/**
+ * ChoreBot Add Task Card
+ *
+ * A simple button card that opens a dialog to create new tasks.
+ * Reuses the shared task dialog for consistency with edit operations.
+ */
+let ChoreBotAddTaskCard = class ChoreBotAddTaskCard extends i {
+    constructor() {
+        super(...arguments);
+        this._dialogOpen = false;
+        this._newTask = null;
+        this._saving = false;
+    }
+    setConfig(config) {
+        if (!config.entity) {
+            throw new Error("You need to define an entity");
+        }
+        this._config = {
+            entity: config.entity,
+            button_text: config.button_text || "Add Task",
+            button_icon: config.button_icon || "mdi:plus",
+            button_color: config.button_color || "var(--primary-color)",
+            button_text_color: config.button_text_color || "white",
+            button_size: config.button_size || "medium",
+            hide_card_background: config.hide_card_background === true,
+            default_section_id: config.default_section_id,
+            default_tags: config.default_tags || [],
+        };
+    }
+    getCardSize() {
+        return 1;
+    }
+    render() {
+        if (!this.hass || !this._config) {
+            return x `<ha-card>Loading...</ha-card>`;
+        }
+        const entity = this.hass.states[this._config.entity];
+        if (!entity) {
+            return x `<ha-card>
         <div
           style="text-align: center; padding: 16px; color: var(--error-color);"
         >
           Entity not found: ${this._config.entity}
         </div>
-      </ha-card>`}_openDialog(){const t=this.hass?.states[this._config.entity],e=t?.attributes.chorebot_sections||[];this._newTask=this._createBlankTask(e),this._dialogOpen=!0}_closeDialog(){this._dialogOpen=!1,this._newTask=null}_createBlankTask(t){let e;if(this._config.default_section_id){const s=t.find(t=>t.id===this._config.default_section_id);if(s)e=s.id;else{const s=t.find(t=>t.name.toLowerCase()===this._config.default_section_id.toLowerCase());s&&(e=s.id)}}else t.length>0&&(e=t.sort((t,e)=>e.sort_order-t.sort_order)[0].id);return{uid:"",summary:"",status:"needs_action",has_due_date:!1,is_all_day:!1,due_date:void 0,due_time:void 0,description:"",section_id:e,tags:this._config.default_tags||[],has_recurrence:!1,recurrence_frequency:"DAILY",recurrence_interval:1,recurrence_byweekday:[],recurrence_bymonthday:1}}_renderDialog(){const t=this.hass?.states[this._config.entity],e=t?.attributes.chorebot_sections||[],s=t?.attributes.chorebot_tags||[];return function(t,e,s,i,n,o,r,a,c,l="Edit Task"){if(!t||!e)return j``;const d=function(t,e,s){const i=void 0!==t.has_due_date?t.has_due_date:!!t.due,n=void 0!==t.is_all_day&&t.is_all_day,o=[{name:"summary",required:!0,selector:{text:{}}},{name:"description",selector:{text:{multiline:!0}}}];if(e.length>0&&o.push({name:"section_id",selector:{select:{options:e.sort((t,e)=>e.sort_order-t.sort_order).map(t=>({label:t.name,value:t.id}))}}}),o.push({name:"tags",selector:{select:{multiple:!0,custom_value:!0,options:s.map(t=>({label:t,value:t}))}}}),o.push({name:"has_due_date",selector:{boolean:{}}}),i&&(o.push({name:"due_date",selector:{date:{}}}),n||o.push({name:"due_time",selector:{time:{}}}),o.push({name:"is_all_day",selector:{boolean:{}}})),i){const e=void 0!==t.has_recurrence&&t.has_recurrence,s=t.recurrence_frequency||"DAILY";o.push({name:"has_recurrence",selector:{boolean:{}}}),e&&(o.push({name:"recurrence_frequency",selector:{select:{options:[{label:"Daily",value:"DAILY"},{label:"Weekly",value:"WEEKLY"},{label:"Monthly",value:"MONTHLY"}]}}}),o.push({name:"recurrence_interval",selector:{number:{min:1,max:999,mode:"box"}}}),"WEEKLY"===s?o.push({name:"recurrence_byweekday",selector:{select:{multiple:!0,options:[{label:"Monday",value:"MO"},{label:"Tuesday",value:"TU"},{label:"Wednesday",value:"WE"},{label:"Thursday",value:"TH"},{label:"Friday",value:"FR"},{label:"Saturday",value:"SA"},{label:"Sunday",value:"SU"}]}}}):"MONTHLY"===s&&o.push({name:"recurrence_bymonthday",selector:{number:{min:1,max:31,mode:"box"}}}))}return o.push({name:"points_value",selector:{number:{min:0,max:1e4,mode:"box"}}}),i&&t.has_recurrence&&(o.push({name:"streak_bonus_points",selector:{number:{min:0,max:1e4,mode:"box"}}}),o.push({name:"streak_bonus_interval",selector:{number:{min:0,max:999,mode:"box"}}})),o}(e,i,n),h=ht(e,i),u=function(t){const e=function(t){const e=function(t){const e=t.states["sensor.chorebot_points"],s=e?.attributes.points_display;return s?{icon:s.icon??"",text:s.text??"points"}:{icon:"",text:"points"}}(t);return e.text?e.text.charAt(0).toUpperCase()+e.text.slice(1):""}(t)||"Points";return function(t){return{summary:"Task Name",has_due_date:"Has Due Date",is_all_day:"All Day",due_date:"Date",due_time:"Time",description:"Description",section_id:"Section",tags:"Tags",has_recurrence:"Recurring Task",recurrence_frequency:"Frequency",recurrence_interval:"Repeat Every",recurrence_byweekday:"Days of Week",recurrence_bymonthday:"Day of Month",points_value:`${e} Value`,streak_bonus_points:`Streak Bonus ${e}`,streak_bonus_interval:"Bonus Every X Days (0 = no bonus)"}[t.name]||t.name}}(s);return j`
-    <ha-dialog open @closed=${r} .heading=${l}>
-      <ha-form
-        .hass=${s}
-        .schema=${d}
-        .data=${h}
-        .computeLabel=${u}
-        @value-changed=${a}
-      ></ha-form>
-      <ha-button slot="primaryAction" @click=${c} .disabled=${o}>
-        ${o?"Saving...":"Save"}
-      </ha-button>
-      <ha-button slot="secondaryAction" @click=${r} .disabled=${o}>
-        Cancel
-      </ha-button>
-    </ha-dialog>
-  `}(this._dialogOpen,this._newTask,this.hass,e,s,this._saving,()=>this._closeDialog(),t=>this._formValueChanged(t),()=>this._saveTask(),"Add Task")}_formValueChanged(t){const e=t.detail.value;this._newTask={...this._newTask,...e},("has_due_date"in e||"is_all_day"in e||"has_recurrence"in e||"recurrence_frequency"in e)&&this.requestUpdate()}async _saveTask(){if(!this._newTask||!this._newTask.summary?.trim()||this._saving)return;this._saving=!0;const t={list_id:this._config.entity,summary:this._newTask.summary.trim()};if(this._newTask.has_due_date&&this._newTask.due_date){const e=!!this._newTask.is_all_day;let s;if(e||!this._newTask.due_time)s=`${this._newTask.due_date}T00:00:00`;else{const t=3===this._newTask.due_time.split(":").length?this._newTask.due_time:`${this._newTask.due_time}:00`;s=`${this._newTask.due_date}T${t}`}const i=new Date(s);if(isNaN(i.getTime()))return console.error("Invalid date/time combination:",s),void(this._saving=!1);t.due=i.toISOString(),t.is_all_day=e}this._newTask.description&&(t.description=this._newTask.description),this._newTask.section_id&&(t.section_id=this._newTask.section_id),void 0!==this._newTask.tags&&this._newTask.tags.length>0&&(t.tags=this._newTask.tags);const e=function(t){if(!t||!t.has_recurrence)return null;const{recurrence_frequency:e,recurrence_interval:s,recurrence_byweekday:i,recurrence_bymonthday:n}=t;if(!e)return null;let o=`FREQ=${e};INTERVAL=${s||1}`;"WEEKLY"===e&&i&&i.length>0?o+=`;BYDAY=${i.join(",").toUpperCase()}`:"MONTHLY"===e&&n&&(o+=`;BYMONTHDAY=${Math.max(1,Math.min(31,n))}`);return o}(this._newTask);null!==e&&(t.rrule=e),void 0!==this._newTask.points_value&&this._newTask.points_value>0&&(t.points_value=this._newTask.points_value),null!==e&&(void 0!==this._newTask.streak_bonus_points&&this._newTask.streak_bonus_points>0&&(t.streak_bonus_points=this._newTask.streak_bonus_points),void 0!==this._newTask.streak_bonus_interval&&this._newTask.streak_bonus_interval>0&&(t.streak_bonus_interval=this._newTask.streak_bonus_interval));try{await this.hass.callService("chorebot","add_task",t),this._closeDialog();const e=this.hass?.states[this._config.entity],s=e?.attributes.chorebot_sections||[];this._newTask=this._createBlankTask(s)}catch(t){console.error("Error adding task:",t),alert("Failed to add task. Please try again.")}finally{this._saving=!1}}static getStubConfig(){return{entity:"",button_text:"Add Task",button_icon:"mdi:plus",button_color:"var(--primary-color)",button_text_color:"white",button_size:"medium",hide_card_background:!1,default_section_id:"",default_tags:[]}}static getConfigForm(){return{schema:[{name:"entity",required:!0,selector:{entity:{filter:{domain:"todo"}}}},{name:"button_text",default:"Add Task",selector:{text:{}}},{name:"button_icon",default:"mdi:plus",selector:{icon:{}}},{name:"button_color",default:"var(--primary-color)",selector:{text:{}}},{name:"button_text_color",default:"white",selector:{text:{}}},{name:"button_size",default:"medium",selector:{select:{options:[{label:"Small",value:"small"},{label:"Medium",value:"medium"},{label:"Large",value:"large"}]}}},{name:"hide_card_background",default:!1,selector:{boolean:{}}},{name:"default_section_id",selector:{text:{}}},{name:"default_tags",selector:{select:{multiple:!0,custom_value:!0,options:[]}}}],computeLabel:t=>({entity:"Todo Entity",button_text:"Button Text",button_icon:"Button Icon",button_color:"Button Color",button_text_color:"Button Text Color",button_size:"Button Size",hide_card_background:"Hide Card Background",default_section_id:"Default Section",default_tags:"Default Tags"}[t.name]||void 0),computeHelper:t=>({entity:"Select the ChoreBot todo entity for new tasks",button_text:"Text displayed on the button",button_icon:"Icon displayed on the button",button_color:"Button background color (hex code or CSS variable like var(--primary-color))",button_text_color:"Button text color (hex code or CSS variable)",button_size:"Size of the button",hide_card_background:"Hide the card background and padding for a seamless look",default_section_id:'Default section for new tasks (enter section name like "Kyle" or leave empty for automatic)',default_tags:"Tags to pre-fill when creating new tasks"}[t.name]||void 0)}}};ut.styles=((t,...e)=>{const s=1===t.length?t[0]:e.reduce((e,s,i)=>e+(t=>{if(!0===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[i+1],t[0]);return new o(s,t,i)})`
+      </ha-card>`;
+        }
+        return x `
+      <ha-card
+        class="${this._config.hide_card_background ? "no-background" : ""}"
+      >
+        <div class="button-container">
+          <button
+            class="add-button ${this._config.button_size} ${this._config
+            .button_text
+            ? ""
+            : "icon-only"}"
+            style="background: ${this._config.button_color}; color: ${this
+            ._config.button_text_color};"
+            @click=${this._openDialog}
+          >
+            <ha-icon icon="${this._config.button_icon}"></ha-icon>
+            ${this._config.button_text
+            ? x `<span>${this._config.button_text}</span>`
+            : ""}
+          </button>
+        </div>
+      </ha-card>
+
+      ${this._renderDialog()}
+    `;
+    }
+    // ============================================================================
+    // Dialog Management
+    // ============================================================================
+    _openDialog() {
+        const entity = this.hass?.states[this._config.entity];
+        const sections = entity?.attributes.chorebot_sections || [];
+        // Create a blank task with defaults from config
+        this._newTask = this._createBlankTask(sections);
+        this._dialogOpen = true;
+    }
+    _closeDialog() {
+        this._dialogOpen = false;
+        this._newTask = null;
+    }
+    _createBlankTask(sections) {
+        // Determine default section
+        let defaultSectionId;
+        if (this._config.default_section_id) {
+            // Config can specify either the section ID or the section name
+            // First try to find a section with matching ID
+            const byId = sections.find((s) => s.id === this._config.default_section_id);
+            if (byId) {
+                defaultSectionId = byId.id;
+            }
+            else {
+                // Try to find a section with matching name (case-insensitive)
+                const byName = sections.find((s) => s.name.toLowerCase() ===
+                    this._config.default_section_id.toLowerCase());
+                if (byName) {
+                    defaultSectionId = byName.id;
+                }
+            }
+        }
+        else if (sections.length > 0) {
+            // Use the first section (highest sort_order)
+            defaultSectionId = sections.sort((a, b) => b.sort_order - a.sort_order)[0].id;
+        }
+        return {
+            uid: "", // Will be generated by backend
+            summary: "",
+            status: "needs_action",
+            has_due_date: false,
+            is_all_day: false,
+            due_date: undefined,
+            due_time: undefined,
+            description: "",
+            section_id: defaultSectionId,
+            tags: this._config.default_tags || [],
+            has_recurrence: false,
+            recurrence_frequency: "DAILY",
+            recurrence_interval: 1,
+            recurrence_byweekday: [],
+            recurrence_bymonthday: 1,
+        };
+    }
+    _renderDialog() {
+        const entity = this.hass?.states[this._config.entity];
+        const sections = entity?.attributes.chorebot_sections || [];
+        const availableTags = entity?.attributes.chorebot_tags || [];
+        return renderTaskDialog(this._dialogOpen, this._newTask, this.hass, sections, availableTags, this._saving, () => this._closeDialog(), (ev) => this._formValueChanged(ev), () => this._saveTask(), "Add Task");
+    }
+    // ============================================================================
+    // Form Handling
+    // ============================================================================
+    _formValueChanged(ev) {
+        const updatedValues = ev.detail.value;
+        this._newTask = {
+            ...this._newTask,
+            ...updatedValues,
+        };
+        // Trigger re-render for conditional fields
+        if ("has_due_date" in updatedValues ||
+            "is_all_day" in updatedValues ||
+            "has_recurrence" in updatedValues ||
+            "recurrence_frequency" in updatedValues) {
+            this.requestUpdate();
+        }
+    }
+    async _saveTask() {
+        if (!this._newTask || !this._newTask.summary?.trim() || this._saving) {
+            return;
+        }
+        this._saving = true;
+        const serviceData = {
+            list_id: this._config.entity,
+            summary: this._newTask.summary.trim(),
+        };
+        // Handle due date
+        if (this._newTask.has_due_date && this._newTask.due_date) {
+            const isAllDay = !!this._newTask.is_all_day;
+            let dateTimeString;
+            if (isAllDay || !this._newTask.due_time) {
+                dateTimeString = `${this._newTask.due_date}T00:00:00`;
+            }
+            else {
+                const timeStr = this._newTask.due_time.split(":").length === 3
+                    ? this._newTask.due_time
+                    : `${this._newTask.due_time}:00`;
+                dateTimeString = `${this._newTask.due_date}T${timeStr}`;
+            }
+            const dateObj = new Date(dateTimeString);
+            if (isNaN(dateObj.getTime())) {
+                console.error("Invalid date/time combination:", dateTimeString);
+                this._saving = false;
+                return;
+            }
+            serviceData.due = dateObj.toISOString();
+            serviceData.is_all_day = isAllDay;
+        }
+        // Handle description
+        if (this._newTask.description) {
+            serviceData.description = this._newTask.description;
+        }
+        // Handle section
+        if (this._newTask.section_id) {
+            serviceData.section_id = this._newTask.section_id;
+        }
+        // Handle tags
+        if (this._newTask.tags !== undefined && this._newTask.tags.length > 0) {
+            serviceData.tags = this._newTask.tags;
+        }
+        // Handle recurrence
+        const rrule = buildRrule(this._newTask);
+        if (rrule !== null) {
+            serviceData.rrule = rrule;
+        }
+        // Handle points
+        if (this._newTask.points_value !== undefined &&
+            this._newTask.points_value > 0) {
+            serviceData.points_value = this._newTask.points_value;
+        }
+        // Handle streak bonus (only for recurring tasks)
+        if (rrule !== null) {
+            if (this._newTask.streak_bonus_points !== undefined &&
+                this._newTask.streak_bonus_points > 0) {
+                serviceData.streak_bonus_points = this._newTask.streak_bonus_points;
+            }
+            if (this._newTask.streak_bonus_interval !== undefined &&
+                this._newTask.streak_bonus_interval > 0) {
+                serviceData.streak_bonus_interval = this._newTask.streak_bonus_interval;
+            }
+        }
+        try {
+            await this.hass.callService("chorebot", "add_task", serviceData);
+            this._closeDialog();
+            // Reset task for next use
+            const entity = this.hass?.states[this._config.entity];
+            const sections = entity?.attributes.chorebot_sections || [];
+            this._newTask = this._createBlankTask(sections);
+        }
+        catch (error) {
+            console.error("Error adding task:", error);
+            alert("Failed to add task. Please try again.");
+        }
+        finally {
+            this._saving = false;
+        }
+    }
+    // ============================================================================
+    // Configuration
+    // ============================================================================
+    static getStubConfig() {
+        return {
+            entity: "",
+            button_text: "Add Task",
+            button_icon: "mdi:plus",
+            button_color: "var(--primary-color)",
+            button_text_color: "white",
+            button_size: "medium",
+            hide_card_background: false,
+            default_section_id: "",
+            default_tags: [],
+        };
+    }
+    static getConfigForm() {
+        return {
+            schema: [
+                {
+                    name: "entity",
+                    required: true,
+                    selector: {
+                        entity: {
+                            filter: { domain: "todo" },
+                        },
+                    },
+                },
+                {
+                    name: "button_text",
+                    default: "Add Task",
+                    selector: { text: {} },
+                },
+                {
+                    name: "button_icon",
+                    default: "mdi:plus",
+                    selector: { icon: {} },
+                },
+                {
+                    name: "button_color",
+                    default: "var(--primary-color)",
+                    selector: { text: {} },
+                },
+                {
+                    name: "button_text_color",
+                    default: "white",
+                    selector: { text: {} },
+                },
+                {
+                    name: "button_size",
+                    default: "medium",
+                    selector: {
+                        select: {
+                            options: [
+                                { label: "Small", value: "small" },
+                                { label: "Medium", value: "medium" },
+                                { label: "Large", value: "large" },
+                            ],
+                        },
+                    },
+                },
+                {
+                    name: "hide_card_background",
+                    default: false,
+                    selector: { boolean: {} },
+                },
+                {
+                    name: "default_section_id",
+                    selector: { text: {} },
+                },
+                {
+                    name: "default_tags",
+                    selector: {
+                        select: {
+                            multiple: true,
+                            custom_value: true,
+                            options: [],
+                        },
+                    },
+                },
+            ],
+            computeLabel: (schema) => {
+                const labels = {
+                    entity: "Todo Entity",
+                    button_text: "Button Text",
+                    button_icon: "Button Icon",
+                    button_color: "Button Color",
+                    button_text_color: "Button Text Color",
+                    button_size: "Button Size",
+                    hide_card_background: "Hide Card Background",
+                    default_section_id: "Default Section",
+                    default_tags: "Default Tags",
+                };
+                return labels[schema.name] || undefined;
+            },
+            computeHelper: (schema) => {
+                const helpers = {
+                    entity: "Select the ChoreBot todo entity for new tasks",
+                    button_text: "Text displayed on the button",
+                    button_icon: "Icon displayed on the button",
+                    button_color: "Button background color (hex code or CSS variable like var(--primary-color))",
+                    button_text_color: "Button text color (hex code or CSS variable)",
+                    button_size: "Size of the button",
+                    hide_card_background: "Hide the card background and padding for a seamless look",
+                    default_section_id: 'Default section for new tasks (enter section name like "Kyle" or leave empty for automatic)',
+                    default_tags: "Tags to pre-fill when creating new tasks",
+                };
+                return helpers[schema.name] || undefined;
+            },
+        };
+    }
+};
+ChoreBotAddTaskCard.styles = i$3 `
     :host {
       display: block;
     }
@@ -147,4 +887,32 @@ const at={attribute:!0,type:String,converter:y,reflect:!1,hasChanged:b},ct=(t=at
     ha-dialog {
       --mdc-dialog-min-width: 500px;
     }
-  `,t([lt({attribute:!1})],ut.prototype,"hass",void 0),t([dt()],ut.prototype,"_config",void 0),t([dt()],ut.prototype,"_dialogOpen",void 0),t([dt()],ut.prototype,"_newTask",void 0),t([dt()],ut.prototype,"_saving",void 0),ut=t([(t=>(e,s)=>{void 0!==s?s.addInitializer(()=>{customElements.define(t,e)}):customElements.define(t,e)})("chorebot-add-task-card")],ut),window.customCards=window.customCards||[],window.customCards.push({type:"chorebot-add-task-card",name:"ChoreBot Add Task Card",description:"A button card for quickly adding new ChoreBot tasks",preview:!0});export{ut as ChoreBotAddTaskCard};
+  `;
+__decorate([
+    n({ attribute: false })
+], ChoreBotAddTaskCard.prototype, "hass", void 0);
+__decorate([
+    r()
+], ChoreBotAddTaskCard.prototype, "_config", void 0);
+__decorate([
+    r()
+], ChoreBotAddTaskCard.prototype, "_dialogOpen", void 0);
+__decorate([
+    r()
+], ChoreBotAddTaskCard.prototype, "_newTask", void 0);
+__decorate([
+    r()
+], ChoreBotAddTaskCard.prototype, "_saving", void 0);
+ChoreBotAddTaskCard = __decorate([
+    t("chorebot-add-task-card")
+], ChoreBotAddTaskCard);
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: "chorebot-add-task-card",
+    name: "ChoreBot Add Task Card",
+    description: "A button card for quickly adding new ChoreBot tasks",
+    preview: true,
+});
+
+export { ChoreBotAddTaskCard };
+//# sourceMappingURL=chorebot-add-task-card.js.map

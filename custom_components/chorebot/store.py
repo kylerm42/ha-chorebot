@@ -500,7 +500,12 @@ class ChoreBotStore:
         Returns:
             List of section dicts with id, name, and sort_order
         """
-        return self._sections_cache.get(list_id, [])
+        # CRITICAL: Must return the actual cached list, not a default empty list
+        # If list_id is not in cache, initialize it properly
+        if list_id not in self._sections_cache:
+            _LOGGER.warning("Sections cache miss for list %s, initializing empty list", list_id)
+            self._sections_cache[list_id] = []
+        return self._sections_cache[list_id]
 
     async def async_set_sections(
         self, list_id: str, sections: list[dict[str, Any]]
@@ -516,8 +521,20 @@ class ChoreBotStore:
                 _LOGGER.error("Cannot set sections for unknown list: %s", list_id)
                 return
 
+            _LOGGER.warning(
+                "[STORE] Setting sections for list %s - incoming list id: %s, cached list id: %s",
+                list_id,
+                id(sections),
+                id(self._sections_cache.get(list_id, [])),
+            )
+            _LOGGER.warning("[STORE] Incoming sections: %s", sections)
+
             self._sections_cache[list_id] = sections
             await self.async_save_tasks(list_id)
+
+            _LOGGER.warning(
+                "[STORE] After save - cached sections for %s: %s", list_id, self._sections_cache[list_id]
+            )
 
     def get_default_section_id(self, list_id: str) -> str | None:
         """Get the default section ID for a list (highest sort_order).

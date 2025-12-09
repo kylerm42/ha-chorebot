@@ -1,71 +1,1458 @@
-function t(t,e,r,o){var i,a=arguments.length,n=a<3?e:null===o?o=Object.getOwnPropertyDescriptor(e,r):o;if("object"==typeof Reflect&&"function"==typeof Reflect.decorate)n=Reflect.decorate(t,e,r,o);else for(var s=t.length-1;s>=0;s--)(i=t[s])&&(n=(a<3?i(n):a>3?i(e,r,n):i(e,r))||n);return a>3&&n&&Object.defineProperty(e,r,n),n}"function"==typeof SuppressedError&&SuppressedError;
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
+
+
+function __decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+
+typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+    var e = new Error(message);
+    return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+};
+
 /**
  * @license
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const e=globalThis,r=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,o=Symbol(),i=new WeakMap;let a=class{constructor(t,e,r){if(this._$cssResult$=!0,r!==o)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e}get styleSheet(){let t=this.o;const e=this.t;if(r&&void 0===t){const r=void 0!==e&&1===e.length;r&&(t=i.get(e)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),r&&i.set(e,t))}return t}toString(){return this.cssText}};const n=r?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const r of t.cssRules)e+=r.cssText;return(t=>new a("string"==typeof t?t:t+"",void 0,o))(e)})(t):t,{is:s,defineProperty:d,getOwnPropertyDescriptor:c,getOwnPropertyNames:l,getOwnPropertySymbols:h,getPrototypeOf:p}=Object,u=globalThis,f=u.trustedTypes,m=f?f.emptyScript:"",g=u.reactiveElementPolyfillSupport,_=(t,e)=>t,w={toAttribute(t,e){switch(e){case Boolean:t=t?m:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t)}return t},fromAttribute(t,e){let r=t;switch(e){case Boolean:r=null!==t;break;case Number:r=null===t?null:Number(t);break;case Object:case Array:try{r=JSON.parse(t)}catch(t){r=null}}return r}},b=(t,e)=>!s(t,e),v={attribute:!0,type:String,converter:w,reflect:!1,useDefault:!1,hasChanged:b};
+const t$2=globalThis,e$2=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$4=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$4.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$4.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce(((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1]),t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map((t=>t instanceof CSSStyleSheet?t:t.styleSheet));else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
+
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */Symbol.metadata??=Symbol("metadata"),u.litPropertyMetadata??=new WeakMap;let y=class extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,e=v){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(t)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(t,e),!e.noAccessor){const r=Symbol(),o=this.getPropertyDescriptor(t,r,e);void 0!==o&&d(this.prototype,t,o)}}static getPropertyDescriptor(t,e,r){const{get:o,set:i}=c(this.prototype,t)??{get(){return this[e]},set(t){this[e]=t}};return{get:o,set(e){const a=o?.call(this);i?.call(this,e),this.requestUpdate(t,a,r)},configurable:!0,enumerable:!0}}static getPropertyOptions(t){return this.elementProperties.get(t)??v}static _$Ei(){if(this.hasOwnProperty(_("elementProperties")))return;const t=p(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties)}static finalize(){if(this.hasOwnProperty(_("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(_("properties"))){const t=this.properties,e=[...l(t),...h(t)];for(const r of e)this.createProperty(r,t[r])}const t=this[Symbol.metadata];if(null!==t){const e=litPropertyMetadata.get(t);if(void 0!==e)for(const[t,r]of e)this.elementProperties.set(t,r)}this._$Eh=new Map;for(const[t,e]of this.elementProperties){const r=this._$Eu(t,e);void 0!==r&&this._$Eh.set(r,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(t){const e=[];if(Array.isArray(t)){const r=new Set(t.flat(1/0).reverse());for(const t of r)e.unshift(n(t))}else void 0!==t&&e.push(n(t));return e}static _$Eu(t,e){const r=e.attribute;return!1===r?void 0:"string"==typeof r?r:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this))}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.()}removeController(t){this._$EO?.delete(t)}_$E_(){const t=new Map,e=this.constructor.elementProperties;for(const r of e.keys())this.hasOwnProperty(r)&&(t.set(r,this[r]),delete this[r]);t.size>0&&(this._$Ep=t)}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((t,o)=>{if(r)t.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const r of o){const o=document.createElement("style"),i=e.litNonce;void 0!==i&&o.setAttribute("nonce",i),o.textContent=r.cssText,t.appendChild(o)}})(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(t=>t.hostConnected?.())}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.())}attributeChangedCallback(t,e,r){this._$AK(t,r)}_$ET(t,e){const r=this.constructor.elementProperties.get(t),o=this.constructor._$Eu(t,r);if(void 0!==o&&!0===r.reflect){const i=(void 0!==r.converter?.toAttribute?r.converter:w).toAttribute(e,r.type);this._$Em=t,null==i?this.removeAttribute(o):this.setAttribute(o,i),this._$Em=null}}_$AK(t,e){const r=this.constructor,o=r._$Eh.get(t);if(void 0!==o&&this._$Em!==o){const t=r.getPropertyOptions(o),i="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:w;this._$Em=o;const a=i.fromAttribute(e,t.type);this[o]=a??this._$Ej?.get(o)??a,this._$Em=null}}requestUpdate(t,e,r){if(void 0!==t){const o=this.constructor,i=this[t];if(r??=o.getPropertyOptions(t),!((r.hasChanged??b)(i,e)||r.useDefault&&r.reflect&&i===this._$Ej?.get(t)&&!this.hasAttribute(o._$Eu(t,r))))return;this.C(t,e,r)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(t,e,{useDefault:r,reflect:o,wrapped:i},a){r&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,a??e??this[t]),!0!==i||void 0!==a)||(this._$AL.has(t)||(this.hasUpdated||r||(e=void 0),this._$AL.set(t,e)),!0===o&&this._$Em!==t&&(this._$Eq??=new Set).add(t))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,e]of this._$Ep)this[t]=e;this._$Ep=void 0}const t=this.constructor.elementProperties;if(t.size>0)for(const[e,r]of t){const{wrapped:t}=r,o=this[e];!0!==t||this._$AL.has(e)||void 0===o||this.C(e,void 0,r,o)}}let t=!1;const e=this._$AL;try{t=this.shouldUpdate(e),t?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(e){throw t=!1,this._$EM(),e}t&&this._$AE(e)}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(t)),this.updated(t)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return!0}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(t){}firstUpdated(t){}};y.elementStyles=[],y.shadowRootOptions={mode:"open"},y[_("elementProperties")]=new Map,y[_("finalized")]=new Map,g?.({ReactiveElement:y}),(u.reactiveElementVersions??=[]).push("2.1.1");
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
-const x=globalThis,$=x.trustedTypes,A=$?$.createPolicy("lit-html",{createHTML:t=>t}):void 0,M="$lit$",C=`lit$${Math.random().toFixed(9).slice(2)}$`,R="?"+C,E=`<${R}>`,S=document,k=()=>S.createComment(""),P=t=>null===t||"object"!=typeof t&&"function"!=typeof t,T=Array.isArray,O="[ \t\n\f\r]",I=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,U=/-->/g,N=/>/g,D=RegExp(`>|${O}(?:([^\\s"'>=/]+)(${O}*=${O}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),F=/'/g,H=/"/g,z=/^(?:script|style|textarea|title)$/i,j=(t=>(e,...r)=>({_$litType$:t,strings:e,values:r}))(1),B=Symbol.for("lit-noChange"),L=Symbol.for("lit-nothing"),q=new WeakMap,W=S.createTreeWalker(S,129);function V(t,e){if(!T(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==A?A.createHTML(e):e}const Z=(t,e)=>{const r=t.length-1,o=[];let i,a=2===e?"<svg>":3===e?"<math>":"",n=I;for(let e=0;e<r;e++){const r=t[e];let s,d,c=-1,l=0;for(;l<r.length&&(n.lastIndex=l,d=n.exec(r),null!==d);)l=n.lastIndex,n===I?"!--"===d[1]?n=U:void 0!==d[1]?n=N:void 0!==d[2]?(z.test(d[2])&&(i=RegExp("</"+d[2],"g")),n=D):void 0!==d[3]&&(n=D):n===D?">"===d[0]?(n=i??I,c=-1):void 0===d[1]?c=-2:(c=n.lastIndex-d[2].length,s=d[1],n=void 0===d[3]?D:'"'===d[3]?H:F):n===H||n===F?n=D:n===U||n===N?n=I:(n=D,i=void 0);const h=n===D&&t[e+1].startsWith("/>")?" ":"";a+=n===I?r+E:c>=0?(o.push(s),r.slice(0,c)+M+r.slice(c)+C+h):r+C+(-2===c?e:h)}return[V(t,a+(t[r]||"<?>")+(2===e?"</svg>":3===e?"</math>":"")),o]};class Y{constructor({strings:t,_$litType$:e},r){let o;this.parts=[];let i=0,a=0;const n=t.length-1,s=this.parts,[d,c]=Z(t,e);if(this.el=Y.createElement(d,r),W.currentNode=this.el.content,2===e||3===e){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes)}for(;null!==(o=W.nextNode())&&s.length<n;){if(1===o.nodeType){if(o.hasAttributes())for(const t of o.getAttributeNames())if(t.endsWith(M)){const e=c[a++],r=o.getAttribute(t).split(C),n=/([.?@])?(.*)/.exec(e);s.push({type:1,index:i,name:n[2],strings:r,ctor:"."===n[1]?Q:"?"===n[1]?tt:"@"===n[1]?et:K}),o.removeAttribute(t)}else t.startsWith(C)&&(s.push({type:6,index:i}),o.removeAttribute(t));if(z.test(o.tagName)){const t=o.textContent.split(C),e=t.length-1;if(e>0){o.textContent=$?$.emptyScript:"";for(let r=0;r<e;r++)o.append(t[r],k()),W.nextNode(),s.push({type:2,index:++i});o.append(t[e],k())}}}else if(8===o.nodeType)if(o.data===R)s.push({type:2,index:i});else{let t=-1;for(;-1!==(t=o.data.indexOf(C,t+1));)s.push({type:7,index:i}),t+=C.length-1}i++}}static createElement(t,e){const r=S.createElement("template");return r.innerHTML=t,r}}function X(t,e,r=t,o){if(e===B)return e;let i=void 0!==o?r._$Co?.[o]:r._$Cl;const a=P(e)?void 0:e._$litDirective$;return i?.constructor!==a&&(i?._$AO?.(!1),void 0===a?i=void 0:(i=new a(t),i._$AT(t,r,o)),void 0!==o?(r._$Co??=[])[o]=i:r._$Cl=i),void 0!==i&&(e=X(t,i._$AS(t,e.values),i,o)),e}class G{constructor(t,e){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:e},parts:r}=this._$AD,o=(t?.creationScope??S).importNode(e,!0);W.currentNode=o;let i=W.nextNode(),a=0,n=0,s=r[0];for(;void 0!==s;){if(a===s.index){let e;2===s.type?e=new J(i,i.nextSibling,this,t):1===s.type?e=new s.ctor(i,s.name,s.strings,this,t):6===s.type&&(e=new rt(i,this,t)),this._$AV.push(e),s=r[++n]}a!==s?.index&&(i=W.nextNode(),a++)}return W.currentNode=S,o}p(t){let e=0;for(const r of this._$AV)void 0!==r&&(void 0!==r.strings?(r._$AI(t,r,e),e+=r.strings.length-2):r._$AI(t[e])),e++}}class J{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,e,r,o){this.type=2,this._$AH=L,this._$AN=void 0,this._$AA=t,this._$AB=e,this._$AM=r,this.options=o,this._$Cv=o?.isConnected??!0}get parentNode(){let t=this._$AA.parentNode;const e=this._$AM;return void 0!==e&&11===t?.nodeType&&(t=e.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,e=this){t=X(this,t,e),P(t)?t===L||null==t||""===t?(this._$AH!==L&&this._$AR(),this._$AH=L):t!==this._$AH&&t!==B&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):(t=>T(t)||"function"==typeof t?.[Symbol.iterator])(t)?this.k(t):this._(t)}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t))}_(t){this._$AH!==L&&P(this._$AH)?this._$AA.nextSibling.data=t:this.T(S.createTextNode(t)),this._$AH=t}$(t){const{values:e,_$litType$:r}=t,o="number"==typeof r?this._$AC(t):(void 0===r.el&&(r.el=Y.createElement(V(r.h,r.h[0]),this.options)),r);if(this._$AH?._$AD===o)this._$AH.p(e);else{const t=new G(o,this),r=t.u(this.options);t.p(e),this.T(r),this._$AH=t}}_$AC(t){let e=q.get(t.strings);return void 0===e&&q.set(t.strings,e=new Y(t)),e}k(t){T(this._$AH)||(this._$AH=[],this._$AR());const e=this._$AH;let r,o=0;for(const i of t)o===e.length?e.push(r=new J(this.O(k()),this.O(k()),this,this.options)):r=e[o],r._$AI(i),o++;o<e.length&&(this._$AR(r&&r._$AB.nextSibling,o),e.length=o)}_$AR(t=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);t!==this._$AB;){const e=t.nextSibling;t.remove(),t=e}}setConnected(t){void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t))}}class K{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,e,r,o,i){this.type=1,this._$AH=L,this._$AN=void 0,this.element=t,this.name=e,this._$AM=o,this.options=i,r.length>2||""!==r[0]||""!==r[1]?(this._$AH=Array(r.length-1).fill(new String),this.strings=r):this._$AH=L}_$AI(t,e=this,r,o){const i=this.strings;let a=!1;if(void 0===i)t=X(this,t,e,0),a=!P(t)||t!==this._$AH&&t!==B,a&&(this._$AH=t);else{const o=t;let n,s;for(t=i[0],n=0;n<i.length-1;n++)s=X(this,o[r+n],e,n),s===B&&(s=this._$AH[n]),a||=!P(s)||s!==this._$AH[n],s===L?t=L:t!==L&&(t+=(s??"")+i[n+1]),this._$AH[n]=s}a&&!o&&this.j(t)}j(t){t===L?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"")}}class Q extends K{constructor(){super(...arguments),this.type=3}j(t){this.element[this.name]=t===L?void 0:t}}class tt extends K{constructor(){super(...arguments),this.type=4}j(t){this.element.toggleAttribute(this.name,!!t&&t!==L)}}class et extends K{constructor(t,e,r,o,i){super(t,e,r,o,i),this.type=5}_$AI(t,e=this){if((t=X(this,t,e,0)??L)===B)return;const r=this._$AH,o=t===L&&r!==L||t.capture!==r.capture||t.once!==r.once||t.passive!==r.passive,i=t!==L&&(r===L||o);o&&this.element.removeEventListener(this.name,this,r),i&&this.element.addEventListener(this.name,this,t),this._$AH=t}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t)}}class rt{constructor(t,e,r){this.element=t,this.type=6,this._$AN=void 0,this._$AM=e,this.options=r}get _$AU(){return this._$AM._$AU}_$AI(t){X(this,t)}}const ot=x.litHtmlPolyfillSupport;ot?.(Y,J),(x.litHtmlVersions??=[]).push("3.3.1");const it=globalThis;
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */class at extends y{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=((t,e,r)=>{const o=r?.renderBefore??e;let i=o._$litPart$;if(void 0===i){const t=r?.renderBefore??null;o._$litPart$=i=new J(e.insertBefore(k(),t),t,void 0,r??{})}return i._$AI(t),i})(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return B}}at._$litElement$=!0,at.finalized=!0,it.litElementHydrateSupport?.({LitElement:at});const nt=it.litElementPolyfillSupport;nt?.({LitElement:at}),(it.litElementVersions??=[]).push("4.2.1");
+ */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$3,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$3(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise((t=>this.enableUpdating=t)),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach((t=>t(this)));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach((t=>t.hostConnected?.()));}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach((t=>t.hostDisconnected?.()));}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i){if(void 0!==t){const e=this.constructor,h=this[t];if(i??=e.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(e._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach((t=>t.hostUpdate?.())),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach((t=>t.hostUpdated?.())),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach((t=>this._$ET(t,this[t]))),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.1");
+
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st,e,r)=>{const{kind:o,metadata:i}=r;let a=globalThis.litPropertyMetadata.get(i);if(void 0===a&&globalThis.litPropertyMetadata.set(i,a=new Map),"setter"===o&&((t=Object.create(t)).wrapped=!0),a.set(r.name,t),"accessor"===o){const{name:o}=r;return{set(r){const i=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,i,t)},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===o){const{name:o}=r;return function(r){const i=this[o];e.call(this,r),this.requestUpdate(o,i,t)}}throw Error("Unsupported decorator location: "+o)};
+const t$1=globalThis,i$1=t$1.trustedTypes,s$1=i$1?i$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,e="$lit$",h=`lit$${Math.random().toFixed(9).slice(2)}$`,o$2="?"+h,n$1=`<${o$2}>`,r$2=document,l=()=>r$2.createComment(""),c=t=>null===t||"object"!=typeof t&&"function"!=typeof t,a=Array.isArray,u=t=>a(t)||"function"==typeof t?.[Symbol.iterator],d="[ \t\n\f\r]",f=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,v=/-->/g,_=/>/g,m=RegExp(`>|${d}(?:([^\\s"'>=/]+)(${d}*=${d}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),p=/'/g,g=/"/g,$=/^(?:script|style|textarea|title)$/i,y=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),x=y(1),T=Symbol.for("lit-noChange"),E=Symbol.for("lit-nothing"),A=new WeakMap,C=r$2.createTreeWalker(r$2,129);function P(t,i){if(!a(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==s$1?s$1.createHTML(i):i}const V=(t,i)=>{const s=t.length-1,o=[];let r,l=2===i?"<svg>":3===i?"<math>":"",c=f;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,y=0;for(;y<s.length&&(c.lastIndex=y,u=c.exec(s),null!==u);)y=c.lastIndex,c===f?"!--"===u[1]?c=v:void 0!==u[1]?c=_:void 0!==u[2]?($.test(u[2])&&(r=RegExp("</"+u[2],"g")),c=m):void 0!==u[3]&&(c=m):c===m?">"===u[0]?(c=r??f,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?m:'"'===u[3]?g:p):c===g||c===p?c=m:c===v||c===_?c=f:(c=m,r=void 0);const x=c===m&&t[i+1].startsWith("/>")?" ":"";l+=c===f?s+n$1:d>=0?(o.push(a),s.slice(0,d)+e+s.slice(d)+h+x):s+h+(-2===d?i:x);}return [P(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),o]};class N{constructor({strings:t,_$litType$:s},n){let r;this.parts=[];let c=0,a=0;const u=t.length-1,d=this.parts,[f,v]=V(t,s);if(this.el=N.createElement(f,n),C.currentNode=this.el.content,2===s||3===s){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=C.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(e)){const i=v[a++],s=r.getAttribute(t).split(h),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:c,name:e[2],strings:s,ctor:"."===e[1]?H:"?"===e[1]?I:"@"===e[1]?L:k}),r.removeAttribute(t);}else t.startsWith(h)&&(d.push({type:6,index:c}),r.removeAttribute(t));if($.test(r.tagName)){const t=r.textContent.split(h),s=t.length-1;if(s>0){r.textContent=i$1?i$1.emptyScript:"";for(let i=0;i<s;i++)r.append(t[i],l()),C.nextNode(),d.push({type:2,index:++c});r.append(t[s],l());}}}else if(8===r.nodeType)if(r.data===o$2)d.push({type:2,index:c});else {let t=-1;for(;-1!==(t=r.data.indexOf(h,t+1));)d.push({type:7,index:c}),t+=h.length-1;}c++;}}static createElement(t,i){const s=r$2.createElement("template");return s.innerHTML=t,s}}function S(t,i,s=t,e){if(i===T)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=c(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=S(t,h._$AS(t,i.values),h,e)),i}class M{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??r$2).importNode(i,true);C.currentNode=e;let h=C.nextNode(),o=0,n=0,l=s[0];for(;void 0!==l;){if(o===l.index){let i;2===l.type?i=new R(h,h.nextSibling,this,t):1===l.type?i=new l.ctor(h,l.name,l.strings,this,t):6===l.type&&(i=new z(h,this,t)),this._$AV.push(i),l=s[++n];}o!==l?.index&&(h=C.nextNode(),o++);}return C.currentNode=r$2,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class R{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=E,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=S(this,t,i),c(t)?t===E||null==t||""===t?(this._$AH!==E&&this._$AR(),this._$AH=E):t!==this._$AH&&t!==T&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):u(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==E&&c(this._$AH)?this._$AA.nextSibling.data=t:this.T(r$2.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=N.createElement(P(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new M(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=A.get(t.strings);return void 0===i&&A.set(t.strings,i=new N(t)),i}k(t){a(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new R(this.O(l()),this.O(l()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,i){for(this._$AP?.(false,true,i);t!==this._$AB;){const i=t.nextSibling;t.remove(),t=i;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class k{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=E,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=E;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=S(this,t,i,0),o=!c(t)||t!==this._$AH&&t!==T,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=S(this,e[s+n],i,n),r===T&&(r=this._$AH[n]),o||=!c(r)||r!==this._$AH[n],r===E?t=E:t!==E&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===E?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class H extends k{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===E?void 0:t;}}class I extends k{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==E);}}class L extends k{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=S(this,t,i,0)??E)===T)return;const s=this._$AH,e=t===E&&s!==E||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==E&&(s===E||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){S(this,t);}}const j=t$1.litHtmlPolyfillSupport;j?.(N,R),(t$1.litHtmlVersions??=[]).push("3.3.1");const B=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new R(i.insertBefore(l(),t),t,void 0,s??{});}return h._$AI(t),h};
+
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */function ct(t){return(e,r)=>"object"==typeof r?dt(t,e,r):((t,e,r)=>{const o=e.hasOwnProperty(r);return e.constructor.createProperty(r,t),o?Object.getOwnPropertyDescriptor(e,r):void 0})(t,e,r)}
+ */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=B(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return T}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o$1=s.litElementPolyfillSupport;o$1?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.1");
+
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */function lt(t){return ct({...t,state:!0,attribute:!1})}var ht={};!function t(e,r,o,i){var a=!!(e.Worker&&e.Blob&&e.Promise&&e.OffscreenCanvas&&e.OffscreenCanvasRenderingContext2D&&e.HTMLCanvasElement&&e.HTMLCanvasElement.prototype.transferControlToOffscreen&&e.URL&&e.URL.createObjectURL),n="function"==typeof Path2D&&"function"==typeof DOMMatrix,s=function(){if(!e.OffscreenCanvas)return!1;try{var t=new OffscreenCanvas(1,1),r=t.getContext("2d");r.fillRect(0,0,1,1);var o=t.transferToImageBitmap();r.createPattern(o,"no-repeat")}catch(t){return!1}return!0}();function d(){}function c(t){var o=r.exports.Promise,i=void 0!==o?o:e.Promise;return"function"==typeof i?new i(t):(t(d,d),null)}var l,h,p,u,f,m,g,_,w,b,v,y=(l=s,h=new Map,{transform:function(t){if(l)return t;if(h.has(t))return h.get(t);var e=new OffscreenCanvas(t.width,t.height);return e.getContext("2d").drawImage(t,0,0),h.set(t,e),e},clear:function(){h.clear()}}),x=(f=Math.floor(1e3/60),m={},g=0,"function"==typeof requestAnimationFrame&&"function"==typeof cancelAnimationFrame?(p=function(t){var e=Math.random();return m[e]=requestAnimationFrame(function r(o){g===o||g+f-1<o?(g=o,delete m[e],t()):m[e]=requestAnimationFrame(r)}),e},u=function(t){m[t]&&cancelAnimationFrame(m[t])}):(p=function(t){return setTimeout(t,f)},u=function(t){return clearTimeout(t)}),{frame:p,cancel:u}),$=(b={},function(){if(_)return _;if(!o&&a){var e=["var CONFETTI, SIZE = {}, module = {};","("+t.toString()+")(this, module, true, SIZE);","onmessage = function(msg) {","  if (msg.data.options) {","    CONFETTI(msg.data.options).then(function () {","      if (msg.data.callback) {","        postMessage({ callback: msg.data.callback });","      }","    });","  } else if (msg.data.reset) {","    CONFETTI && CONFETTI.reset();","  } else if (msg.data.resize) {","    SIZE.width = msg.data.resize.width;","    SIZE.height = msg.data.resize.height;","  } else if (msg.data.canvas) {","    SIZE.width = msg.data.canvas.width;","    SIZE.height = msg.data.canvas.height;","    CONFETTI = module.exports.create(msg.data.canvas);","  }","}"].join("\n");try{_=new Worker(URL.createObjectURL(new Blob([e])))}catch(t){return"undefined"!=typeof console&&"function"==typeof console.warn&&console.warn("🎊 Could not load worker",t),null}!function(t){function e(e,r){t.postMessage({options:e||{},callback:r})}t.init=function(e){var r=e.transferControlToOffscreen();t.postMessage({canvas:r},[r])},t.fire=function(r,o,i){if(w)return e(r,null),w;var a=Math.random().toString(36).slice(2);return w=c(function(o){function n(e){e.data.callback===a&&(delete b[a],t.removeEventListener("message",n),w=null,y.clear(),i(),o())}t.addEventListener("message",n),e(r,a),b[a]=n.bind(null,{data:{callback:a}})})},t.reset=function(){for(var e in t.postMessage({reset:!0}),b)b[e](),delete b[e]}}(_)}return _}),A={particleCount:50,angle:90,spread:45,startVelocity:45,decay:.9,gravity:1,drift:0,ticks:200,x:.5,y:.5,shapes:["square","circle"],zIndex:100,colors:["#26ccff","#a25afd","#ff5e7e","#88ff5a","#fcff42","#ffa62d","#ff36ff"],disableForReducedMotion:!1,scalar:1};function M(t,e,r){return function(t,e){return e?e(t):t}(t&&null!=t[e]?t[e]:A[e],r)}function C(t){return t<0?0:Math.floor(t)}function R(t,e){return Math.floor(Math.random()*(e-t))+t}function E(t){return parseInt(t,16)}function S(t){return t.map(k)}function k(t){var e=String(t).replace(/[^0-9a-f]/gi,"");return e.length<6&&(e=e[0]+e[0]+e[1]+e[1]+e[2]+e[2]),{r:E(e.substring(0,2)),g:E(e.substring(2,4)),b:E(e.substring(4,6))}}function P(t){t.width=document.documentElement.clientWidth,t.height=document.documentElement.clientHeight}function T(t){var e=t.getBoundingClientRect();t.width=e.width,t.height=e.height}function O(t){var e=t.angle*(Math.PI/180),r=t.spread*(Math.PI/180);return{x:t.x,y:t.y,wobble:10*Math.random(),wobbleSpeed:Math.min(.11,.1*Math.random()+.05),velocity:.5*t.startVelocity+Math.random()*t.startVelocity,angle2D:-e+(.5*r-Math.random()*r),tiltAngle:(.5*Math.random()+.25)*Math.PI,color:t.color,shape:t.shape,tick:0,totalTicks:t.ticks,decay:t.decay,drift:t.drift,random:Math.random()+2,tiltSin:0,tiltCos:0,wobbleX:0,wobbleY:0,gravity:3*t.gravity,ovalScalar:.6,scalar:t.scalar,flat:t.flat}}function I(t,e){e.x+=Math.cos(e.angle2D)*e.velocity+e.drift,e.y+=Math.sin(e.angle2D)*e.velocity+e.gravity,e.velocity*=e.decay,e.flat?(e.wobble=0,e.wobbleX=e.x+10*e.scalar,e.wobbleY=e.y+10*e.scalar,e.tiltSin=0,e.tiltCos=0,e.random=1):(e.wobble+=e.wobbleSpeed,e.wobbleX=e.x+10*e.scalar*Math.cos(e.wobble),e.wobbleY=e.y+10*e.scalar*Math.sin(e.wobble),e.tiltAngle+=.1,e.tiltSin=Math.sin(e.tiltAngle),e.tiltCos=Math.cos(e.tiltAngle),e.random=Math.random()+2);var r=e.tick++/e.totalTicks,o=e.x+e.random*e.tiltCos,i=e.y+e.random*e.tiltSin,a=e.wobbleX+e.random*e.tiltCos,s=e.wobbleY+e.random*e.tiltSin;if(t.fillStyle="rgba("+e.color.r+", "+e.color.g+", "+e.color.b+", "+(1-r)+")",t.beginPath(),n&&"path"===e.shape.type&&"string"==typeof e.shape.path&&Array.isArray(e.shape.matrix))t.fill(function(t,e,r,o,i,a,n){var s=new Path2D(t),d=new Path2D;d.addPath(s,new DOMMatrix(e));var c=new Path2D;return c.addPath(d,new DOMMatrix([Math.cos(n)*i,Math.sin(n)*i,-Math.sin(n)*a,Math.cos(n)*a,r,o])),c}(e.shape.path,e.shape.matrix,e.x,e.y,.1*Math.abs(a-o),.1*Math.abs(s-i),Math.PI/10*e.wobble));else if("bitmap"===e.shape.type){var d=Math.PI/10*e.wobble,c=.1*Math.abs(a-o),l=.1*Math.abs(s-i),h=e.shape.bitmap.width*e.scalar,p=e.shape.bitmap.height*e.scalar,u=new DOMMatrix([Math.cos(d)*c,Math.sin(d)*c,-Math.sin(d)*l,Math.cos(d)*l,e.x,e.y]);u.multiplySelf(new DOMMatrix(e.shape.matrix));var f=t.createPattern(y.transform(e.shape.bitmap),"no-repeat");f.setTransform(u),t.globalAlpha=1-r,t.fillStyle=f,t.fillRect(e.x-h/2,e.y-p/2,h,p),t.globalAlpha=1}else if("circle"===e.shape)t.ellipse?t.ellipse(e.x,e.y,Math.abs(a-o)*e.ovalScalar,Math.abs(s-i)*e.ovalScalar,Math.PI/10*e.wobble,0,2*Math.PI):function(t,e,r,o,i,a,n,s,d){t.save(),t.translate(e,r),t.rotate(a),t.scale(o,i),t.arc(0,0,1,n,s,d),t.restore()}(t,e.x,e.y,Math.abs(a-o)*e.ovalScalar,Math.abs(s-i)*e.ovalScalar,Math.PI/10*e.wobble,0,2*Math.PI);else if("star"===e.shape)for(var m=Math.PI/2*3,g=4*e.scalar,_=8*e.scalar,w=e.x,b=e.y,v=5,x=Math.PI/v;v--;)w=e.x+Math.cos(m)*_,b=e.y+Math.sin(m)*_,t.lineTo(w,b),m+=x,w=e.x+Math.cos(m)*g,b=e.y+Math.sin(m)*g,t.lineTo(w,b),m+=x;else t.moveTo(Math.floor(e.x),Math.floor(e.y)),t.lineTo(Math.floor(e.wobbleX),Math.floor(i)),t.lineTo(Math.floor(a),Math.floor(s)),t.lineTo(Math.floor(o),Math.floor(e.wobbleY));return t.closePath(),t.fill(),e.tick<e.totalTicks}function U(t,r){var n,s=!t,d=!!M(r||{},"resize"),l=!1,h=M(r,"disableForReducedMotion",Boolean),p=a&&!!M(r||{},"useWorker")?$():null,u=s?P:T,f=!(!t||!p)&&!!t.__confetti_initialized,m="function"==typeof matchMedia&&matchMedia("(prefers-reduced-motion)").matches;function g(e,r,a){for(var s=M(e,"particleCount",C),d=M(e,"angle",Number),l=M(e,"spread",Number),h=M(e,"startVelocity",Number),p=M(e,"decay",Number),f=M(e,"gravity",Number),m=M(e,"drift",Number),g=M(e,"colors",S),_=M(e,"ticks",Number),w=M(e,"shapes"),b=M(e,"scalar"),v=!!M(e,"flat"),$=function(t){var e=M(t,"origin",Object);return e.x=M(e,"x",Number),e.y=M(e,"y",Number),e}(e),A=s,E=[],k=t.width*$.x,P=t.height*$.y;A--;)E.push(O({x:k,y:P,angle:d,spread:l,startVelocity:h,color:g[A%g.length],shape:w[R(0,w.length)],ticks:_,decay:p,gravity:f,drift:m,scalar:b,flat:v}));return n?n.addFettis(E):(n=function(t,e,r,a,n){var s,d,l=e.slice(),h=t.getContext("2d"),p=c(function(e){function c(){s=d=null,h.clearRect(0,0,a.width,a.height),y.clear(),n(),e()}s=x.frame(function e(){!o||a.width===i.width&&a.height===i.height||(a.width=t.width=i.width,a.height=t.height=i.height),a.width||a.height||(r(t),a.width=t.width,a.height=t.height),h.clearRect(0,0,a.width,a.height),(l=l.filter(function(t){return I(h,t)})).length?s=x.frame(e):c()}),d=c});return{addFettis:function(t){return l=l.concat(t),p},canvas:t,promise:p,reset:function(){s&&x.cancel(s),d&&d()}}}(t,E,u,r,a),n.promise)}function _(r){var o=h||M(r,"disableForReducedMotion",Boolean),i=M(r,"zIndex",Number);if(o&&m)return c(function(t){t()});s&&n?t=n.canvas:s&&!t&&(t=function(t){var e=document.createElement("canvas");return e.style.position="fixed",e.style.top="0px",e.style.left="0px",e.style.pointerEvents="none",e.style.zIndex=t,e}(i),document.body.appendChild(t)),d&&!f&&u(t);var a={width:t.width,height:t.height};function _(){if(p){var e={getBoundingClientRect:function(){if(!s)return t.getBoundingClientRect()}};return u(e),void p.postMessage({resize:{width:e.width,height:e.height}})}a.width=a.height=null}function w(){n=null,d&&(l=!1,e.removeEventListener("resize",_)),s&&t&&(document.body.contains(t)&&document.body.removeChild(t),t=null,f=!1)}return p&&!f&&p.init(t),f=!0,p&&(t.__confetti_initialized=!0),d&&!l&&(l=!0,e.addEventListener("resize",_,!1)),p?p.fire(r,a,w):g(r,a,w)}return _.reset=function(){p&&p.reset(),n&&n.reset()},_}function N(){return v||(v=U(null,{useWorker:!0,resize:!0})),v}r.exports=function(){return N().apply(this,arguments)},r.exports.reset=function(){N().reset()},r.exports.create=U,r.exports.shapeFromPath=function(t){if(!n)throw new Error("path confetti are not supported in this browser");var e,r;"string"==typeof t?e=t:(e=t.path,r=t.matrix);var o=new Path2D(e),i=document.createElement("canvas").getContext("2d");if(!r){for(var a,s,d=1e3,c=d,l=d,h=0,p=0,u=0;u<d;u+=2)for(var f=0;f<d;f+=2)i.isPointInPath(o,u,f,"nonzero")&&(c=Math.min(c,u),l=Math.min(l,f),h=Math.max(h,u),p=Math.max(p,f));a=h-c,s=p-l;var m=Math.min(10/a,10/s);r=[m,0,0,m,-Math.round(a/2+c)*m,-Math.round(s/2+l)*m]}return{type:"path",path:e,matrix:r}},r.exports.shapeFromText=function(t){var e,r=1,o="#000000",i='"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "EmojiOne Color", "Android Emoji", "Twemoji Mozilla", "system emoji", sans-serif';"string"==typeof t?e=t:(e=t.text,r="scalar"in t?t.scalar:r,i="fontFamily"in t?t.fontFamily:i,o="color"in t?t.color:o);var a=10*r,n=a+"px "+i,s=new OffscreenCanvas(a,a),d=s.getContext("2d");d.font=n;var c=d.measureText(e),l=Math.ceil(c.actualBoundingBoxRight+c.actualBoundingBoxLeft),h=Math.ceil(c.actualBoundingBoxAscent+c.actualBoundingBoxDescent),p=c.actualBoundingBoxLeft+2,u=c.actualBoundingBoxAscent+2;l+=4,h+=4,(d=(s=new OffscreenCanvas(l,h)).getContext("2d")).font=n,d.fillStyle=o,d.fillText(e,p,u);var f=1/r;return{type:"bitmap",bitmap:s.transferToImageBitmap(),matrix:[f,0,0,f,-l*f/2,-h*f/2]}}}(function(){return"undefined"!=typeof window?window:"undefined"!=typeof self?self:this||{}}(),ht,!1);var pt=ht.exports;function ut(t,e){if(t.startsWith("var(")){const e=getComputedStyle(document.documentElement).getPropertyValue(t.slice(4,-1).trim());if(!e)return t;t=e.trim()}let r,o,i;if(t.startsWith("#")){const e=t.replace("#","");r=parseInt(e.substring(0,2),16),o=parseInt(e.substring(2,4),16),i=parseInt(e.substring(4,6),16)}else{if(!t.startsWith("rgb"))return t;{const e=t.match(/\d+/g);if(!e)return t;[r,o,i]=e.map(Number)}}r/=255,o/=255,i/=255;const a=Math.max(r,o,i),n=Math.min(r,o,i);let s=0,d=0,c=(a+n)/2;if(a!==n){const t=a-n;switch(d=c>.5?t/(2-a-n):t/(a+n),a){case r:s=((o-i)/t+(o<i?6:0))/6;break;case o:s=((i-r)/t+2)/6;break;case i:s=((r-o)/t+4)/6}}c=e>0?Math.max(0,Math.min(.95,c+e/100*(1-c))):Math.max(.05,c+e/100*c);const l=(t,e,r)=>(r<0&&(r+=1),r>1&&(r-=1),r<1/6?t+6*(e-t)*r:r<.5?e:r<2/3?t+(e-t)*(2/3-r)*6:t);let h,p,u;if(0===d)h=p=u=c;else{const t=c<.5?c*(1+d):c+d-c*d,e=2*c-t;h=l(e,t,s+1/3),p=l(e,t,s),u=l(e,t,s-1/3)}const f=t=>{const e=Math.round(255*t).toString(16);return 1===e.length?"0"+e:e};return`${f(h)}${f(p)}${f(u)}`.toUpperCase()}function ft(t){const e=function(t){return{lighter:ut(t,30),light:ut(t,15),base:(e=t,e.startsWith("#")?e.substring(1).toUpperCase():/^[0-9A-Fa-f]{6}$/.test(e)?e.toUpperCase():ut(e,0)),dark:ut(t,-15),darker:ut(t,-30)};var e}(t);return[e.lighter,e.light,e.base,e.dark,e.darker]}function mt(t){const e=t.states["sensor.chorebot_points"],r=e?.attributes.points_display;return r?{icon:r.icon??"",text:r.text??"points"}:{icon:"",text:"points"}}function gt(t){const e=mt(t);return e.text?e.text.toLowerCase():""}ht.exports.create;let _t=class extends at{constructor(){super(...arguments),this._redeeming=null,this._showConfirmModal=!1,this._showAddRewardModal=!1,this._pendingRedemption=null,this._rewardFormData={name:"",cost:50,icon:"mdi:gift",description:""},this._showEditRewardModal=!1,this._editingRewardId=null,this._rewardFormSchema=[{name:"name",required:!0,selector:{text:{}}},{name:"cost",selector:{number:{min:1,max:1e4,mode:"box"}}},{name:"icon",selector:{icon:{}}},{name:"description",selector:{text:{multiline:!0}}}],this._computeRewardFieldLabel=t=>{const e=gt(this.hass);return{name:"Name",cost:`Cost (${e.charAt(0).toUpperCase()+e.slice(1)})`,icon:"Icon",description:"Description (Optional)"}[t.name]||t.name},this._computeRewardFieldHelper=t=>({cost:`Cost between 1 and 10,000 ${gt(this.hass)}`,icon:"Use Material Design Icons (e.g., mdi:gift, mdi:ice-cream)"}[t.name]||""),this._handleRewardFormChange=t=>{this._rewardFormData=t.detail.value}}setConfig(t){if(!t.person_entity)throw new Error("person_entity is required");this._config={type:"custom:chorebot-person-rewards-card",person_entity:t.person_entity,title:t.title||void 0,show_title:!1!==t.show_title,hide_card_background:!0===t.hide_card_background,show_disabled_rewards:!0===t.show_disabled_rewards,sort_by:t.sort_by||"cost",show_add_reward_button:!1!==t.show_add_reward_button,accent_color:t.accent_color||""}}static getStubConfig(){return{type:"custom:chorebot-person-rewards-card",person_entity:"person.example",title:"My Rewards",show_title:!0,hide_card_background:!1,show_disabled_rewards:!1,sort_by:"cost",show_add_reward_button:!0,accent_color:""}}getCardSize(){return 3}static getConfigForm(){return{schema:[{name:"person_entity",required:!0,selector:{entity:{domain:"person"}}},{name:"title",selector:{text:{}}},{name:"show_title",default:!0,selector:{boolean:{}}},{name:"hide_card_background",default:!1,selector:{boolean:{}}},{name:"show_disabled_rewards",default:!1,selector:{boolean:{}}},{name:"sort_by",default:"cost",selector:{select:{options:[{label:"Cost (Low to High)",value:"cost"},{label:"Name (A-Z)",value:"name"},{label:"Date Created (Oldest First)",value:"created"}]}}},{name:"show_add_reward_button",default:!0,selector:{boolean:{}}},{name:"accent_color",selector:{text:{}}}],computeLabel:t=>({person_entity:"Person Entity",title:"Card Title",show_title:"Show Title",hide_card_background:"Hide Card Background",show_disabled_rewards:"Show Disabled Rewards",sort_by:"Sort Rewards By",show_add_reward_button:"Show Add Reward Button",accent_color:"Accent Color"}[t.name]||void 0),computeHelper:t=>({person_entity:"Select the person whose rewards to display",title:'Custom title for the card (defaults to "{Person Name}\'s Rewards")',show_title:"Show the card title",hide_card_background:"Hide the card background and padding for a seamless look",show_disabled_rewards:"Include rewards that have been disabled in the grid",sort_by:"Choose how to sort the rewards in the grid",show_add_reward_button:"Show the 'Add Reward' card for creating new rewards",accent_color:"Accent color for reward icons and buttons (hex code or CSS variable like var(--primary-color))"}[t.name]||void 0)}}render(){if(!this.hass||!this._config)return j`<ha-card>Loading...</ha-card>`;if(!this.hass.states[this._config.person_entity])return j`<ha-card>
+ */
+const t=t=>(e,o)=>{ void 0!==o?o.addInitializer((()=>{customElements.define(t,e);})):customElements.define(t,e);};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const o={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$1},r$1=(t=o,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t);}}throw Error("Unsupported decorator location: "+n)};function n(t){return (e,o)=>"object"==typeof o?r$1(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */function r(r){return n({...r,state:true,attribute:false})}
+
+// canvas-confetti v1.9.4 built on 2025-10-25T05:14:56.640Z
+var module$1 = {};
+
+// source content
+/* globals Map */
+
+(function main(global, module, isWorker, workerSize) {
+  var canUseWorker = !!(
+    global.Worker &&
+    global.Blob &&
+    global.Promise &&
+    global.OffscreenCanvas &&
+    global.OffscreenCanvasRenderingContext2D &&
+    global.HTMLCanvasElement &&
+    global.HTMLCanvasElement.prototype.transferControlToOffscreen &&
+    global.URL &&
+    global.URL.createObjectURL);
+
+  var canUsePaths = typeof Path2D === 'function' && typeof DOMMatrix === 'function';
+  var canDrawBitmap = (function () {
+    // this mostly supports ssr
+    if (!global.OffscreenCanvas) {
+      return false;
+    }
+
+    try {
+      var canvas = new OffscreenCanvas(1, 1);
+      var ctx = canvas.getContext('2d');
+      ctx.fillRect(0, 0, 1, 1);
+      var bitmap = canvas.transferToImageBitmap();
+      ctx.createPattern(bitmap, 'no-repeat');
+    } catch (e) {
+      return false;
+    }
+
+    return true;
+  })();
+
+  function noop() {}
+
+  // create a promise if it exists, otherwise, just
+  // call the function directly
+  function promise(func) {
+    var ModulePromise = module.exports.Promise;
+    var Prom = ModulePromise !== void 0 ? ModulePromise : global.Promise;
+
+    if (typeof Prom === 'function') {
+      return new Prom(func);
+    }
+
+    func(noop, noop);
+
+    return null;
+  }
+
+  var bitmapMapper = (function (skipTransform, map) {
+    // see https://github.com/catdad/canvas-confetti/issues/209
+    // creating canvases is actually pretty expensive, so we should create a
+    // 1:1 map for bitmap:canvas, so that we can animate the confetti in
+    // a performant manner, but also not store them forever so that we don't
+    // have a memory leak
+    return {
+      transform: function(bitmap) {
+        if (skipTransform) {
+          return bitmap;
+        }
+
+        if (map.has(bitmap)) {
+          return map.get(bitmap);
+        }
+
+        var canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+
+        map.set(bitmap, canvas);
+
+        return canvas;
+      },
+      clear: function () {
+        map.clear();
+      }
+    };
+  })(canDrawBitmap, new Map());
+
+  var raf = (function () {
+    var TIME = Math.floor(1000 / 60);
+    var frame, cancel;
+    var frames = {};
+    var lastFrameTime = 0;
+
+    if (typeof requestAnimationFrame === 'function' && typeof cancelAnimationFrame === 'function') {
+      frame = function (cb) {
+        var id = Math.random();
+
+        frames[id] = requestAnimationFrame(function onFrame(time) {
+          if (lastFrameTime === time || lastFrameTime + TIME - 1 < time) {
+            lastFrameTime = time;
+            delete frames[id];
+
+            cb();
+          } else {
+            frames[id] = requestAnimationFrame(onFrame);
+          }
+        });
+
+        return id;
+      };
+      cancel = function (id) {
+        if (frames[id]) {
+          cancelAnimationFrame(frames[id]);
+        }
+      };
+    } else {
+      frame = function (cb) {
+        return setTimeout(cb, TIME);
+      };
+      cancel = function (timer) {
+        return clearTimeout(timer);
+      };
+    }
+
+    return { frame: frame, cancel: cancel };
+  }());
+
+  var getWorker = (function () {
+    var worker;
+    var prom;
+    var resolves = {};
+
+    function decorate(worker) {
+      function execute(options, callback) {
+        worker.postMessage({ options: options || {}, callback: callback });
+      }
+      worker.init = function initWorker(canvas) {
+        var offscreen = canvas.transferControlToOffscreen();
+        worker.postMessage({ canvas: offscreen }, [offscreen]);
+      };
+
+      worker.fire = function fireWorker(options, size, done) {
+        if (prom) {
+          execute(options, null);
+          return prom;
+        }
+
+        var id = Math.random().toString(36).slice(2);
+
+        prom = promise(function (resolve) {
+          function workerDone(msg) {
+            if (msg.data.callback !== id) {
+              return;
+            }
+
+            delete resolves[id];
+            worker.removeEventListener('message', workerDone);
+
+            prom = null;
+
+            bitmapMapper.clear();
+
+            done();
+            resolve();
+          }
+
+          worker.addEventListener('message', workerDone);
+          execute(options, id);
+
+          resolves[id] = workerDone.bind(null, { data: { callback: id }});
+        });
+
+        return prom;
+      };
+
+      worker.reset = function resetWorker() {
+        worker.postMessage({ reset: true });
+
+        for (var id in resolves) {
+          resolves[id]();
+          delete resolves[id];
+        }
+      };
+    }
+
+    return function () {
+      if (worker) {
+        return worker;
+      }
+
+      if (!isWorker && canUseWorker) {
+        var code = [
+          'var CONFETTI, SIZE = {}, module = {};',
+          '(' + main.toString() + ')(this, module, true, SIZE);',
+          'onmessage = function(msg) {',
+          '  if (msg.data.options) {',
+          '    CONFETTI(msg.data.options).then(function () {',
+          '      if (msg.data.callback) {',
+          '        postMessage({ callback: msg.data.callback });',
+          '      }',
+          '    });',
+          '  } else if (msg.data.reset) {',
+          '    CONFETTI && CONFETTI.reset();',
+          '  } else if (msg.data.resize) {',
+          '    SIZE.width = msg.data.resize.width;',
+          '    SIZE.height = msg.data.resize.height;',
+          '  } else if (msg.data.canvas) {',
+          '    SIZE.width = msg.data.canvas.width;',
+          '    SIZE.height = msg.data.canvas.height;',
+          '    CONFETTI = module.exports.create(msg.data.canvas);',
+          '  }',
+          '}',
+        ].join('\n');
+        try {
+          worker = new Worker(URL.createObjectURL(new Blob([code])));
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          typeof console !== 'undefined' && typeof console.warn === 'function' ? console.warn('🎊 Could not load worker', e) : null;
+
+          return null;
+        }
+
+        decorate(worker);
+      }
+
+      return worker;
+    };
+  })();
+
+  var defaults = {
+    particleCount: 50,
+    angle: 90,
+    spread: 45,
+    startVelocity: 45,
+    decay: 0.9,
+    gravity: 1,
+    drift: 0,
+    ticks: 200,
+    x: 0.5,
+    y: 0.5,
+    shapes: ['square', 'circle'],
+    zIndex: 100,
+    colors: [
+      '#26ccff',
+      '#a25afd',
+      '#ff5e7e',
+      '#88ff5a',
+      '#fcff42',
+      '#ffa62d',
+      '#ff36ff'
+    ],
+    // probably should be true, but back-compat
+    disableForReducedMotion: false,
+    scalar: 1
+  };
+
+  function convert(val, transform) {
+    return transform ? transform(val) : val;
+  }
+
+  function isOk(val) {
+    return !(val === null || val === undefined);
+  }
+
+  function prop(options, name, transform) {
+    return convert(
+      options && isOk(options[name]) ? options[name] : defaults[name],
+      transform
+    );
+  }
+
+  function onlyPositiveInt(number){
+    return number < 0 ? 0 : Math.floor(number);
+  }
+
+  function randomInt(min, max) {
+    // [min, max)
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+
+  function toDecimal(str) {
+    return parseInt(str, 16);
+  }
+
+  function colorsToRgb(colors) {
+    return colors.map(hexToRgb);
+  }
+
+  function hexToRgb(str) {
+    var val = String(str).replace(/[^0-9a-f]/gi, '');
+
+    if (val.length < 6) {
+        val = val[0]+val[0]+val[1]+val[1]+val[2]+val[2];
+    }
+
+    return {
+      r: toDecimal(val.substring(0,2)),
+      g: toDecimal(val.substring(2,4)),
+      b: toDecimal(val.substring(4,6))
+    };
+  }
+
+  function getOrigin(options) {
+    var origin = prop(options, 'origin', Object);
+    origin.x = prop(origin, 'x', Number);
+    origin.y = prop(origin, 'y', Number);
+
+    return origin;
+  }
+
+  function setCanvasWindowSize(canvas) {
+    canvas.width = document.documentElement.clientWidth;
+    canvas.height = document.documentElement.clientHeight;
+  }
+
+  function setCanvasRectSize(canvas) {
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+  }
+
+  function getCanvas(zIndex) {
+    var canvas = document.createElement('canvas');
+
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0px';
+    canvas.style.left = '0px';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = zIndex;
+
+    return canvas;
+  }
+
+  function ellipse(context, x, y, radiusX, radiusY, rotation, startAngle, endAngle, antiClockwise) {
+    context.save();
+    context.translate(x, y);
+    context.rotate(rotation);
+    context.scale(radiusX, radiusY);
+    context.arc(0, 0, 1, startAngle, endAngle, antiClockwise);
+    context.restore();
+  }
+
+  function randomPhysics(opts) {
+    var radAngle = opts.angle * (Math.PI / 180);
+    var radSpread = opts.spread * (Math.PI / 180);
+
+    return {
+      x: opts.x,
+      y: opts.y,
+      wobble: Math.random() * 10,
+      wobbleSpeed: Math.min(0.11, Math.random() * 0.1 + 0.05),
+      velocity: (opts.startVelocity * 0.5) + (Math.random() * opts.startVelocity),
+      angle2D: -radAngle + ((0.5 * radSpread) - (Math.random() * radSpread)),
+      tiltAngle: (Math.random() * (0.75 - 0.25) + 0.25) * Math.PI,
+      color: opts.color,
+      shape: opts.shape,
+      tick: 0,
+      totalTicks: opts.ticks,
+      decay: opts.decay,
+      drift: opts.drift,
+      random: Math.random() + 2,
+      tiltSin: 0,
+      tiltCos: 0,
+      wobbleX: 0,
+      wobbleY: 0,
+      gravity: opts.gravity * 3,
+      ovalScalar: 0.6,
+      scalar: opts.scalar,
+      flat: opts.flat
+    };
+  }
+
+  function updateFetti(context, fetti) {
+    fetti.x += Math.cos(fetti.angle2D) * fetti.velocity + fetti.drift;
+    fetti.y += Math.sin(fetti.angle2D) * fetti.velocity + fetti.gravity;
+    fetti.velocity *= fetti.decay;
+
+    if (fetti.flat) {
+      fetti.wobble = 0;
+      fetti.wobbleX = fetti.x + (10 * fetti.scalar);
+      fetti.wobbleY = fetti.y + (10 * fetti.scalar);
+
+      fetti.tiltSin = 0;
+      fetti.tiltCos = 0;
+      fetti.random = 1;
+    } else {
+      fetti.wobble += fetti.wobbleSpeed;
+      fetti.wobbleX = fetti.x + ((10 * fetti.scalar) * Math.cos(fetti.wobble));
+      fetti.wobbleY = fetti.y + ((10 * fetti.scalar) * Math.sin(fetti.wobble));
+
+      fetti.tiltAngle += 0.1;
+      fetti.tiltSin = Math.sin(fetti.tiltAngle);
+      fetti.tiltCos = Math.cos(fetti.tiltAngle);
+      fetti.random = Math.random() + 2;
+    }
+
+    var progress = (fetti.tick++) / fetti.totalTicks;
+
+    var x1 = fetti.x + (fetti.random * fetti.tiltCos);
+    var y1 = fetti.y + (fetti.random * fetti.tiltSin);
+    var x2 = fetti.wobbleX + (fetti.random * fetti.tiltCos);
+    var y2 = fetti.wobbleY + (fetti.random * fetti.tiltSin);
+
+    context.fillStyle = 'rgba(' + fetti.color.r + ', ' + fetti.color.g + ', ' + fetti.color.b + ', ' + (1 - progress) + ')';
+
+    context.beginPath();
+
+    if (canUsePaths && fetti.shape.type === 'path' && typeof fetti.shape.path === 'string' && Array.isArray(fetti.shape.matrix)) {
+      context.fill(transformPath2D(
+        fetti.shape.path,
+        fetti.shape.matrix,
+        fetti.x,
+        fetti.y,
+        Math.abs(x2 - x1) * 0.1,
+        Math.abs(y2 - y1) * 0.1,
+        Math.PI / 10 * fetti.wobble
+      ));
+    } else if (fetti.shape.type === 'bitmap') {
+      var rotation = Math.PI / 10 * fetti.wobble;
+      var scaleX = Math.abs(x2 - x1) * 0.1;
+      var scaleY = Math.abs(y2 - y1) * 0.1;
+      var width = fetti.shape.bitmap.width * fetti.scalar;
+      var height = fetti.shape.bitmap.height * fetti.scalar;
+
+      var matrix = new DOMMatrix([
+        Math.cos(rotation) * scaleX,
+        Math.sin(rotation) * scaleX,
+        -Math.sin(rotation) * scaleY,
+        Math.cos(rotation) * scaleY,
+        fetti.x,
+        fetti.y
+      ]);
+
+      // apply the transform matrix from the confetti shape
+      matrix.multiplySelf(new DOMMatrix(fetti.shape.matrix));
+
+      var pattern = context.createPattern(bitmapMapper.transform(fetti.shape.bitmap), 'no-repeat');
+      pattern.setTransform(matrix);
+
+      context.globalAlpha = (1 - progress);
+      context.fillStyle = pattern;
+      context.fillRect(
+        fetti.x - (width / 2),
+        fetti.y - (height / 2),
+        width,
+        height
+      );
+      context.globalAlpha = 1;
+    } else if (fetti.shape === 'circle') {
+      context.ellipse ?
+        context.ellipse(fetti.x, fetti.y, Math.abs(x2 - x1) * fetti.ovalScalar, Math.abs(y2 - y1) * fetti.ovalScalar, Math.PI / 10 * fetti.wobble, 0, 2 * Math.PI) :
+        ellipse(context, fetti.x, fetti.y, Math.abs(x2 - x1) * fetti.ovalScalar, Math.abs(y2 - y1) * fetti.ovalScalar, Math.PI / 10 * fetti.wobble, 0, 2 * Math.PI);
+    } else if (fetti.shape === 'star') {
+      var rot = Math.PI / 2 * 3;
+      var innerRadius = 4 * fetti.scalar;
+      var outerRadius = 8 * fetti.scalar;
+      var x = fetti.x;
+      var y = fetti.y;
+      var spikes = 5;
+      var step = Math.PI / spikes;
+
+      while (spikes--) {
+        x = fetti.x + Math.cos(rot) * outerRadius;
+        y = fetti.y + Math.sin(rot) * outerRadius;
+        context.lineTo(x, y);
+        rot += step;
+
+        x = fetti.x + Math.cos(rot) * innerRadius;
+        y = fetti.y + Math.sin(rot) * innerRadius;
+        context.lineTo(x, y);
+        rot += step;
+      }
+    } else {
+      context.moveTo(Math.floor(fetti.x), Math.floor(fetti.y));
+      context.lineTo(Math.floor(fetti.wobbleX), Math.floor(y1));
+      context.lineTo(Math.floor(x2), Math.floor(y2));
+      context.lineTo(Math.floor(x1), Math.floor(fetti.wobbleY));
+    }
+
+    context.closePath();
+    context.fill();
+
+    return fetti.tick < fetti.totalTicks;
+  }
+
+  function animate(canvas, fettis, resizer, size, done) {
+    var animatingFettis = fettis.slice();
+    var context = canvas.getContext('2d');
+    var animationFrame;
+    var destroy;
+
+    var prom = promise(function (resolve) {
+      function onDone() {
+        animationFrame = destroy = null;
+
+        context.clearRect(0, 0, size.width, size.height);
+        bitmapMapper.clear();
+
+        done();
+        resolve();
+      }
+
+      function update() {
+        if (isWorker && !(size.width === workerSize.width && size.height === workerSize.height)) {
+          size.width = canvas.width = workerSize.width;
+          size.height = canvas.height = workerSize.height;
+        }
+
+        if (!size.width && !size.height) {
+          resizer(canvas);
+          size.width = canvas.width;
+          size.height = canvas.height;
+        }
+
+        context.clearRect(0, 0, size.width, size.height);
+
+        animatingFettis = animatingFettis.filter(function (fetti) {
+          return updateFetti(context, fetti);
+        });
+
+        if (animatingFettis.length) {
+          animationFrame = raf.frame(update);
+        } else {
+          onDone();
+        }
+      }
+
+      animationFrame = raf.frame(update);
+      destroy = onDone;
+    });
+
+    return {
+      addFettis: function (fettis) {
+        animatingFettis = animatingFettis.concat(fettis);
+
+        return prom;
+      },
+      canvas: canvas,
+      promise: prom,
+      reset: function () {
+        if (animationFrame) {
+          raf.cancel(animationFrame);
+        }
+
+        if (destroy) {
+          destroy();
+        }
+      }
+    };
+  }
+
+  function confettiCannon(canvas, globalOpts) {
+    var isLibCanvas = !canvas;
+    var allowResize = !!prop(globalOpts || {}, 'resize');
+    var hasResizeEventRegistered = false;
+    var globalDisableForReducedMotion = prop(globalOpts, 'disableForReducedMotion', Boolean);
+    var shouldUseWorker = canUseWorker && !!prop(globalOpts || {}, 'useWorker');
+    var worker = shouldUseWorker ? getWorker() : null;
+    var resizer = isLibCanvas ? setCanvasWindowSize : setCanvasRectSize;
+    var initialized = (canvas && worker) ? !!canvas.__confetti_initialized : false;
+    var preferLessMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion)').matches;
+    var animationObj;
+
+    function fireLocal(options, size, done) {
+      var particleCount = prop(options, 'particleCount', onlyPositiveInt);
+      var angle = prop(options, 'angle', Number);
+      var spread = prop(options, 'spread', Number);
+      var startVelocity = prop(options, 'startVelocity', Number);
+      var decay = prop(options, 'decay', Number);
+      var gravity = prop(options, 'gravity', Number);
+      var drift = prop(options, 'drift', Number);
+      var colors = prop(options, 'colors', colorsToRgb);
+      var ticks = prop(options, 'ticks', Number);
+      var shapes = prop(options, 'shapes');
+      var scalar = prop(options, 'scalar');
+      var flat = !!prop(options, 'flat');
+      var origin = getOrigin(options);
+
+      var temp = particleCount;
+      var fettis = [];
+
+      var startX = canvas.width * origin.x;
+      var startY = canvas.height * origin.y;
+
+      while (temp--) {
+        fettis.push(
+          randomPhysics({
+            x: startX,
+            y: startY,
+            angle: angle,
+            spread: spread,
+            startVelocity: startVelocity,
+            color: colors[temp % colors.length],
+            shape: shapes[randomInt(0, shapes.length)],
+            ticks: ticks,
+            decay: decay,
+            gravity: gravity,
+            drift: drift,
+            scalar: scalar,
+            flat: flat
+          })
+        );
+      }
+
+      // if we have a previous canvas already animating,
+      // add to it
+      if (animationObj) {
+        return animationObj.addFettis(fettis);
+      }
+
+      animationObj = animate(canvas, fettis, resizer, size , done);
+
+      return animationObj.promise;
+    }
+
+    function fire(options) {
+      var disableForReducedMotion = globalDisableForReducedMotion || prop(options, 'disableForReducedMotion', Boolean);
+      var zIndex = prop(options, 'zIndex', Number);
+
+      if (disableForReducedMotion && preferLessMotion) {
+        return promise(function (resolve) {
+          resolve();
+        });
+      }
+
+      if (isLibCanvas && animationObj) {
+        // use existing canvas from in-progress animation
+        canvas = animationObj.canvas;
+      } else if (isLibCanvas && !canvas) {
+        // create and initialize a new canvas
+        canvas = getCanvas(zIndex);
+        document.body.appendChild(canvas);
+      }
+
+      if (allowResize && !initialized) {
+        // initialize the size of a user-supplied canvas
+        resizer(canvas);
+      }
+
+      var size = {
+        width: canvas.width,
+        height: canvas.height
+      };
+
+      if (worker && !initialized) {
+        worker.init(canvas);
+      }
+
+      initialized = true;
+
+      if (worker) {
+        canvas.__confetti_initialized = true;
+      }
+
+      function onResize() {
+        if (worker) {
+          // TODO this really shouldn't be immediate, because it is expensive
+          var obj = {
+            getBoundingClientRect: function () {
+              if (!isLibCanvas) {
+                return canvas.getBoundingClientRect();
+              }
+            }
+          };
+
+          resizer(obj);
+
+          worker.postMessage({
+            resize: {
+              width: obj.width,
+              height: obj.height
+            }
+          });
+          return;
+        }
+
+        // don't actually query the size here, since this
+        // can execute frequently and rapidly
+        size.width = size.height = null;
+      }
+
+      function done() {
+        animationObj = null;
+
+        if (allowResize) {
+          hasResizeEventRegistered = false;
+          global.removeEventListener('resize', onResize);
+        }
+
+        if (isLibCanvas && canvas) {
+          if (document.body.contains(canvas)) {
+            document.body.removeChild(canvas);
+          }
+          canvas = null;
+          initialized = false;
+        }
+      }
+
+      if (allowResize && !hasResizeEventRegistered) {
+        hasResizeEventRegistered = true;
+        global.addEventListener('resize', onResize, false);
+      }
+
+      if (worker) {
+        return worker.fire(options, size, done);
+      }
+
+      return fireLocal(options, size, done);
+    }
+
+    fire.reset = function () {
+      if (worker) {
+        worker.reset();
+      }
+
+      if (animationObj) {
+        animationObj.reset();
+      }
+    };
+
+    return fire;
+  }
+
+  // Make default export lazy to defer worker creation until called.
+  var defaultFire;
+  function getDefaultFire() {
+    if (!defaultFire) {
+      defaultFire = confettiCannon(null, { useWorker: true, resize: true });
+    }
+    return defaultFire;
+  }
+
+  function transformPath2D(pathString, pathMatrix, x, y, scaleX, scaleY, rotation) {
+    var path2d = new Path2D(pathString);
+
+    var t1 = new Path2D();
+    t1.addPath(path2d, new DOMMatrix(pathMatrix));
+
+    var t2 = new Path2D();
+    // see https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix/DOMMatrix
+    t2.addPath(t1, new DOMMatrix([
+      Math.cos(rotation) * scaleX,
+      Math.sin(rotation) * scaleX,
+      -Math.sin(rotation) * scaleY,
+      Math.cos(rotation) * scaleY,
+      x,
+      y
+    ]));
+
+    return t2;
+  }
+
+  function shapeFromPath(pathData) {
+    if (!canUsePaths) {
+      throw new Error('path confetti are not supported in this browser');
+    }
+
+    var path, matrix;
+
+    if (typeof pathData === 'string') {
+      path = pathData;
+    } else {
+      path = pathData.path;
+      matrix = pathData.matrix;
+    }
+
+    var path2d = new Path2D(path);
+    var tempCanvas = document.createElement('canvas');
+    var tempCtx = tempCanvas.getContext('2d');
+
+    if (!matrix) {
+      // attempt to figure out the width of the path, up to 1000x1000
+      var maxSize = 1000;
+      var minX = maxSize;
+      var minY = maxSize;
+      var maxX = 0;
+      var maxY = 0;
+      var width, height;
+
+      // do some line skipping... this is faster than checking
+      // every pixel and will be mostly still correct
+      for (var x = 0; x < maxSize; x += 2) {
+        for (var y = 0; y < maxSize; y += 2) {
+          if (tempCtx.isPointInPath(path2d, x, y, 'nonzero')) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+      }
+
+      width = maxX - minX;
+      height = maxY - minY;
+
+      var maxDesiredSize = 10;
+      var scale = Math.min(maxDesiredSize/width, maxDesiredSize/height);
+
+      matrix = [
+        scale, 0, 0, scale,
+        -Math.round((width/2) + minX) * scale,
+        -Math.round((height/2) + minY) * scale
+      ];
+    }
+
+    return {
+      type: 'path',
+      path: path,
+      matrix: matrix
+    };
+  }
+
+  function shapeFromText(textData) {
+    var text,
+        scalar = 1,
+        color = '#000000',
+        // see https://nolanlawson.com/2022/04/08/the-struggle-of-using-native-emoji-on-the-web/
+        fontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "EmojiOne Color", "Android Emoji", "Twemoji Mozilla", "system emoji", sans-serif';
+
+    if (typeof textData === 'string') {
+      text = textData;
+    } else {
+      text = textData.text;
+      scalar = 'scalar' in textData ? textData.scalar : scalar;
+      fontFamily = 'fontFamily' in textData ? textData.fontFamily : fontFamily;
+      color = 'color' in textData ? textData.color : color;
+    }
+
+    // all other confetti are 10 pixels,
+    // so this pixel size is the de-facto 100% scale confetti
+    var fontSize = 10 * scalar;
+    var font = '' + fontSize + 'px ' + fontFamily;
+
+    var canvas = new OffscreenCanvas(fontSize, fontSize);
+    var ctx = canvas.getContext('2d');
+
+    ctx.font = font;
+    var size = ctx.measureText(text);
+    var width = Math.ceil(size.actualBoundingBoxRight + size.actualBoundingBoxLeft);
+    var height = Math.ceil(size.actualBoundingBoxAscent + size.actualBoundingBoxDescent);
+
+    var padding = 2;
+    var x = size.actualBoundingBoxLeft + padding;
+    var y = size.actualBoundingBoxAscent + padding;
+    width += padding + padding;
+    height += padding + padding;
+
+    canvas = new OffscreenCanvas(width, height);
+    ctx = canvas.getContext('2d');
+    ctx.font = font;
+    ctx.fillStyle = color;
+
+    ctx.fillText(text, x, y);
+
+    var scale = 1 / scalar;
+
+    return {
+      type: 'bitmap',
+      // TODO these probably need to be transfered for workers
+      bitmap: canvas.transferToImageBitmap(),
+      matrix: [scale, 0, 0, scale, -width * scale / 2, -height * scale / 2]
+    };
+  }
+
+  module.exports = function() {
+    return getDefaultFire().apply(this, arguments);
+  };
+  module.exports.reset = function() {
+    getDefaultFire().reset();
+  };
+  module.exports.create = confettiCannon;
+  module.exports.shapeFromPath = shapeFromPath;
+  module.exports.shapeFromText = shapeFromText;
+}((function () {
+  if (typeof window !== 'undefined') {
+    return window;
+  }
+
+  if (typeof self !== 'undefined') {
+    return self;
+  }
+
+  return this || {};
+})(), module$1, false));
+
+// end source content
+
+var confetti = module$1.exports;
+module$1.exports.create;
+
+// ============================================================================
+// Color Utilities for ChoreBot Cards
+// ============================================================================
+/**
+ * Adjust color lightness in HSL color space
+ * Handles hex, rgb, rgba, and CSS variable formats
+ *
+ * @param color - Base color (hex, rgb, or CSS variable like var(--primary-color))
+ * @param percent - Percentage to adjust (-100 to 100, negative = darker, positive = lighter)
+ * @returns Adjusted color in hex format without # prefix (for canvas-confetti compatibility)
+ */
+function adjustColorLightness(color, percent) {
+    // For CSS variables, resolve the computed value
+    if (color.startsWith("var(")) {
+        const resolvedColor = getComputedStyle(document.documentElement).getPropertyValue(color.slice(4, -1).trim());
+        if (resolvedColor) {
+            color = resolvedColor.trim();
+        }
+        else {
+            // Fallback if variable can't be resolved
+            return color;
+        }
+    }
+    // Convert hex to rgb
+    let r, g, b;
+    if (color.startsWith("#")) {
+        const hex = color.replace("#", "");
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    else if (color.startsWith("rgb")) {
+        const match = color.match(/\d+/g);
+        if (!match)
+            return color;
+        [r, g, b] = match.map(Number);
+    }
+    else {
+        return color;
+    }
+    // Convert RGB to HSL
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r:
+                h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+                break;
+            case g:
+                h = ((b - r) / d + 2) / 6;
+                break;
+            case b:
+                h = ((r - g) / d + 4) / 6;
+                break;
+        }
+    }
+    // Adjust lightness
+    if (percent > 0) {
+        // Lighten: increase lightness but cap to avoid pure white
+        l = Math.max(0, Math.min(0.95, l + (percent / 100) * (1 - l)));
+    }
+    else {
+        // Darken: decrease lightness proportionally
+        l = Math.max(0.05, l + (percent / 100) * l);
+    }
+    // Convert HSL back to RGB
+    const hue2rgb = (p, q, t) => {
+        if (t < 0)
+            t += 1;
+        if (t > 1)
+            t -= 1;
+        if (t < 1 / 6)
+            return p + (q - p) * 6 * t;
+        if (t < 1 / 2)
+            return q;
+        if (t < 2 / 3)
+            return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+    };
+    let r2, g2, b2;
+    if (s === 0) {
+        r2 = g2 = b2 = l;
+    }
+    else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r2 = hue2rgb(p, q, h + 1 / 3);
+        g2 = hue2rgb(p, q, h);
+        b2 = hue2rgb(p, q, h - 1 / 3);
+    }
+    // Convert to hex format without # prefix (canvas-confetti expects this format)
+    const toHex = (c) => {
+        const hex = Math.round(c * 255).toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+    };
+    return `${toHex(r2)}${toHex(g2)}${toHex(b2)}`.toUpperCase();
+}
+/**
+ * Convert any color format to hex without # prefix
+ * Used for canvas-confetti which expects hex colors without the # prefix
+ *
+ * @param color - Color in any format (hex, rgb, or CSS variable)
+ * @returns Hex color without # prefix (format: 'RRGGBB')
+ */
+function toHexWithoutPrefix(color) {
+    // If already hex with #, remove it
+    if (color.startsWith("#")) {
+        return color.substring(1).toUpperCase();
+    }
+    // If it's already a hex without #, return as-is
+    if (/^[0-9A-Fa-f]{6}$/.test(color)) {
+        return color.toUpperCase();
+    }
+    // Otherwise it's rgb() or a CSS variable, adjustColorLightness will handle it
+    // and return hex without prefix
+    return adjustColorLightness(color, 0);
+}
+/**
+ * Calculate all 5 color shades from a base color
+ *
+ * @param baseColor - Base color (hex, rgb, or CSS variable)
+ * @returns Object with 5 color shades in hex format without # prefix
+ */
+function calculateColorShades(baseColor) {
+    return {
+        lighter: adjustColorLightness(baseColor, 30),
+        light: adjustColorLightness(baseColor, 15),
+        base: toHexWithoutPrefix(baseColor),
+        dark: adjustColorLightness(baseColor, -15),
+        darker: adjustColorLightness(baseColor, -30),
+    };
+}
+
+// ============================================================================
+// Confetti Utility Functions for ChoreBot Cards
+// ============================================================================
+/**
+ * Extract color variants (lighter and darker shades) from a base color
+ * Returns array of 5 colors compatible with canvas-confetti
+ *
+ * @param baseColor - Base color (hex, rgb, or CSS variable)
+ * @returns Array of 5 hex color strings without # prefix (format: 'RRGGBB')
+ */
+function extractColorVariants(baseColor) {
+    const shades = calculateColorShades(baseColor);
+    return [
+        shades.lighter,
+        shades.light,
+        shades.base,
+        shades.dark,
+        shades.darker,
+    ];
+}
+/**
+ * Play star shower effect falling from top (all tasks complete)
+ * @param colors - Array of color strings to use for stars
+ * @param duration - Duration in milliseconds (default: 5000)
+ */
+function playStarShower(colors, duration = 5000) {
+    const animationEnd = Date.now() + duration;
+    function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+    (function frame() {
+        const timeLeft = animationEnd - Date.now();
+        const ticks = Math.max(200, 500 * (timeLeft / duration));
+        confetti({
+            particleCount: 1,
+            startVelocity: 0,
+            ticks: ticks,
+            origin: {
+                x: Math.random(),
+                // Keep stars mostly at the top of the screen
+                y: Math.random() * 0.3 - 0.1,
+            },
+            colors: colors,
+            shapes: ["star"],
+            gravity: randomInRange(1.2, 1.5), // Faster fall (increased from 0.4-0.6)
+            scalar: randomInRange(1.2, 2.0), // Larger stars (increased from 0.4-1.0)
+            drift: randomInRange(-0.4, 0.4),
+            disableForReducedMotion: true,
+        });
+        if (timeLeft > 0) {
+            requestAnimationFrame(frame);
+        }
+    })();
+}
+
+// ============================================================================
+// Points Display Utilities for ChoreBot Cards
+// ============================================================================
+/**
+ * Get points display configuration from sensor.
+ * Returns { icon, text } where icon is MDI icon string (e.g., "mdi:star")
+ * and text is display term (e.g., "stars", "coins", "points").
+ *
+ * Falls back to { icon: "", text: "points" } if sensor is missing or
+ * attribute is undefined.
+ *
+ * Respects empty strings: If backend sends text="" with an icon, that's
+ * intentional (icon-only mode) and won't be overridden with "points".
+ *
+ * @param hass - Home Assistant instance
+ * @returns Object with icon and text properties
+ */
+function getPointsDisplayParts(hass) {
+    const sensor = hass.states["sensor.chorebot_points"];
+    const config = sensor?.attributes.points_display;
+    // If sensor or attribute missing entirely, use defaults
+    if (!config) {
+        return {
+            icon: "",
+            text: "points",
+        };
+    }
+    // Otherwise respect exact values from backend (including empty strings)
+    return {
+        icon: config.icon ?? "",
+        text: config.text ?? "points",
+    };
+}
+/**
+ * Get lowercase points term for use in helper text.
+ * Example: "stars", "coins", "points"
+ *
+ * Falls back to "points" if sensor is missing or attribute is undefined.
+ * Returns empty string if text is intentionally empty (icon-only mode).
+ *
+ * @param hass - Home Assistant instance
+ * @returns Lowercase term string or empty string
+ */
+function getPointsTermLowercase(hass) {
+    const parts = getPointsDisplayParts(hass);
+    if (!parts.text) {
+        return "";
+    }
+    return parts.text.toLowerCase();
+}
+
+// ============================================================================
+// ChoreBot Person Rewards Card (TypeScript)
+// ============================================================================
+/**
+ * ChoreBot Person Rewards Card
+ *
+ * Displays rewards for a single person with:
+ * - Filtered rewards grid (only rewards for configured person)
+ * - Click reward card to open confirmation modal (no separate redeem button)
+ * - "Add Reward" placeholder card at end of grid
+ * - Create reward modal with form fields
+ * - Confetti animation on successful redemption
+ */
+let ChoreBotPersonRewardsCard = class ChoreBotPersonRewardsCard extends i {
+    constructor() {
+        super(...arguments);
+        this._redeeming = null; // reward_id being redeemed
+        this._showConfirmModal = false; // Show redemption confirmation
+        this._showAddRewardModal = false; // Show add reward modal
+        this._pendingRedemption = null; // Pending redemption details
+        this._rewardFormData = {
+            name: "",
+            cost: 50,
+            icon: "mdi:gift",
+            description: "",
+        }; // Reward form data for ha-form
+        this._showEditRewardModal = false;
+        this._editingRewardId = null;
+        this._rewardFormSchema = [
+            { name: "name", required: true, selector: { text: {} } },
+            { name: "cost", selector: { number: { min: 1, max: 10000, mode: "box" } } },
+            { name: "icon", selector: { icon: {} } },
+            { name: "description", selector: { text: { multiline: true } } },
+        ];
+        this._computeRewardFieldLabel = (schema) => {
+            const pointsTerm = getPointsTermLowercase(this.hass);
+            const pointsTermCap = pointsTerm.charAt(0).toUpperCase() + pointsTerm.slice(1);
+            const labels = {
+                name: "Name",
+                cost: `Cost (${pointsTermCap})`,
+                icon: "Icon",
+                description: "Description (Optional)",
+            };
+            return labels[schema.name] || schema.name;
+        };
+        this._computeRewardFieldHelper = (schema) => {
+            const pointsTerm = getPointsTermLowercase(this.hass);
+            const helpers = {
+                cost: `Cost between 1 and 10,000 ${pointsTerm}`,
+                icon: "Use Material Design Icons (e.g., mdi:gift, mdi:ice-cream)",
+            };
+            return helpers[schema.name] || "";
+        };
+        this._handleRewardFormChange = (ev) => {
+            this._rewardFormData = ev.detail.value;
+        };
+    }
+    setConfig(config) {
+        if (!config.person_entity) {
+            throw new Error("person_entity is required");
+        }
+        this._config = {
+            type: "custom:chorebot-person-rewards-card",
+            person_entity: config.person_entity,
+            title: config.title || undefined, // Will default to "{Name}'s Rewards" in render
+            show_title: config.show_title !== false,
+            hide_card_background: config.hide_card_background === true,
+            show_disabled_rewards: config.show_disabled_rewards === true,
+            sort_by: config.sort_by || "cost",
+            show_add_reward_button: config.show_add_reward_button !== false,
+            accent_color: config.accent_color || "",
+        };
+    }
+    static getStubConfig() {
+        return {
+            type: "custom:chorebot-person-rewards-card",
+            person_entity: "person.example",
+            title: "My Rewards",
+            show_title: true,
+            hide_card_background: false,
+            show_disabled_rewards: false,
+            sort_by: "cost",
+            show_add_reward_button: true,
+            accent_color: "",
+        };
+    }
+    getCardSize() {
+        return 3;
+    }
+    static getConfigForm() {
+        return {
+            schema: [
+                {
+                    name: "person_entity",
+                    required: true,
+                    selector: { entity: { domain: "person" } },
+                },
+                {
+                    name: "title",
+                    selector: { text: {} },
+                },
+                {
+                    name: "show_title",
+                    default: true,
+                    selector: { boolean: {} },
+                },
+                {
+                    name: "hide_card_background",
+                    default: false,
+                    selector: { boolean: {} },
+                },
+                {
+                    name: "show_disabled_rewards",
+                    default: false,
+                    selector: { boolean: {} },
+                },
+                {
+                    name: "sort_by",
+                    default: "cost",
+                    selector: {
+                        select: {
+                            options: [
+                                { label: "Cost (Low to High)", value: "cost" },
+                                { label: "Name (A-Z)", value: "name" },
+                                { label: "Date Created (Oldest First)", value: "created" },
+                            ],
+                        },
+                    },
+                },
+                {
+                    name: "show_add_reward_button",
+                    default: true,
+                    selector: { boolean: {} },
+                },
+                {
+                    name: "accent_color",
+                    selector: { text: {} },
+                },
+            ],
+            computeLabel: (schema) => {
+                const labels = {
+                    person_entity: "Person Entity",
+                    title: "Card Title",
+                    show_title: "Show Title",
+                    hide_card_background: "Hide Card Background",
+                    show_disabled_rewards: "Show Disabled Rewards",
+                    sort_by: "Sort Rewards By",
+                    show_add_reward_button: "Show Add Reward Button",
+                    accent_color: "Accent Color",
+                };
+                return labels[schema.name] || undefined;
+            },
+            computeHelper: (schema) => {
+                const helpers = {
+                    person_entity: "Select the person whose rewards to display",
+                    title: 'Custom title for the card (defaults to "{Person Name}\'s Rewards")',
+                    show_title: "Show the card title",
+                    hide_card_background: "Hide the card background and padding for a seamless look",
+                    show_disabled_rewards: "Include rewards that have been disabled in the grid",
+                    sort_by: "Choose how to sort the rewards in the grid",
+                    show_add_reward_button: "Show the 'Add Reward' card for creating new rewards",
+                    accent_color: "Accent color for reward icons and buttons (hex code or CSS variable like var(--primary-color))",
+                };
+                return helpers[schema.name] || undefined;
+            },
+        };
+    }
+    render() {
+        if (!this.hass || !this._config) {
+            return x `<ha-card>Loading...</ha-card>`;
+        }
+        // Validate person entity exists
+        const personEntity = this.hass.states[this._config.person_entity];
+        if (!personEntity) {
+            return x `<ha-card>
         <div class="error-state">
           Person entity "${this._config.person_entity}" not found. Please check
           your configuration.
         </div>
-      </ha-card>`;const t=this.hass.states["sensor.chorebot_points"];if(!t)return j`<ha-card>
+      </ha-card>`;
+        }
+        // Get points sensor entity
+        const sensor = this.hass.states["sensor.chorebot_points"];
+        if (!sensor) {
+            return x `<ha-card>
         <div class="empty-state">
           ChoreBot Points sensor not found. Make sure the integration is set up.
         </div>
-      </ha-card>`;const e=t.attributes.people||{},r=t.attributes.rewards||[];let o="var(--primary-color)";if(this._config.person_entity){const t=e[this._config.person_entity];t?.accent_color&&(o=t.accent_color)}this._config.accent_color&&(o=this._config.accent_color),this.style.setProperty("--accent-color",o);const i=this._getPersonName(this._config.person_entity),a=this._config.title||`${i}'s Rewards`;return j`
+      </ha-card>`;
+        }
+        const people = sensor.attributes.people || {};
+        const rewards = sensor.attributes.rewards || [];
+        // Precedence: Manual config > Person profile > Theme default
+        let accentColor = "var(--primary-color)"; // Default fallback
+        // Check for centralized person color from sensor
+        if (this._config.person_entity) {
+            const personProfile = people[this._config.person_entity];
+            if (personProfile?.accent_color) {
+                accentColor = personProfile.accent_color;
+            }
+        }
+        // Manual config overrides everything
+        if (this._config.accent_color) {
+            accentColor = this._config.accent_color;
+        }
+        // Set CSS variable for accent color
+        this.style.setProperty("--accent-color", accentColor);
+        // Get person name for default title
+        const personName = this._getPersonName(this._config.person_entity);
+        const cardTitle = this._config.title || `${personName}'s Rewards`;
+        return x `
       <ha-card
-        class="${this._config.hide_card_background?"no-background":""}"
+        class="${this._config.hide_card_background ? "no-background" : ""}"
       >
-        ${this._config.show_title?j`<div class="card-header">${a}</div>`:""}
-        ${this._renderRewardsGrid(r,e)}
+        ${this._config.show_title
+            ? x `<div class="card-header">${cardTitle}</div>`
+            : ""}
+        ${this._renderRewardsGrid(rewards, people)}
       </ha-card>
-      ${this._showConfirmModal?this._renderConfirmModal(e,r):""}
-      ${this._showAddRewardModal?this._renderAddRewardModal():""}
-      ${this._showEditRewardModal?this._renderEditRewardModal():""}
-    `}_renderConfirmModal(t,e){if(!this._pendingRedemption||!this._config)return"";const{personId:r,rewardId:o}=this._pendingRedemption,i=t[r],a=e.find(t=>t.id===o);if(!i||!a)return"";const n=this._getPersonName(r),s=i.points_balance-a.cost,d=i.points_balance>=a.cost,c=a.enabled&&d,l=mt(this.hass);return j`
+      ${this._showConfirmModal ? this._renderConfirmModal(people, rewards) : ""}
+      ${this._showAddRewardModal ? this._renderAddRewardModal() : ""}
+      ${this._showEditRewardModal ? this._renderEditRewardModal() : ""}
+    `;
+    }
+    _renderConfirmModal(people, rewards) {
+        if (!this._pendingRedemption || !this._config)
+            return "";
+        const { personId, rewardId } = this._pendingRedemption;
+        const person = people[personId];
+        const reward = rewards.find((r) => r.id === rewardId);
+        if (!person || !reward)
+            return "";
+        const personName = this._getPersonName(personId);
+        const remainingPoints = person.points_balance - reward.cost;
+        const canAfford = person.points_balance >= reward.cost;
+        const canRedeem = reward.enabled && canAfford;
+        const parts = getPointsDisplayParts(this.hass);
+        return x `
       <div class="modal-overlay" @click="${this._cancelRedemption}">
         <div
           class="modal-content"
-          @click="${t=>t.stopPropagation()}"
+          @click="${(e) => e.stopPropagation()}"
         >
           <div class="modal-header">
-            ${c?"Are you sure?":"Reward Details"}
+            ${canRedeem ? "Are you sure?" : "Reward Details"}
             <button
               class="edit-button"
-              @click="${()=>this._handleEditButtonClick(a.id)}"
+              @click="${() => this._handleEditButtonClick(reward.id)}"
               title="Edit Reward"
             >
               <ha-icon icon="mdi:pencil"></ha-icon>
@@ -75,48 +1462,60 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
             <div class="modal-info">
               <div class="modal-info-row">
                 <span class="modal-info-label">Person:</span>
-                <span class="modal-info-value">${n}</span>
+                <span class="modal-info-value">${personName}</span>
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Reward:</span>
-                <span class="modal-info-value">${a.name}</span>
+                <span class="modal-info-value">${reward.name}</span>
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Cost:</span>
                 <span class="modal-info-value"
-                  >${a.cost}
-                  ${l.icon?j`<ha-icon icon="${l.icon}"></ha-icon>`:""}
-                  ${l.text?l.text:""}</span
+                  >${reward.cost}
+                  ${parts.icon
+            ? x `<ha-icon icon="${parts.icon}"></ha-icon>`
+            : ""}
+                  ${parts.text ? parts.text : ""}</span
                 >
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Current Balance:</span>
                 <span class="modal-info-value"
-                  >${i.points_balance}
-                  ${l.icon?j`<ha-icon icon="${l.icon}"></ha-icon>`:""}
-                  ${l.text?l.text:""}</span
+                  >${person.points_balance}
+                  ${parts.icon
+            ? x `<ha-icon icon="${parts.icon}"></ha-icon>`
+            : ""}
+                  ${parts.text ? parts.text : ""}</span
                 >
               </div>
               <div class="modal-info-row">
                 <span class="modal-info-label">Remaining Balance:</span>
                 <span
                   class="modal-info-value"
-                  style="color: ${s<0?"var(--error-color)":"inherit"}"
-                  >${s}
-                  ${l.icon?j`<ha-icon icon="${l.icon}"></ha-icon>`:""}
-                  ${l.text?l.text:""}</span
+                  style="color: ${remainingPoints < 0
+            ? "var(--error-color)"
+            : "inherit"}"
+                  >${remainingPoints}
+                  ${parts.icon
+            ? x `<ha-icon icon="${parts.icon}"></ha-icon>`
+            : ""}
+                  ${parts.text ? parts.text : ""}</span
                 >
               </div>
-              ${a.enabled?"":j`<div
+              ${!reward.enabled
+            ? x `<div
                     style="margin-top: 12px; color: var(--warning-color); font-size: 14px; text-align: center;"
                   >
                     This reward is currently disabled.
-                  </div>`}
-              ${d?"":j`<div
+                  </div>`
+            : ""}
+              ${!canAfford
+            ? x `<div
                     style="margin-top: 12px; color: var(--error-color); font-size: 14px; text-align: center;"
                   >
                     Not enough points to redeem this reward.
-                  </div>`}
+                  </div>`
+            : ""}
             </div>
           </div>
           <div class="modal-actions">
@@ -124,11 +1523,11 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
               class="modal-button cancel"
               @click="${this._cancelRedemption}"
             >
-              ${c?"Cancel":"Close"}
+              ${canRedeem ? "Cancel" : "Close"}
             </button>
             <button
               class="modal-button confirm"
-              ?disabled="${!c}"
+              ?disabled="${!canRedeem}"
               @click="${this._confirmRedemption}"
             >
               Redeem
@@ -136,7 +1535,12 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
           </div>
         </div>
       </div>
-    `}_renderAddRewardModal(){return this._config?j`
+    `;
+    }
+    _renderAddRewardModal() {
+        if (!this._config)
+            return "";
+        return x `
       <ha-dialog
         open
         @closed=${this._closeAddRewardModal}
@@ -162,7 +1566,12 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
           Cancel
         </ha-button>
       </ha-dialog>
-    `:""}_renderEditRewardModal(){return this._config?j`
+    `;
+    }
+    _renderEditRewardModal() {
+        if (!this._config)
+            return "";
+        return x `
       <ha-dialog
         open
         @closed=${this._closeEditRewardModal}
@@ -188,37 +1597,68 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
           Cancel
         </ha-button>
       </ha-dialog>
-    `:""}_renderRewardsGrid(t,e){if(!this._config)return"";const r=t.filter(t=>t.person_id===this._config.person_entity),o=r.filter(t=>this._config.show_disabled_rewards||t.enabled),i=this._sortRewards(o),a=e[this._config.person_entity];return 0!==i.length||this._config.show_add_reward_button?j`
-      <div class="rewards-grid">
-        ${i.map(t=>this._renderRewardCard(t,a))}
-        ${this._config.show_add_reward_button?this._renderAddRewardCard():""}
-      </div>
-    `:j`<div class="empty-state">
+    `;
+    }
+    _renderRewardsGrid(rewards, people) {
+        if (!this._config)
+            return "";
+        // Filter rewards by person_id
+        const personRewards = rewards.filter((r) => r.person_id === this._config.person_entity);
+        // Filter by enabled/disabled
+        const filteredRewards = personRewards.filter((r) => this._config.show_disabled_rewards || r.enabled);
+        // Sort rewards
+        const sortedRewards = this._sortRewards(filteredRewards);
+        // Get person's balance
+        const person = people[this._config.person_entity];
+        if (sortedRewards.length === 0 && !this._config.show_add_reward_button) {
+            return x `<div class="empty-state">
         No rewards configured yet. Use the "Add Reward" button or
         <code>chorebot.manage_reward</code> service to create rewards.
-      </div>`}_renderRewardCard(t,e){const r=!!e&&e.points_balance>=t.cost,o=!t.enabled||!r,i=mt(this.hass);return j`
+      </div>`;
+        }
+        return x `
+      <div class="rewards-grid">
+        ${sortedRewards.map((reward) => this._renderRewardCard(reward, person))}
+        ${this._config.show_add_reward_button
+            ? this._renderAddRewardCard()
+            : ""}
+      </div>
+    `;
+    }
+    _renderRewardCard(reward, person) {
+        const canAfford = person ? person.points_balance >= reward.cost : false;
+        const isDisabled = !reward.enabled || !canAfford;
+        const parts = getPointsDisplayParts(this.hass);
+        return x `
       <div
-        class="reward-card ${o?"disabled":""}"
-        @click="${()=>this._handleRewardClick(t,r)}"
+        class="reward-card ${isDisabled ? "disabled" : ""}"
+        @click="${() => this._handleRewardClick(reward, canAfford)}"
       >
         <div class="reward-icon-section">
           <div class="reward-icon">
-            <ha-icon icon="${t.icon}"></ha-icon>
+            <ha-icon icon="${reward.icon}"></ha-icon>
           </div>
         </div>
         <div class="reward-info">
           <div class="reward-header">
-            <div class="reward-name">${t.name}</div>
+            <div class="reward-name">${reward.name}</div>
             <div class="reward-cost">
-              ${t.cost}
-              ${i.icon?j`<ha-icon icon="${i.icon}"></ha-icon>`:""}
-              ${i.text?i.text:""}
+              ${reward.cost}
+              ${parts.icon
+            ? x `<ha-icon icon="${parts.icon}"></ha-icon>`
+            : ""}
+              ${parts.text ? parts.text : ""}
             </div>
           </div>
-          ${t.description?j`<div class="reward-description">${t.description}</div>`:""}
+          ${reward.description
+            ? x `<div class="reward-description">${reward.description}</div>`
+            : ""}
         </div>
       </div>
-    `}_renderAddRewardCard(){return j`
+    `;
+    }
+    _renderAddRewardCard() {
+        return x `
       <div class="add-reward-card" @click="${this._openAddRewardModal}">
         <div class="add-reward-icon-section">
           <div class="add-reward-icon">
@@ -229,7 +1669,179 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
           <div class="add-reward-text">Add Reward</div>
         </div>
       </div>
-    `}_sortRewards(t){const e=[...t];switch(this._config.sort_by){case"name":return e.sort((t,e)=>t.name.localeCompare(e.name));case"created":return e.sort((t,e)=>new Date(t.created||0).getTime()-new Date(e.created||0).getTime());default:return e.sort((t,e)=>t.cost-e.cost)}}_handleRewardClick(t,e){this._pendingRedemption={personId:this._config.person_entity,rewardId:t.id},this._showConfirmModal=!0}_cancelRedemption(){this._showConfirmModal=!1,this._pendingRedemption=null}async _confirmRedemption(){if(!this._pendingRedemption)return;const{personId:t,rewardId:e}=this._pendingRedemption;this._showConfirmModal=!1,this._pendingRedemption=null,this._redeeming=e;try{await this.hass.callService("chorebot","redeem_reward",{person_id:t,reward_id:e}),this._showRedemptionSuccess()}catch(t){const e=t.message||"Failed to redeem reward. Please try again.";alert(e)}finally{this._redeeming=null}}_showRedemptionSuccess(){!function(t,e=5e3){const r=Date.now()+e;function o(t,e){return Math.random()*(e-t)+t}!function i(){const a=r-Date.now(),n=Math.max(200,a/e*500);pt({particleCount:1,startVelocity:0,ticks:n,origin:{x:Math.random(),y:.3*Math.random()-.1},colors:t,shapes:["star"],gravity:o(1.2,1.5),scalar:o(1.2,2),drift:o(-.4,.4),disableForReducedMotion:!0}),a>0&&requestAnimationFrame(i)}()}(ft(this._config.accent_color||getComputedStyle(this).getPropertyValue("--primary-color")||"#03a9f4"),3e3)}_openAddRewardModal(){this._rewardFormData={name:"",cost:50,icon:"mdi:gift",description:""},this._showAddRewardModal=!0}_closeAddRewardModal(){this._showAddRewardModal=!1}async _createReward(){if(!this._config)return;const{name:t,cost:e,icon:r,description:o}=this._rewardFormData;if(t.trim())try{await this.hass.callService("chorebot","manage_reward",{name:t.trim(),cost:Math.max(1,Math.min(1e4,e)),icon:r||"mdi:gift",description:o.trim(),person_id:this._config.person_entity}),this._closeAddRewardModal()}catch(t){const e=t.message||"Failed to create reward. Please try again.";alert(e)}else alert("Reward name is required")}_openEditRewardModal(t){if(!this.hass)return;const e=this.hass.states["sensor.chorebot_points"];if(!e)return;const r=(e.attributes.rewards||[]).find(e=>e.id===t);r?(this._rewardFormData={name:r.name,cost:r.cost,icon:r.icon,description:r.description||""},this._editingRewardId=t,this._showEditRewardModal=!0):alert("Reward not found")}_closeEditRewardModal(){this._showEditRewardModal=!1,this._editingRewardId=null,this._rewardFormData={name:"",cost:50,icon:"mdi:gift",description:""}}_handleEditButtonClick(t){this._showConfirmModal=!1,this._pendingRedemption=null,this._openEditRewardModal(t)}async _updateReward(){if(!this._config||!this._editingRewardId)return;const{name:t,cost:e,icon:r,description:o}=this._rewardFormData;if(t.trim())try{await this.hass.callService("chorebot","manage_reward",{reward_id:this._editingRewardId,name:t.trim(),cost:Math.max(1,Math.min(1e4,e)),icon:r||"mdi:gift",description:o.trim(),person_id:this._config.person_entity}),this._closeEditRewardModal()}catch(t){const e=t.message||"Failed to update reward. Please try again.";alert(e)}else alert("Reward name is required")}_getPersonName(t){const e=this.hass?.states[t];return e?.attributes.friendly_name||t.replace("person.","")}};_t.styles=((t,...e)=>{const r=1===t.length?t[0]:e.reduce((e,r,o)=>e+(t=>{if(!0===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(r)+t[o+1],t[0]);return new a(r,t,o)})`
+    `;
+    }
+    _sortRewards(rewards) {
+        const sorted = [...rewards];
+        switch (this._config.sort_by) {
+            case "name":
+                return sorted.sort((a, b) => a.name.localeCompare(b.name));
+            case "created":
+                return sorted.sort((a, b) => new Date(a.created || 0).getTime() -
+                    new Date(b.created || 0).getTime());
+            case "cost":
+            default:
+                return sorted.sort((a, b) => a.cost - b.cost);
+        }
+    }
+    _handleRewardClick(reward, canAfford) {
+        // Always open modal to show reward details (button will be disabled if can't redeem)
+        this._pendingRedemption = {
+            personId: this._config.person_entity,
+            rewardId: reward.id,
+        };
+        this._showConfirmModal = true;
+    }
+    _cancelRedemption() {
+        this._showConfirmModal = false;
+        this._pendingRedemption = null;
+    }
+    async _confirmRedemption() {
+        if (!this._pendingRedemption)
+            return;
+        const { personId, rewardId } = this._pendingRedemption;
+        // Close modal
+        this._showConfirmModal = false;
+        this._pendingRedemption = null;
+        // Set redeeming state
+        this._redeeming = rewardId;
+        try {
+            await this.hass.callService("chorebot", "redeem_reward", {
+                person_id: personId,
+                reward_id: rewardId,
+            });
+            // Show success animation (star shower with themed colors)
+            this._showRedemptionSuccess();
+        }
+        catch (err) {
+            // Show error message
+            const errorMessage = err.message || "Failed to redeem reward. Please try again.";
+            alert(errorMessage);
+        }
+        finally {
+            this._redeeming = null;
+        }
+    }
+    _showRedemptionSuccess() {
+        // Get base color from accent color (fallback to primary color)
+        const baseColor = this._config.accent_color ||
+            getComputedStyle(this).getPropertyValue("--primary-color") ||
+            "#03a9f4";
+        // Extract color variants (lighter and darker shades)
+        const colors = extractColorVariants(baseColor);
+        // Play star shower animation
+        playStarShower(colors, 3000);
+    }
+    _openAddRewardModal() {
+        // Reset form
+        this._rewardFormData = {
+            name: "",
+            cost: 50,
+            icon: "mdi:gift",
+            description: "",
+        };
+        this._showAddRewardModal = true;
+    }
+    _closeAddRewardModal() {
+        this._showAddRewardModal = false;
+    }
+    async _createReward() {
+        if (!this._config)
+            return;
+        const { name, cost, icon, description } = this._rewardFormData;
+        if (!name.trim()) {
+            alert("Reward name is required");
+            return;
+        }
+        try {
+            await this.hass.callService("chorebot", "manage_reward", {
+                name: name.trim(),
+                cost: Math.max(1, Math.min(10000, cost)), // Clamp between 1 and 10000
+                icon: icon || "mdi:gift",
+                description: description.trim(),
+                person_id: this._config.person_entity, // Pre-filled from config
+            });
+            // Close modal
+            this._closeAddRewardModal();
+        }
+        catch (err) {
+            // Show error message
+            const errorMessage = err.message || "Failed to create reward. Please try again.";
+            alert(errorMessage);
+        }
+    }
+    _openEditRewardModal(rewardId) {
+        if (!this.hass)
+            return;
+        // Find reward in sensor attributes
+        const sensor = this.hass.states["sensor.chorebot_points"];
+        if (!sensor)
+            return;
+        const rewards = sensor.attributes.rewards || [];
+        const reward = rewards.find((r) => r.id === rewardId);
+        if (!reward) {
+            alert("Reward not found");
+            return;
+        }
+        // Populate form with existing reward data
+        this._rewardFormData = {
+            name: reward.name,
+            cost: reward.cost,
+            icon: reward.icon,
+            description: reward.description || "",
+        };
+        this._editingRewardId = rewardId;
+        this._showEditRewardModal = true;
+    }
+    _closeEditRewardModal() {
+        this._showEditRewardModal = false;
+        this._editingRewardId = null;
+        // Reset form to defaults
+        this._rewardFormData = {
+            name: "",
+            cost: 50,
+            icon: "mdi:gift",
+            description: "",
+        };
+    }
+    _handleEditButtonClick(rewardId) {
+        // Close redemption modal
+        this._showConfirmModal = false;
+        this._pendingRedemption = null;
+        // Open edit modal
+        this._openEditRewardModal(rewardId);
+    }
+    async _updateReward() {
+        if (!this._config || !this._editingRewardId)
+            return;
+        const { name, cost, icon, description } = this._rewardFormData;
+        if (!name.trim()) {
+            alert("Reward name is required");
+            return;
+        }
+        try {
+            await this.hass.callService("chorebot", "manage_reward", {
+                reward_id: this._editingRewardId, // Key difference from _createReward
+                name: name.trim(),
+                cost: Math.max(1, Math.min(10000, cost)),
+                icon: icon || "mdi:gift",
+                description: description.trim(),
+                person_id: this._config.person_entity,
+            });
+            // Close modal
+            this._closeEditRewardModal();
+        }
+        catch (err) {
+            const errorMessage = err.message || "Failed to update reward. Please try again.";
+            alert(errorMessage);
+        }
+    }
+    _getPersonName(entityId) {
+        const entity = this.hass?.states[entityId];
+        return entity?.attributes.friendly_name || entityId.replace("person.", "");
+    }
+};
+ChoreBotPersonRewardsCard.styles = i$3 `
     :host {
       display: block;
       /* HA Dialog styling */
@@ -607,4 +2219,44 @@ const st={attribute:!0,type:String,converter:w,reflect:!1,hasChanged:b},dt=(t=st
       padding: 32px;
       color: var(--error-color);
     }
-  `,t([ct({attribute:!1})],_t.prototype,"hass",void 0),t([lt()],_t.prototype,"_config",void 0),t([lt()],_t.prototype,"_redeeming",void 0),t([lt()],_t.prototype,"_showConfirmModal",void 0),t([lt()],_t.prototype,"_showAddRewardModal",void 0),t([lt()],_t.prototype,"_pendingRedemption",void 0),t([lt()],_t.prototype,"_rewardFormData",void 0),t([lt()],_t.prototype,"_showEditRewardModal",void 0),t([lt()],_t.prototype,"_editingRewardId",void 0),_t=t([(t=>(e,r)=>{void 0!==r?r.addInitializer(()=>{customElements.define(t,e)}):customElements.define(t,e)})("chorebot-person-rewards-card")],_t),window.customCards=window.customCards||[],window.customCards.push({type:"chorebot-person-rewards-card",name:"ChoreBot Person Rewards Card",description:"Display person-specific rewards with inline creation and redemption",preview:!0});export{_t as ChoreBotPersonRewardsCard};
+  `;
+__decorate([
+    n({ attribute: false })
+], ChoreBotPersonRewardsCard.prototype, "hass", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_config", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_redeeming", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_showConfirmModal", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_showAddRewardModal", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_pendingRedemption", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_rewardFormData", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_showEditRewardModal", void 0);
+__decorate([
+    r()
+], ChoreBotPersonRewardsCard.prototype, "_editingRewardId", void 0);
+ChoreBotPersonRewardsCard = __decorate([
+    t("chorebot-person-rewards-card")
+], ChoreBotPersonRewardsCard);
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: "chorebot-person-rewards-card",
+    name: "ChoreBot Person Rewards Card",
+    description: "Display person-specific rewards with inline creation and redemption",
+    preview: true,
+});
+
+export { ChoreBotPersonRewardsCard };
+//# sourceMappingURL=chorebot-person-rewards-card.js.map

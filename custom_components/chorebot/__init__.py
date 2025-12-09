@@ -832,10 +832,21 @@ async def _handle_manage_section(
         section_id = call.data["section_id"]
 
         # Find section
+        _LOGGER.warning(
+            "[SECTION_UPDATE] Looking for section_id='%s' in %d sections",
+            section_id,
+            len(sections),
+        )
         section = next((s for s in sections if s["id"] == section_id), None)
         if not section:
             _LOGGER.error("Section not found: %s", section_id)
             raise ValueError(f"Section not found: {section_id}")
+
+        _LOGGER.warning(
+            "[SECTION_UPDATE] Found section: %s (before update: %s)",
+            section_id,
+            section,
+        )
 
         # Update fields
         if "name" in call.data:
@@ -846,16 +857,25 @@ async def _handle_manage_section(
         # Handle person_id
         if call.data.get("clear_person"):
             section.pop("person_id", None)
-            _LOGGER.info("Cleared person assignment from section: %s", section_id)
+            _LOGGER.warning("Cleared person assignment from section: %s", section_id)
         elif "person_id" in call.data:
             person_id = call.data["person_id"]
             if person_id not in hass.states.async_entity_ids("person"):
                 _LOGGER.error("Person entity not found: %s", person_id)
                 raise ValueError(f"Person entity not found: {person_id}")
             section["person_id"] = person_id
-            _LOGGER.info("Assigned person %s to section: %s", person_id, section_id)
+            _LOGGER.warning(
+                "[SECTION_UPDATE] Assigned person_id='%s' to section '%s' (id: %s)",
+                person_id,
+                section.get("name"),
+                section_id,
+            )
 
-        _LOGGER.info("Updated section: %s", section_id)
+        _LOGGER.warning(
+            "[SECTION_UPDATE] After update - section: %s (sections list id: %s)",
+            section,
+            id(sections),
+        )
 
     elif action == "delete":
         # Validate section_id is provided
@@ -890,14 +910,25 @@ async def _handle_manage_section(
         raise ValueError(f"Invalid action: {action}")
 
     # Save updated sections
+    _LOGGER.warning(
+        "[SECTION_UPDATE] Saving sections to storage (sections list id: %s)", id(sections)
+    )
     await store.async_set_sections(list_id, sections)
+
+    # Verify the sections were saved correctly
+    saved_sections = store.get_sections_for_list(list_id)
+    _LOGGER.warning(
+        "[SECTION_UPDATE] Verification - sections after save (list id: %s): %s",
+        id(saved_sections),
+        saved_sections,
+    )
 
     # Trigger immediate entity state update so frontend sees the change
     entities = hass.data[DOMAIN].get("entities", {})
     if entity := entities.get(list_id):
         entity.async_write_ha_state()
-        _LOGGER.debug(
-            "Triggered entity state update after section %s: %s", action, list_id
+        _LOGGER.warning(
+            "[SECTION_UPDATE] Triggered entity state update after section %s: %s", action, list_id
         )
 
 
