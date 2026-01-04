@@ -827,6 +827,7 @@ export class ChoreBotGroupedCard extends LitElement {
       () => this._closeEditDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
       () => this._saveTask(),
+      () => this._handleDeleteTask(), // NEW: Delete handler
     );
   }
 
@@ -941,6 +942,51 @@ export class ChoreBotGroupedCard extends LitElement {
     } catch (error) {
       console.error("Error saving task:", error);
       alert("Failed to save task. Please try again.");
+    } finally {
+      this._saving = false;
+    }
+  }
+
+  private async _handleDeleteTask() {
+    if (!this._editingTask || this._saving) {
+      return;
+    }
+
+    const task = this._editingTask;
+    const isRecurring = task.has_recurrence || task.parent_uid;
+
+    // Confirmation message based on task type
+    const message = isRecurring
+      ? "Delete this recurring task? This will remove all future occurrences, but keep completed instances."
+      : "Delete this task? This action cannot be undone.";
+
+    if (!confirm(message)) {
+      return;
+    }
+
+    this._saving = true;
+
+    try {
+      // Call HA service to delete
+      await this.hass!.callService("todo", "remove_item", {
+        entity_id: this._config!.entity,
+        item: task.uid,
+      });
+
+      // Close dialog and show success
+      this._closeEditDialog();
+
+      // Optional: Show success toast
+      this.dispatchEvent(
+        new CustomEvent("hass-notification", {
+          detail: { message: "Task deleted successfully" },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      alert(`Failed to delete task: ${error}`);
     } finally {
       this._saving = false;
     }

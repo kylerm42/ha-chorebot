@@ -401,6 +401,118 @@ class ChoreBotStore:
                 "Task %s not found in list %s for deletion", task_uid, list_id
             )
 
+    async def async_delete_recurring_task_and_instances(
+        self, list_id: str, task_uid: str
+    ) -> list[str]:
+        """
+        Delete a recurring template and all its incomplete instances.
+        
+        When a user deletes a recurring task, this method:
+        1. Finds the template (either directly or via parent_uid)
+        2. Deletes all incomplete instances (status != "completed")
+        3. Deletes the template itself
+        4. Preserves completed instances (historical record)
+        
+        Args:
+            list_id: The list containing the task
+            task_uid: UID of the task or instance being deleted
+            
+        Returns:
+            list[str]: List of all deleted UIDs (for sync purposes)
+        """
+        async with self._lock:
+            if list_id not in self._tasks_cache:
+                _LOGGER.error("Cannot delete recurring task from unknown list: %s", list_id)
+                return []
+
+            cache = self._tasks_cache[list_id]
+            deleted_uids = []
+
+            # Resolve template UID
+            template_uid = None
+            
+            # Check if the given UID is a template
+            if task_uid in cache["templates"]:
+                template_uid = task_uid
+                _LOGGER.debug("Task %s is a template", task_uid)
+            # Check if the given UID is an instance with parent_uid
+            elif task_uid in cache["tasks"]:
+                task = cache["tasks"][task_uid]
+                if task.parent_uid:
+                    template_uid = task.parent_uid
+                    _LOGGER.debug("Task %s is an instance with parent %s", task_uid, template_uid)
+                else:
+                    # Not a recurring task, just delete the single task
+                    _LOGGER.warning(
+                        "Task %s is not a recurring task, falling back to regular delete",
+                        task_uid
+                    )
+                    await self.async_delete_task(list_id, task_uid)
+                    return [task_uid]
+            else:
+                _LOGGER.error("Task %s not found in list %s", task_uid, list_id)
+                return []
+
+            # Verify template exists
+            if template_uid not in cache["templates"]:
+                _LOGGER.error(
+                    "Template %s not found for recurring task deletion (orphaned instance?)",
+                    template_uid
+                )
+                # Fallback: just delete the instance if template is missing
+                if task_uid in cache["tasks"]:
+                    await self.async_delete_task(list_id, task_uid)
+                    return [task_uid]
+                return []
+
+            # Get all instances for this template
+            instances = [
+                task for task in cache["tasks"].values()
+                if task.parent_uid == template_uid
+            ]
+
+            _LOGGER.info(
+                "Deleting recurring task: template=%s, total_instances=%d",
+                template_uid,
+                len(instances)
+            )
+
+            # Delete incomplete instances only (preserve completed instances)
+            for instance in instances:
+                if instance.status != "completed" and not instance.is_deleted():
+                    _LOGGER.debug(
+                        "Deleting incomplete instance: %s (status=%s)",
+                        instance.uid,
+                        instance.status
+                    )
+                    instance.mark_deleted()
+                    del cache["tasks"][instance.uid]
+                    deleted_uids.append(instance.uid)
+                else:
+                    _LOGGER.debug(
+                        "Preserving instance: %s (status=%s, deleted=%s)",
+                        instance.uid,
+                        instance.status,
+                        instance.is_deleted()
+                    )
+
+            # Delete the template
+            template = cache["templates"][template_uid]
+            template.mark_deleted()
+            del cache["templates"][template_uid]
+            deleted_uids.append(template_uid)
+
+            _LOGGER.info(
+                "Deleted recurring task: template + %d incomplete instances (preserved %d completed)",
+                len(deleted_uids) - 1,  # -1 for template
+                len([i for i in instances if i.status == "completed"])
+            )
+
+            # Save changes
+            await self.async_save_tasks(list_id)
+
+            return deleted_uids
+
     async def async_get_all_recurring_tasks(self) -> list[tuple[str, Task]]:
         """Get all recurring tasks across all lists (DEPRECATED - use async_get_all_recurring_templates)."""
         result = []

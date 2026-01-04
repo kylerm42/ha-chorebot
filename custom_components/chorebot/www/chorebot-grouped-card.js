@@ -913,10 +913,12 @@ function getFieldLabels(hass) {
  * @param onClose - Callback when dialog closes
  * @param onValueChanged - Callback when form values change
  * @param onSave - Callback when save is clicked
+ * @param onDelete - Optional callback when delete is clicked
  * @param dialogTitle - Optional dialog title (defaults to "Edit Task")
+ * @param showDelete - Whether to show delete button (defaults to true for existing tasks)
  * @returns Lit HTML template
  */
-function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, onClose, onValueChanged, onSave, dialogTitle = "Edit Task") {
+function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, onClose, onValueChanged, onSave, onDelete, dialogTitle = "Edit Task", showDelete = true) {
     if (!isOpen || !task) {
         return x ``;
     }
@@ -932,12 +934,37 @@ function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, o
         .computeLabel=${computeLabel}
         @value-changed=${onValueChanged}
       ></ha-form>
+
+      <!-- Delete button (bottom-left positioning via CSS) -->
+      ${showDelete && onDelete && task?.uid
+        ? x `
+            <ha-button
+              slot="primaryAction"
+              @click=${onDelete}
+              .disabled=${saving}
+              class="delete-button"
+            >
+              Delete
+            </ha-button>
+          `
+        : ""}
+
       <ha-button slot="primaryAction" @click=${onSave} .disabled=${saving}>
         ${saving ? "Saving..." : "Save"}
       </ha-button>
       <ha-button slot="secondaryAction" @click=${onClose} .disabled=${saving}>
         Cancel
       </ha-button>
+
+      <style>
+        ha-dialog {
+          --mdc-dialog-min-width: 500px;
+        }
+        .delete-button {
+          --mdc-theme-primary: var(--error-color, #db4437);
+          margin-right: auto; /* Push to left */
+        }
+      </style>
     </ha-dialog>
   `;
 }
@@ -2509,7 +2536,7 @@ let ChoreBotGroupedCard = class ChoreBotGroupedCard extends i {
         const entity = this.hass?.states[this._config.entity];
         const sections = entity?.attributes.chorebot_sections || [];
         const availableTags = entity?.attributes.chorebot_tags || [];
-        return renderTaskDialog(this._editDialogOpen, this._editingTask, this.hass, sections, availableTags, this._saving, () => this._closeEditDialog(), (ev) => this._formValueChanged(ev), () => this._saveTask());
+        return renderTaskDialog(this._editDialogOpen, this._editingTask, this.hass, sections, availableTags, this._saving, () => this._closeEditDialog(), (ev) => this._formValueChanged(ev), () => this._saveTask(), () => this._handleDeleteTask());
     }
     _formValueChanged(ev) {
         const updatedValues = ev.detail.value;
@@ -2604,6 +2631,43 @@ let ChoreBotGroupedCard = class ChoreBotGroupedCard extends i {
         catch (error) {
             console.error("Error saving task:", error);
             alert("Failed to save task. Please try again.");
+        }
+        finally {
+            this._saving = false;
+        }
+    }
+    async _handleDeleteTask() {
+        if (!this._editingTask || this._saving) {
+            return;
+        }
+        const task = this._editingTask;
+        const isRecurring = task.has_recurrence || task.parent_uid;
+        // Confirmation message based on task type
+        const message = isRecurring
+            ? "Delete this recurring task? This will remove all future occurrences, but keep completed instances."
+            : "Delete this task? This action cannot be undone.";
+        if (!confirm(message)) {
+            return;
+        }
+        this._saving = true;
+        try {
+            // Call HA service to delete
+            await this.hass.callService("todo", "remove_item", {
+                entity_id: this._config.entity,
+                item: task.uid,
+            });
+            // Close dialog and show success
+            this._closeEditDialog();
+            // Optional: Show success toast
+            this.dispatchEvent(new CustomEvent("hass-notification", {
+                detail: { message: "Task deleted successfully" },
+                bubbles: true,
+                composed: true,
+            }));
+        }
+        catch (error) {
+            console.error("Error deleting task:", error);
+            alert(`Failed to delete task: ${error}`);
         }
         finally {
             this._saving = false;

@@ -442,10 +442,12 @@ function getFieldLabels(hass) {
  * @param onClose - Callback when dialog closes
  * @param onValueChanged - Callback when form values change
  * @param onSave - Callback when save is clicked
+ * @param onDelete - Optional callback when delete is clicked
  * @param dialogTitle - Optional dialog title (defaults to "Edit Task")
+ * @param showDelete - Whether to show delete button (defaults to true for existing tasks)
  * @returns Lit HTML template
  */
-function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, onClose, onValueChanged, onSave, dialogTitle = "Edit Task") {
+function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, onClose, onValueChanged, onSave, onDelete, dialogTitle = "Edit Task", showDelete = true) {
     if (!isOpen || !task) {
         return x ``;
     }
@@ -461,12 +463,37 @@ function renderTaskDialog(isOpen, task, hass, sections, availableTags, saving, o
         .computeLabel=${computeLabel}
         @value-changed=${onValueChanged}
       ></ha-form>
+
+      <!-- Delete button (bottom-left positioning via CSS) -->
+      ${showDelete && onDelete && task?.uid
+        ? x `
+            <ha-button
+              slot="primaryAction"
+              @click=${onDelete}
+              .disabled=${saving}
+              class="delete-button"
+            >
+              Delete
+            </ha-button>
+          `
+        : ""}
+
       <ha-button slot="primaryAction" @click=${onSave} .disabled=${saving}>
         ${saving ? "Saving..." : "Save"}
       </ha-button>
       <ha-button slot="secondaryAction" @click=${onClose} .disabled=${saving}>
         Cancel
       </ha-button>
+
+      <style>
+        ha-dialog {
+          --mdc-dialog-min-width: 500px;
+        }
+        .delete-button {
+          --mdc-theme-primary: var(--error-color, #db4437);
+          margin-right: auto; /* Push to left */
+        }
+      </style>
     </ha-dialog>
   `;
 }

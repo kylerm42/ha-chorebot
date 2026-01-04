@@ -907,21 +907,43 @@ class ChoreBotList(TodoListEntity):
             await self._sync_coordinator.async_delete_task(self._list_id, task)
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
-        """Delete multiple tasks (soft delete)."""
+        """Delete multiple tasks (soft delete). Handles recurring tasks intelligently."""
         _LOGGER.info("Soft deleting %d tasks", len(uids))
 
-        # Get tasks before deleting (need them for sync)
-        tasks = [self._store.get_task(self._list_id, uid) for uid in uids]
+        all_deleted_uids = []  # Collect all deleted UIDs for sync
 
-        # Soft delete each task in store
         for uid in uids:
-            await self._store.async_delete_task(self._list_id, uid)
+            task = self._store.get_task(self._list_id, uid)
+            
+            if task and task.is_recurring():
+                # Recurring task: delete template + all incomplete instances
+                _LOGGER.info(
+                    "Deleting recurring task '%s' (uid: %s) - will delete template and all incomplete instances",
+                    task.summary,
+                    uid
+                )
+                deleted_uids = await self._store.async_delete_recurring_task_and_instances(
+                    self._list_id, uid
+                )
+                all_deleted_uids.extend(deleted_uids)
+                _LOGGER.info(
+                    "Deleted recurring task: %d total items (template + incomplete instances)",
+                    len(deleted_uids)
+                )
+            else:
+                # Regular task: use existing logic
+                await self._store.async_delete_task(self._list_id, uid)
+                all_deleted_uids.append(uid)
 
         # Write state immediately
         self.async_write_ha_state()
 
         # Delete from remote backend if sync is enabled (non-blocking for frontend)
+        # Note: We need to get tasks from storage (not cache) because they were just deleted
         if self._sync_coordinator:
-            for task in tasks:
+            for uid in all_deleted_uids:
+                # Get task from storage (includes deleted tasks with deleted_at set)
+                # The sync coordinator needs the task object to extract sync metadata
+                task = self._store.get_task(self._list_id, uid)
                 if task:
                     await self._sync_coordinator.async_delete_task(self._list_id, task)

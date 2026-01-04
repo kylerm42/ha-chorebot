@@ -366,7 +366,9 @@ export function getFieldLabels(hass: HomeAssistant) {
  * @param onClose - Callback when dialog closes
  * @param onValueChanged - Callback when form values change
  * @param onSave - Callback when save is clicked
+ * @param onDelete - Optional callback when delete is clicked
  * @param dialogTitle - Optional dialog title (defaults to "Edit Task")
+ * @param showDelete - Whether to show delete button (defaults to true for existing tasks)
  * @returns Lit HTML template
  */
 export function renderTaskDialog(
@@ -379,7 +381,9 @@ export function renderTaskDialog(
   onClose: () => void,
   onValueChanged: (ev: CustomEvent) => void,
   onSave: () => void,
+  onDelete?: () => void,
   dialogTitle: string = "Edit Task",
+  showDelete: boolean = true,
 ): TemplateResult {
   if (!isOpen || !task) {
     return html``;
@@ -398,12 +402,37 @@ export function renderTaskDialog(
         .computeLabel=${computeLabel}
         @value-changed=${onValueChanged}
       ></ha-form>
+
+      <!-- Delete button (bottom-left positioning via CSS) -->
+      ${showDelete && onDelete && task?.uid
+        ? html`
+            <ha-button
+              slot="primaryAction"
+              @click=${onDelete}
+              .disabled=${saving}
+              class="delete-button"
+            >
+              Delete
+            </ha-button>
+          `
+        : ""}
+
       <ha-button slot="primaryAction" @click=${onSave} .disabled=${saving}>
         ${saving ? "Saving..." : "Save"}
       </ha-button>
       <ha-button slot="secondaryAction" @click=${onClose} .disabled=${saving}>
         Cancel
       </ha-button>
+
+      <style>
+        ha-dialog {
+          --mdc-dialog-min-width: 500px;
+        }
+        .delete-button {
+          --mdc-theme-primary: var(--error-color, #db4437);
+          margin-right: auto; /* Push to left */
+        }
+      </style>
     </ha-dialog>
   `;
 }

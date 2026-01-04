@@ -255,7 +255,9 @@ export class ChoreBotAddTaskCard extends LitElement {
       () => this._closeDialog(),
       (ev: CustomEvent) => this._formValueChanged(ev),
       () => this._saveTask(),
+      undefined, // onDelete - not applicable for new tasks
       "Add Task", // Custom dialog title
+      false, // showDelete - hide delete button for new tasks
     );
   }
 
