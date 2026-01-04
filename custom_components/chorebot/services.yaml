@@ -269,6 +269,26 @@ delete_reward:
       selector:
         text:
 
+delete_task:
+  name: Delete Task
+  description: Delete a task from a ChoreBot list. Automatically handles recurring tasks by deleting the template and all incomplete instances, while preserving completed instances.
+  fields:
+    list_id:
+      name: List
+      description: The ChoreBot list entity containing the task.
+      required: true
+      selector:
+        entity:
+          integration: chorebot
+          domain: todo
+    uid:
+      name: Task UID
+      description: Unique identifier of the task to delete.
+      required: true
+      example: "abc123-def456-..."
+      selector:
+        text:
+
 adjust_points:
   name: Adjust Points
   description: Manually adjust points for a person (admin use).

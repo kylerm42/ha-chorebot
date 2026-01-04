@@ -35,6 +35,7 @@ from .const import (
     SERVICE_ADJUST_POINTS,
     SERVICE_CREATE_LIST,
     SERVICE_DELETE_REWARD,
+    SERVICE_DELETE_TASK,
     SERVICE_MANAGE_PERSON,
     SERVICE_MANAGE_REWARD,
     SERVICE_REDEEM_REWARD,
@@ -135,6 +136,14 @@ UPDATE_TASK_SCHEMA = vol.Schema(
         vol.Optional("streak_bonus_interval"): cv.positive_int,
         vol.Optional("rrule"): cv.string,
         vol.Optional("include_future_occurrences"): cv.boolean,
+    }
+)
+
+# Service schema for chorebot.delete_task
+DELETE_TASK_SCHEMA = vol.Schema(
+    {
+        vol.Required("list_id"): cv.string,
+        vol.Required("uid"): cv.string,
     }
 )
 
@@ -480,6 +489,41 @@ async def _handle_update_task(
 
     # Call entity's internal method - single source of truth!
     await entity.async_update_task_internal(**task_data)
+
+
+async def _handle_delete_task(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    store: ChoreBotStore,
+    sync_coordinator: SyncCoordinator | None,
+) -> None:
+    """Handle the chorebot.delete_task service.
+    
+    Deletes a task from a list. Automatically handles recurring tasks by
+    deleting the template and all incomplete instances, while preserving
+    completed instances for historical record.
+    """
+    entity_id = call.data["list_id"]
+    uid = call.data["uid"]
+
+    list_id = _extract_list_id_from_entity(hass, entity_id)
+    if not list_id:
+        _LOGGER.error("Invalid entity_id provided: %s", entity_id)
+        return
+
+    _LOGGER.info("Deleting task via service: %s from list %s", uid, list_id)
+
+    # Get the entity instance
+    entities = hass.data[DOMAIN].get("entities", {})
+    entity = entities.get(list_id)
+
+    if not entity:
+        _LOGGER.error("Entity not found for list_id: %s", list_id)
+        return
+
+    # Call entity's delete method (handles both regular and recurring tasks)
+    await entity.async_delete_todo_items([uid])
+    _LOGGER.info("Task %s deleted successfully", uid)
 
 
 async def _handle_sync(
@@ -1074,6 +1118,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_UPDATE_TASK, handle_update_task, schema=UPDATE_TASK_SCHEMA
     )
     _LOGGER.info("Service registered: %s", SERVICE_UPDATE_TASK)
+
+    # Register chorebot.delete_task service
+    async def handle_delete_task(call: ServiceCall) -> None:
+        await _handle_delete_task(call, hass, store, sync_coordinator)
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_TASK, handle_delete_task, schema=DELETE_TASK_SCHEMA
+    )
+    _LOGGER.info("Service registered: %s", SERVICE_DELETE_TASK)
 
     # Register chorebot.sync service
     if sync_coordinator and sync_coordinator.enabled:
