@@ -6,10 +6,8 @@ services:
     volumes:
       # Main HA config directory
       - ./dev-config:/config
-      # Mount integration Python files (live editing)
+      # Mount integration Python files and built frontend cards (live editing)
       - ./custom_components/chorebot:/config/custom_components/chorebot
-      # Mount built frontend cards (HACS serves from /hacsfiles/chorebot/ in production)
-      - ./dist:/config/www/community/chorebot
     ports:
       - "8123:8123"
     restart: unless-stopped

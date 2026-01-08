@@ -22,6 +22,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
 from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 
 from .const import (
     BACKEND_TICKTICK,
@@ -64,20 +65,32 @@ FRONTEND_CARDS = [
 async def _register_frontend_resources(hass: HomeAssistant) -> None:
     """Register Lovelace resources for ChoreBot cards.
     
-    In production with HACS:
-    - Files from dist/ are copied to www/community/chorebot/
-    - HACS creates /hacsfiles/ route and registers resources automatically
+    This function:
+    1. Registers a static path to serve frontend card files
+    2. Adds each card to Home Assistant's frontend module system
     
-    In development without HACS:
-    - Files are mounted to www/community/chorebot/ via docker-compose
-    - We register using /local/ route (HA's built-in www/ server)
-    
-    See: https://hacs.xyz/docs/publish/plugin/#repository-structure
+    Note: The /hacsfiles/ endpoint is NOT automatically created by HACS.
+    Integrations must explicitly register the static path themselves.
     """
-    # Development: Use /local/ route; Production: HACS handles /hacsfiles/ automatically
-    # Both point to www/community/chorebot/ directory
+    # Register static path for dist directory
+    dist_path = Path(__file__).parent / "dist"
+    
+    try:
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(
+                url_path="/hacsfiles/chorebot",
+                path=str(dist_path),
+                cache_headers=True
+            )
+        ])
+        _LOGGER.debug("Registered static path: /hacsfiles/chorebot")
+    except Exception as e:
+        _LOGGER.error("Failed to register static path: %s", e, exc_info=True)
+        return
+    
+    # Register each card with the frontend
     for card_file in FRONTEND_CARDS:
-        url = f"/local/community/chorebot/{card_file}"
+        url = f"/hacsfiles/chorebot/{card_file}"
         add_extra_js_url(hass, url)
         _LOGGER.debug("Registered frontend resource: %s", url)
 

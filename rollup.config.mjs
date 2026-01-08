@@ -6,14 +6,12 @@ import commonjs from "@rollup/plugin-commonjs";
 const production = !process.env.ROLLUP_WATCH;
 
 // Build all active cards (deprecated cards are in src/deprecated/ for reference only)
-// IMPORTANT: Cards MUST be built to dist/ for HACS Plugin compatibility
-// HACS looks for frontend files in dist/ directory (see https://hacs.xyz/docs/publish/plugin/)
 export default [
   // ChoreBot Grouped Card
   {
     input: "src/grouped-card.ts",
     output: {
-      file: "dist/chorebot-grouped-card.js",
+      file: "custom_components/chorebot/dist/chorebot-grouped-card.js",
       format: "es",
       sourcemap: !production,
     },
@@ -28,7 +26,7 @@ export default [
   {
     input: "src/add-task-card.ts",
     output: {
-      file: "dist/chorebot-add-task-card.js",
+      file: "custom_components/chorebot/dist/chorebot-add-task-card.js",
       format: "es",
       sourcemap: !production,
     },
@@ -43,7 +41,7 @@ export default [
   {
     input: "src/person-points-card.ts",
     output: {
-      file: "dist/chorebot-person-points-card.js",
+      file: "custom_components/chorebot/dist/chorebot-person-points-card.js",
       format: "es",
       sourcemap: !production,
     },
@@ -58,7 +56,7 @@ export default [
   {
     input: "src/person-rewards-card.ts",
     output: {
-      file: "dist/chorebot-person-rewards-card.js",
+      file: "custom_components/chorebot/dist/chorebot-person-rewards-card.js",
       format: "es",
       sourcemap: !production,
     },

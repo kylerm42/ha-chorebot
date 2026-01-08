@@ -100,14 +100,13 @@ The Docker Compose setup uses these mounts:
 ```yaml
 homeassistant:
   - ./dev-config → /config # HA config
-  - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code
-  - ./dist → /config/www/community/chorebot # Built cards (HACS-compatible path)
+  - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code & built cards
 
 card-builder:
   - ./ → /app # Entire project for building
 ```
 
-**Note**: Cards are mounted to `/config/www/community/chorebot/` which matches where HACS installs plugins. HA serves these files at `/hacsfiles/chorebot/`.
+**Note**: Built cards in `custom_components/chorebot/dist/` are served by the integration via `/hacsfiles/chorebot/` route.
 
 ## Common Commands
 
