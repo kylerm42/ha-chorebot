@@ -64,15 +64,20 @@ FRONTEND_CARDS = [
 async def _register_frontend_resources(hass: HomeAssistant) -> None:
     """Register Lovelace resources for ChoreBot cards.
     
-    HACS automatically serves files from dist/ at /hacsfiles/chorebot/ when installed.
-    We just need to register each card with Home Assistant's frontend module system.
+    In production with HACS:
+    - Files from dist/ are copied to www/community/chorebot/
+    - HACS creates /hacsfiles/ route and registers resources automatically
+    
+    In development without HACS:
+    - Files are mounted to www/community/chorebot/ via docker-compose
+    - We register using /local/ route (HA's built-in www/ server)
     
     See: https://hacs.xyz/docs/publish/plugin/#repository-structure
     """
-    # HACS serves dist/ files at /hacsfiles/{repo_name}/
-    # Register each card with the frontend
+    # Development: Use /local/ route; Production: HACS handles /hacsfiles/ automatically
+    # Both point to www/community/chorebot/ directory
     for card_file in FRONTEND_CARDS:
-        url = f"/hacsfiles/chorebot/{card_file}"
+        url = f"/local/community/chorebot/{card_file}"
         add_extra_js_url(hass, url)
         _LOGGER.debug("Registered frontend resource: %s", url)
 
