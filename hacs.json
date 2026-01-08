@@ -2,5 +2,6 @@
   "name": "ChoreBot",
   "homeassistant": "2024.11.0",
   "hacs": "1.33.0",
-  "render_readme": true
+  "render_readme": true,
+  "filename": "chorebot-grouped-card.js"
 }

@@ -1,11 +1,9 @@
 __pycache__/
 node_modules/
-dist/
 
-# Allow built cards inside integration directory (needed for HACS)
-!custom_components/chorebot/www/
-!custom_components/chorebot/www/*.js
-!custom_components/chorebot/www/*.js.map
+# HACS Plugin requirement: dist/ must be committed for HACS to find frontend files
+# See: https://hacs.xyz/docs/publish/plugin/#repository-structure
+# !dist/
 
 # Dev config - exclude runtime and sensitive files
 dev-config/.storage/*

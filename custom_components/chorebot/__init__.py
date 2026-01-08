@@ -22,7 +22,6 @@ from homeassistant.helpers import (
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
 from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
 
 from .const import (
     BACKEND_TICKTICK,
@@ -65,29 +64,12 @@ FRONTEND_CARDS = [
 async def _register_frontend_resources(hass: HomeAssistant) -> None:
     """Register Lovelace resources for ChoreBot cards.
     
-    This function:
-    1. Registers a static path to serve frontend card files
-    2. Adds each card to Home Assistant's frontend module system
+    HACS automatically serves files from dist/ at /hacsfiles/chorebot/ when installed.
+    We just need to register each card with Home Assistant's frontend module system.
     
-    Note: The /hacsfiles/ endpoint is NOT automatically created by HACS.
-    Integrations must explicitly register the static path themselves.
+    See: https://hacs.xyz/docs/publish/plugin/#repository-structure
     """
-    # Register static path for www directory
-    www_path = Path(__file__).parent / "www"
-    
-    try:
-        await hass.http.async_register_static_paths([
-            StaticPathConfig(
-                url_path="/hacsfiles/chorebot",
-                path=str(www_path),
-                cache_headers=True
-            )
-        ])
-        _LOGGER.debug("Registered static path: /hacsfiles/chorebot")
-    except Exception as e:
-        _LOGGER.error("Failed to register static path: %s", e, exc_info=True)
-        return
-    
+    # HACS serves dist/ files at /hacsfiles/{repo_name}/
     # Register each card with the frontend
     for card_file in FRONTEND_CARDS:
         url = f"/hacsfiles/chorebot/{card_file}"
