@@ -57,14 +57,17 @@ Access Home Assistant at: http://localhost:8123
 3. Restart HA to load changes (choose one method):
 
 **Option A: UI Restart (Recommended - Fastest)**
+
 - Go to Developer Tools → Server Controls
 - Click "Restart" button
 - Wait ~20 seconds for HA to reload
 
 **Option B: Container Restart (Simple and Reliable)**
+
 ```bash
 docker-compose restart homeassistant
 ```
+
 - Takes ~30-60 seconds (includes container restart + HA startup)
 - Always works, no auth tokens needed
 
@@ -88,7 +91,7 @@ docker-compose restart homeassistant
   - `.storage/` - HA state and ChoreBot data (gitignored)
   - `home-assistant_v2.db` - SQLite database (gitignored)
   - `custom_components/` - Integration mount point (via Docker)
-  - `www/` - Frontend cards mount point (via Docker)
+  - `www/community/chorebot/` - Frontend cards mount point (via Docker)
 
 ### Volume Mounts
 
@@ -98,13 +101,13 @@ The Docker Compose setup uses these mounts:
 homeassistant:
   - ./dev-config → /config # HA config
   - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code
-  - ./custom_components/chorebot/www → /config/www/chorebot # Built cards (HACS-compatible path)
+  - ./dist → /config/www/community/chorebot # Built cards (HACS-compatible path)
 
 card-builder:
   - ./ → /app # Entire project for building
 ```
 
-**Note**: Cards are mounted from `custom_components/chorebot/www/` to ensure the development environment matches HACS installations.
+**Note**: Cards are mounted to `/config/www/community/chorebot/` which matches where HACS installs plugins. HA serves these files at `/hacsfiles/chorebot/`.
 
 ## Common Commands
 
@@ -175,8 +178,8 @@ docker exec -it homeassistant-chorebot-dev tail -f /config/home-assistant.log
 
 1. Check build errors: `docker-compose logs -f card-builder`
 2. Browser console for runtime errors (F12)
-3. Verify files exist: `ls -la custom_components/chorebot/www/`
-4. Check HA is serving files: http://localhost:8123/local/chorebot/ or http://localhost:8123/hacsfiles/chorebot/
+3. Verify files exist: `ls -la dist/`
+4. Check HA is serving files: http://localhost:8123/hacsfiles/chorebot/chorebot-grouped-card.js
 
 ## Testing Changes
 
@@ -228,9 +231,9 @@ The card builder uses:
 
 **IMPORTANT FOR HACS COMPATIBILITY:**
 
-Cards **MUST** be built to `custom_components/chorebot/www/` directory. HACS only copies the `custom_components/chorebot/` directory when installing, so cards in the root `dist/` folder will NOT be included. The build output path is configured in `rollup.config.mjs`.
+Cards **MUST** be built to `dist/` directory. HACS automatically serves frontend files from `dist/` at `/hacsfiles/{repo_name}/` for plugin-type repositories. See: https://hacs.xyz/docs/publish/plugin/#repository-structure
 
-Build outputs (in `custom_components/chorebot/www/`):
+Build outputs (in `dist/`):
 
 - `chorebot-grouped-card.js` - Tag-based grouped view
 - `chorebot-add-task-card.js` - Add task dialog
@@ -301,8 +304,8 @@ sudo chown -R $USER:$USER dev-config/
 
 1. Check build succeeded: `docker-compose logs card-builder`
 2. Hard refresh browser: `Ctrl+Shift+R`
-3. Check file was updated: `ls -la custom_components/chorebot/www/chorebot-grouped-card.js`
-4. Verify the mount point exists: `docker exec homeassistant-chorebot-dev ls -la /config/www/chorebot/`
+3. Check file was updated: `ls -la dist/chorebot-grouped-card.js`
+4. Verify the mount point exists: `docker exec homeassistant-chorebot-dev ls -la /config/www/community/chorebot/`
 5. Clear browser cache if still not working
 
 ### HA Won't Start
@@ -331,15 +334,15 @@ sudo chown -R $USER:$USER dev-config/
 
 ## File Locations
 
-| What             | Old Location                     | New Location                                |
-| ---------------- | -------------------------------- | ------------------------------------------- |
-| HA Config        | `core/config/`                   | `ha-chorebot/dev-config/`                   |
-| Integration Code | `ha-chorebot/custom_components/` | (same)                                      |
-| Frontend Source  | `ha-chorebot/src/`               | (same)                                      |
-| Built Cards      | `ha-chorebot/dist/`              | `ha-chorebot/custom_components/chorebot/www/` |
-| Storage Data     | `core/config/.storage/`          | `ha-chorebot/dev-config/.storage/`          |
+| What             | Old Location                     | New Location                       |
+| ---------------- | -------------------------------- | ---------------------------------- |
+| HA Config        | `core/config/`                   | `ha-chorebot/dev-config/`          |
+| Integration Code | `ha-chorebot/custom_components/` | (same)                             |
+| Frontend Source  | `ha-chorebot/src/`               | (same)                             |
+| Built Cards      | (varies)                         | `ha-chorebot/dist/`                |
+| Storage Data     | `core/config/.storage/`          | `ha-chorebot/dev-config/.storage/` |
 
-**Note**: Built cards moved from `dist/` to `custom_components/chorebot/www/` for HACS compatibility.
+**Note**: Built cards are in `dist/` directory for HACS compatibility. See: https://hacs.xyz/docs/publish/plugin/
 
 ## Additional Resources
 
