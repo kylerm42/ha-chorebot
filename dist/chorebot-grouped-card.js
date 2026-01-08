@@ -2083,6 +2083,31 @@ function playStarShower(colors, duration = 5000) {
         }
     })();
 }
+/**
+ * Play floating points animation from a specific origin point (task completion with points)
+ * Displays "+X" text that scales up and fades out
+ * @param origin - Origin point in pixels {x, y} relative to viewport
+ * @param totalPoints - Total points awarded (base + bonus)
+ */
+function playPointsAnimation(origin, totalPoints) {
+    // Check for reduced motion preference
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return;
+    }
+    // Create DOM element
+    const pointsEl = document.createElement("div");
+    pointsEl.className = "floating-points";
+    pointsEl.textContent = `+${totalPoints}`;
+    // Position element at origin (offset above and slightly left)
+    pointsEl.style.left = `${origin.x - 20}px`;
+    pointsEl.style.top = `${origin.y - 30}px`;
+    // Append to body
+    document.body.appendChild(pointsEl);
+    // Auto-remove after animation completes (2 seconds)
+    setTimeout(() => {
+        pointsEl.remove();
+    }, 2000);
+}
 
 // ============================================================================
 // ChoreBot Grouped Card (TypeScript)
@@ -2424,7 +2449,17 @@ let ChoreBotGroupedCard = class ChoreBotGroupedCard extends i {
         if (newStatus === "completed" && confettiOrigin) {
             // 1. Always play completion burst
             this._playCompletionConfetti(confettiOrigin);
-            // 2. Check for completion effects with two-tier system
+            // 2. Play floating points animation if task has points
+            const totalPoints = this._calculateTotalPointsAwarded(task);
+            if (totalPoints !== null && totalPoints > 0) {
+                // Convert confettiOrigin (normalized 0-1) to pixel coordinates
+                const pixelOrigin = {
+                    x: confettiOrigin.x * window.innerWidth,
+                    y: confettiOrigin.y * window.innerHeight,
+                };
+                playPointsAnimation(pixelOrigin, totalPoints);
+            }
+            // 3. Check for completion effects with two-tier system
             const allTasksComplete = this._areAllTasksComplete();
             const allDatedTasksComplete = this._areAllDatedTasksComplete();
             const taskHasDueDate = !!task.due;
@@ -2513,6 +2548,29 @@ let ChoreBotGroupedCard = class ChoreBotGroupedCard extends i {
     }
     _playAllCompleteStarShower() {
         playStarShower(this.shadesArray);
+    }
+    /**
+     * Calculate total points awarded for completing this task
+     * Includes base points + streak bonus if applicable
+     * Returns null if task has no points_value
+     */
+    _calculateTotalPointsAwarded(task) {
+        if (!task.points_value)
+            return null;
+        let totalPoints = task.points_value;
+        // Check for streak bonus (recurring tasks only)
+        if (task.parent_uid) {
+            const entity = this.hass?.states[this._config.entity];
+            const templates = entity?.attributes.chorebot_templates || [];
+            const template = templates.find((t) => t.uid === task.parent_uid);
+            if (template?.streak_bonus_points && template?.streak_bonus_interval) {
+                const nextStreak = template.streak_current + 1;
+                if (nextStreak % template.streak_bonus_interval === 0) {
+                    totalPoints += template.streak_bonus_points;
+                }
+            }
+        }
+        return totalPoints;
     }
     // ============================================================================
     // Edit Dialog
@@ -3019,6 +3077,41 @@ ChoreBotGroupedCard.styles = i$3 `
 
     ha-dialog {
       --mdc-dialog-min-width: 500px;
+    }
+
+    /* Floating Points Animation */
+    @keyframes floatPoints {
+      0% {
+        transform: scale(0.5) translateY(0);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.5) translateY(-30px);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1.5) translateY(-60px);
+        opacity: 0;
+      }
+    }
+
+    .floating-points {
+      position: absolute;
+      font-size: 28px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+      z-index: 9999;
+      animation: floatPoints 2s ease-out forwards;
+    }
+
+    /* Respect reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      .floating-points {
+        animation: none;
+        opacity: 0;
+      }
     }
   `;
 __decorate([

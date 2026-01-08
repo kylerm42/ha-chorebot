@@ -122,3 +122,36 @@ export function playStarShower(colors: string[], duration: number = 5000) {
     }
   })();
 }
+
+/**
+ * Play floating points animation from a specific origin point (task completion with points)
+ * Displays "+X" text that scales up and fades out
+ * @param origin - Origin point in pixels {x, y} relative to viewport
+ * @param totalPoints - Total points awarded (base + bonus)
+ */
+export function playPointsAnimation(
+  origin: { x: number; y: number },
+  totalPoints: number,
+) {
+  // Check for reduced motion preference
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  // Create DOM element
+  const pointsEl = document.createElement("div");
+  pointsEl.className = "floating-points";
+  pointsEl.textContent = `+${totalPoints}`;
+
+  // Position element at origin (offset above and slightly left)
+  pointsEl.style.left = `${origin.x - 20}px`;
+  pointsEl.style.top = `${origin.y - 30}px`;
+
+  // Append to body
+  document.body.appendChild(pointsEl);
+
+  // Auto-remove after animation completes (2 seconds)
+  setTimeout(() => {
+    pointsEl.remove();
+  }, 2000);
+}
