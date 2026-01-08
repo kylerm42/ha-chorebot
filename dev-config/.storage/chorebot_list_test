@@ -167,18 +167,18 @@
         "summary": "TT Kyle Afternoon",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.146303Z",
-        "modified": "2025-12-05T21:52:36.424008Z",
+        "modified": "2025-12-08T16:07:54.636712Z",
         "tags": [
           "afternoon"
         ],
-        "last_completed": "2025-12-05T21:52:31.680992Z",
+        "last_completed": "2025-11-25T17:41:56.604944Z",
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "69176f1672b70c0c7e70f2f0",
             "status": "synced",
             "etag": "khk5jg0r",
-            "last_synced_at": "2025-12-05T21:52:36.526225Z"
+            "last_synced_at": "2025-12-08T16:07:54.637780Z"
           }
         }
       }
@@ -187,22 +187,21 @@
       {
         "id": "6914de074c0c4c7fe64ddd9a",
         "name": "Campbell",
-        "sort_order": 2199023255552,
-        "person_id": "person.campbell"
+        "sort_order": 2199023255552
       },
       {
         "id": "6914c0834c0c4c7fe64ddd2c",
         "name": "Courtney",
-        "sort_order": 1099511627776,
-        "person_id": "person.courtney"
+        "sort_order": 1099511627776
       },
       {
         "id": "6914ddf84c0c4c7fe64ddd8e",
         "name": "Kyle",
-        "sort_order": 0,
-        "person_id": "person.kyle"
+        "sort_order": 0
       }
     ],
-    "metadata": {}
+    "metadata": {
+      "person_id": "person.kyle"
+    }
   }
 }
