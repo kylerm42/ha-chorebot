@@ -522,3 +522,9 @@ window.customCards.push({
   description: "A button card for quickly adding new ChoreBot tasks",
   preview: true,
 });
+
+console.info(
+  "%c CHOREBOT-ADD-TASK-CARD %c v0.1.0 ",
+  "color: white; background: #4CAF50; font-weight: bold;",
+  "color: #4CAF50; background: white; font-weight: bold;",
+);

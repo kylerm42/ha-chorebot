@@ -1144,3 +1144,9 @@ window.customCards.push({
     "Display person-specific rewards with inline creation and redemption",
   preview: true,
 });
+
+console.info(
+  "%c CHOREBOT-PERSON-REWARDS-CARD %c v0.1.0 ",
+  "color: white; background: #9C27B0; font-weight: bold;",
+  "color: #9C27B0; background: white; font-weight: bold;",
+);

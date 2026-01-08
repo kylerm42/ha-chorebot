@@ -529,3 +529,9 @@ window.customCards.push({
   description: "Display a person's avatar and points balance",
   preview: true,
 });
+
+console.info(
+  "%c CHOREBOT-PERSON-POINTS-CARD %c v0.1.0 ",
+  "color: white; background: #FF9800; font-weight: bold;",
+  "color: #FF9800; background: white; font-weight: bold;",
+);

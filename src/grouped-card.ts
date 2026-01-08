@@ -1228,3 +1228,9 @@ window.customCards.push({
   description: "Display and manage ChoreBot tasks grouped by tags",
   preview: true,
 });
+
+console.info(
+  "%c CHOREBOT-GROUPED-CARD %c v0.1.0 ",
+  "color: white; background: #2196F3; font-weight: bold;",
+  "color: #2196F3; background: white; font-weight: bold;",
+);
