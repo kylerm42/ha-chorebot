@@ -117,6 +117,19 @@
           "task_summary": "TT Kyle Afternoon",
           "list_id": "test"
         }
+      },
+      {
+        "id": "txn_20879b2d3ed6",
+        "timestamp": "2026-01-08T20:01:52.934695Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
       }
     ]
   }

@@ -112,17 +112,18 @@
       {
         "uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
         "summary": "TT Kyle",
-        "status": "needs_action",
+        "status": "completed",
         "created": "2025-11-24T19:03:52.144891Z",
-        "modified": "2025-11-24T19:09:49.805314Z",
+        "modified": "2026-01-08T20:01:52.939939Z",
+        "last_completed": "2026-01-08T20:01:52.939927Z",
         "points_value": 10,
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "6914fbfa4c0c4c7fe64dddda",
             "status": "synced",
-            "etag": "j99lvkx5",
-            "last_synced_at": "2025-11-24T19:09:50.409895Z"
+            "etag": "eu1xho2c",
+            "last_synced_at": "2026-01-08T20:01:53.283291Z"
           }
         }
       },
