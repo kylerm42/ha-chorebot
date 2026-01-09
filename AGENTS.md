@@ -88,13 +88,26 @@ Access at http://localhost:8123
 
 ### Full-Stack Development (Integration + Cards)
 
-For developing both integration and cards simultaneously, use the submodule-based workflow:
+For developing both integration and cards simultaneously, the Docker Compose setup includes automatic support for the frontend submodule:
 
-1. Add cards repo as submodule: `git submodule add git@github.com:kylerm42/ha-chorebot-cards.git frontend`
-2. Update Docker Compose to mount both repos
-3. Card builder auto-rebuilds on TypeScript changes
+**Initial Setup:**
+```bash
+./dev.sh up  # Automatically initializes frontend submodule if needed
+```
 
-See Phase 3 of `.holocode/20260109-repository-split-plan.md` for detailed setup instructions.
+**How It Works:**
+- `docker-compose.yml` already mounts `./frontend/dist` → `/config/www/community/chorebot-cards`
+- `card-builder` container runs `npm run watch` automatically
+- TypeScript changes in `frontend/src/` → auto-rebuild to `frontend/dist/chorebot-cards.js`
+- Hard refresh browser (Ctrl+Shift+R or Cmd+Shift+R) to see changes
+- **No manual copying needed** - changes are immediately available to HA
+- **No manual building needed** - as long as docker-compose is running, the card-builder container handles all builds automatically
+
+**Development Workflow:**
+1. **Backend (Python)**: Edit `custom_components/chorebot/` → Restart HA via Developer Tools
+2. **Frontend (TypeScript)**: Edit `frontend/src/` → Check logs with `./dev.sh logs card-builder` → Hard refresh browser
+
+See DEVELOPMENT.md or `.holocode/20260109-repository-split-plan.md` for detailed setup instructions.
 
 ### Config and Data Location
 
