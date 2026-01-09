@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 from datetime import UTC, datetime, timedelta
 import logging
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import voluptuous as vol
@@ -21,8 +20,6 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import slugify
-from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
 
 from .const import (
     BACKEND_TICKTICK,
@@ -52,47 +49,6 @@ from .ticktick_backend import TickTickBackend
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.TODO, Platform.SENSOR]
-
-# Frontend card filenames (must match dist/ output)
-FRONTEND_CARDS = [
-    "chorebot-grouped-card.js",
-    "chorebot-add-task-card.js",
-    "chorebot-person-points-card.js",
-    "chorebot-person-rewards-card.js",
-]
-
-
-async def _register_frontend_resources(hass: HomeAssistant) -> None:
-    """Register Lovelace resources for ChoreBot cards.
-    
-    This function:
-    1. Registers a unique static path to serve frontend card files
-    2. Adds each card to Home Assistant's frontend module system
-    
-    Note: We use /chorebot instead of /hacsfiles/chorebot to avoid namespace
-    conflicts with HACS (which owns /hacsfiles/*).
-    """
-    # Register static path for dist directory
-    dist_path = Path(__file__).parent / "dist"
-    
-    try:
-        await hass.http.async_register_static_paths([
-            StaticPathConfig(
-                url_path="/chorebot",
-                path=str(dist_path),
-                cache_headers=True
-            )
-        ])
-        _LOGGER.debug("Registered static path: /chorebot")
-    except Exception as e:
-        _LOGGER.error("Failed to register static path: %s", e, exc_info=True)
-        return
-    
-    # Register each card with the frontend
-    for card_file in FRONTEND_CARDS:
-        url = f"/chorebot/{card_file}"
-        add_extra_js_url(hass, url)
-        _LOGGER.debug("Registered frontend resource: %s", url)
 
 # Service schema for chorebot.create_list
 CREATE_LIST_SCHEMA = vol.Schema(
@@ -1011,9 +967,6 @@ async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ChoreBot from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-
-    # Register frontend resources (Lovelace cards)
-    await _register_frontend_resources(hass)
 
     # Initialize data storage layer
     store = ChoreBotStore(hass)

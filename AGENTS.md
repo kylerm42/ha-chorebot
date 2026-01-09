@@ -2,23 +2,41 @@
 
 This file provides guidance to AI Agents when working with code in this repository.
 
-**Last Updated**: 2025-11-22 - Development Environment: Docker Compose with cross-platform support (macOS/Linux)
+**Last Updated**: 2026-01-09 - Repository split: Integration separated from frontend cards
 
 ## Project Overview
 
-ChoreBot is a Home Assistant custom integration that provides advanced task management with recurring tasks, streak tracking, tag-based organization, and remote backend synchronization (TickTick, with support for future backends like Todoist, Notion, etc.). The project consists of a **Python backend integration** and **TypeScript/Lit frontend Lovelace card**.
+ChoreBot is a Home Assistant custom integration that provides advanced task management with recurring tasks, streak tracking, tag-based organization, points/rewards system, and remote backend synchronization (TickTick, with support for future backends like Todoist, Notion, etc.).
 
-**Current Status**: Backend synchronization complete with TickTick implementation. Frontend card implemented with TypeScript/Lit build system. See `spec/chore-bot.md` for the full technical specification.
+**Architecture**: Two-repository structure for HACS compatibility:
+1. **ha-chorebot** (this repo) - Python backend integration
+2. **ha-chorebot-cards** ([separate repo](https://github.com/kylerm42/ha-chorebot-cards)) - TypeScript/Lit dashboard cards
+
+**Current Status**: Backend complete with TickTick sync and points/rewards system. Frontend cards available in separate HACS plugin repository. See `spec/chore-bot.md` for full technical specification.
 
 ## Architecture
 
-The integration follows a **three-layer architecture** with strict separation of concerns:
+ChoreBot follows a **two-repository architecture** with clean separation:
+
+### This Repository (ha-chorebot) - Backend Integration
+
+**Three-layer backend architecture:**
 
 1. **Data Persistence Layer**: JSON-based storage in `.storage/chorebot_*.json` files. This is the absolute source of truth for all task data, lists, and metadata. See "Storage Architecture" section below for detailed file structure.
 
-2. **Home Assistant Entity Layer**: `TodoListEntity` proxies that expose lists as standard HA `todo` entities. These provide read/write access to the Data Persistence Layer and ensure compatibility with native HA services.
+2. **Home Assistant Entity Layer**: `TodoListEntity` proxies that expose lists as standard HA `todo` entities. Sensor entities expose points/rewards data. These provide read/write access to the Data Persistence Layer and ensure compatibility with native HA services.
 
-3. **Lovelace Frontend Layer**: Custom card (`chorebot-list-card`) built with TypeScript and Lit that interacts with the Entity Layer via standard HA service calls.
+3. **Service Layer**: Custom services for task management, person management, rewards, and sync operations.
+
+### Separate Repository (ha-chorebot-cards) - Frontend Cards
+
+**Single-bundle HACS plugin:**
+- All 4 cards compiled into one JavaScript bundle (`chorebot-cards.js`)
+- HACS automatically serves from `/hacsfiles/chorebot-cards/`
+- Cards interact with backend via standard HA service calls
+- Independent versioning and releases
+
+See [ha-chorebot-cards repository](https://github.com/kylerm42/ha-chorebot-cards) for frontend development.
 
 ### Critical Design Decisions
 
@@ -36,11 +54,13 @@ The integration follows a **three-layer architecture** with strict separation of
 
 This integration uses a **Docker Compose setup** for simplified development without VS Code dependencies. See `DEVELOPMENT.md` for detailed instructions.
 
-### Quick Start
+### Backend-Only Development
+
+For integration development (this repository):
 
 ```bash
 # Easy way (works on both macOS and Linux)
-./dev.sh up           # Start services
+./dev.sh up           # Start HA with integration mounted
 ./dev.sh logs         # View logs
 ./dev.sh restart      # Restart services
 ./dev.sh down         # Stop everything
@@ -54,65 +74,27 @@ docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d
 
 Access at http://localhost:8123
 
-**Platform Note**: The `dev.sh` helper script automatically detects your platform and uses the correct Docker Compose configuration. On Linux, it enables host networking for better integration discovery. On macOS/Windows, it uses standard port mapping.
-
-### Architecture
-
-Two services run in parallel:
-
-1. **homeassistant**: Official `homeassistant/home-assistant:dev` image
-   - Config: `./dev-config` mounted to `/config`
-   - Integration: `./custom_components/chorebot` mounted to `/config/custom_components/chorebot`
-   - Cards: `./dist` mounted to `/config/www/chorebot`
-
-2. **card-builder**: Node.js 20 Alpine container
-   - Runs `npm run watch` automatically
-   - Rebuilds TypeScript cards on file changes
-   - Only watches `src/` directory (won't rebuild on Python changes)
-
-### Frontend Development Workflow
-
-The frontend cards are built with TypeScript and Lit:
-
-1. **Automatic building**: The `card-builder` service runs `npm run watch` by default
-2. **Edit TypeScript**: Changes to `src/` trigger automatic rebuilds within seconds
-3. **Check build logs**: `docker logs -f chorebot-card-builder` or `docker-compose logs -f card-builder`
-4. **View in browser**: Hard refresh (Ctrl+Shift+R) to see changes
-
-**IMPORTANT**:
-
-- **DO NOT manually run `npm run build`** - the `card-builder` container handles this automatically via `npm run watch`
-- Watch mode uses Rollup's `--watch` flag to monitor `src/` for changes and rebuild immediately
-- If builds fail, check `docker logs chorebot-card-builder` for errors
-- File permission issues on built files indicate the container rebuilt them as root - this is normal and doesn't affect functionality
-
-**Build Tools:**
-
-- **Rollup**: Bundles TypeScript source into ES modules
-- **TypeScript**: Type checking and modern JavaScript features
-- **Lit**: Web Components framework for building the card UI
-- **Terser**: Minifies production builds
-
-**Output (6 cards in `dist/`):**
-
-- `chorebot-list-card.js` - Today-focused flat view (47KB)
-- `chorebot-grouped-card.js` - Tag-based grouped view (55KB)
-- `chorebot-add-task-card.js` - Add task dialog (29KB)
-- `chorebot-rewards-card.js` - Points & rewards (37KB)
-- `chorebot-person-points-card.js` - Person points display with progress bar
-- `chorebot-person-rewards-card.js` - Person-specific rewards with inline creation/redemption
+**Architecture**:
+- **homeassistant**: Official `homeassistant/home-assistant:dev` image
+  - Config: `./dev-config` mounted to `/config`
+  - Integration: `./custom_components/chorebot` mounted to `/config/custom_components/chorebot`
 
 ### Testing Changes
 
-- **Python changes**: `docker-compose restart homeassistant` or restart from Developer Tools → Server Controls
-- **Frontend changes**: Automatic rebuild + hard refresh browser (Ctrl+Shift+R)
-  - The `card-builder` container automatically detects changes to `src/*.ts` files
-  - Rebuilds happen within seconds (typically < 1 second after saving)
-  - No manual build commands needed - just save and refresh browser
+- **Python changes**: Restart HA from Developer Tools → Server Controls
 - **Config flow changes**: Remove and re-add the integration
-- **View logs**:
-  - Home Assistant: `docker-compose logs -f homeassistant` or check `dev-config/home-assistant.log`
-  - Card builds: `docker logs -f chorebot-card-builder`
+- **Service testing**: Use Developer Tools → Services
+- **View logs**: `docker-compose logs -f homeassistant` or check `dev-config/home-assistant.log`
+
+### Full-Stack Development (Integration + Cards)
+
+For developing both integration and cards simultaneously, use the submodule-based workflow:
+
+1. Add cards repo as submodule: `git submodule add git@github.com:kylerm42/ha-chorebot-cards.git frontend`
+2. Update Docker Compose to mount both repos
+3. Card builder auto-rebuilds on TypeScript changes
+
+See Phase 3 of `.holocode/20260109-repository-split-plan.md` for detailed setup instructions.
 
 ### Config and Data Location
 
@@ -366,20 +348,11 @@ custom_components/chorebot/
 ├── services.yaml                # Service definitions (create_list, add_task, sync)
 └── strings.json                 # UI translations
 
-src/
-└── main.ts                      # TypeScript source for chorebot-list-card (Lit Web Component)
-
-dist/
-└── chorebot-list-card.js        # Compiled JavaScript bundle (generated by Rollup)
-
-www/                             # (Legacy JS files - deprecated in favor of src/)
-├── chorebot-list-card.js        # Old JavaScript implementation
-└── chorebot-add-button-card.js  # Old JavaScript implementation
-
-Build Configuration:
-├── package.json                 # NPM dependencies (Lit, Rollup, TypeScript)
-├── tsconfig.json                # TypeScript compiler configuration
-└── rollup.config.mjs            # Rollup bundler configuration
+Frontend (Separate Repository):
+└── ha-chorebot-cards/           # https://github.com/kylerm42/ha-chorebot-cards
+    ├── src/                     # TypeScript/Lit card source files
+    ├── dist/                    # Single bundle: chorebot-cards.js
+    └── hacs.json                # HACS plugin metadata
 ```
 
 ## Key Implementation Files
@@ -394,15 +367,8 @@ Build Configuration:
 - **`ticktick_backend.py`**: TickTick-specific implementation of `SyncBackend`. Handles metadata encoding/decoding, task conversion, TickTick date normalization (`_normalize_ticktick_date()` converts TickTick format to ISO Z), and TickTick API interactions.
 - **`ticktick_api_client.py`**: Lightweight REST API client for TickTick Open API using `aiohttp`. Bearer token authentication.
 - **`oauth_api.py`**: Wrapper for OAuth2Session providing automatic token refresh and access token retrieval.
-- **`src/main.ts`**: TypeScript source for the `chorebot-list-card` Lit Web Component. Includes:
-  - TypeScript interfaces for HA entities and task data
-  - `ChoreBotListCard` class extending `LitElement`
-  - Today-focused task filtering logic
-  - Progress calculation and rendering
-  - Inline task editing dialog with full field support
-  - Recurrence rule parsing and building (`rrule` format)
-  - Date/time formatting and timezone handling (UTC ↔ local conversion)
-  - Card configuration system with visual editor support
+- **`people.py`**: People/points/rewards management. `PeopleStore` class handles person profiles, rewards catalog, transactions, and redemptions. Points awarded on task completion with streak bonuses.
+- **`sensor.py`**: Sensor entity (`sensor.chorebot_points`) exposing people balances, rewards, and transactions in attributes.
 
 ## Remote Backend Synchronization
 

@@ -1,5 +1,8 @@
 __pycache__/
-node_modules/
+
+# Frontend submodule (for local dev only)
+# Submodule is tracked in .gitmodules but contents are gitignored
+frontend/
 
 # Dev config - exclude runtime and sensitive files
 dev-config/.storage/*

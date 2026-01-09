@@ -1,30 +1,29 @@
 # ChoreBot Development Guide
 
-This document describes the Docker Compose-based development workflow for ChoreBot custom integration.
+This document describes the Docker Compose-based development workflow for ChoreBot backend integration.
+
+**Note**: Frontend cards are in a [separate repository](https://github.com/kylerm42/ha-chorebot-cards). For full-stack development (integration + cards), see Phase 3 in `.holocode/20260109-repository-split-plan.md`.
 
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- Node.js 20+ (for local testing outside container, optional)
 
 ## Architecture
 
-The development environment consists of two services:
+The development environment consists of one service:
 
 1. **homeassistant**: Official Home Assistant dev image with your integration and config mounted
-2. **card-builder**: Node.js container that automatically rebuilds frontend cards on changes
 
 ## Quick Start
 
 ### macOS / Windows
 
 ```bash
-# Start both services (HA + auto-building cards)
+# Start Home Assistant
 docker compose up -d
 
 # View logs
 docker compose logs -f homeassistant
-docker compose logs -f card-builder
 
 # Stop everything
 docker compose down
@@ -38,7 +37,6 @@ docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d
 
 # View logs
 docker compose logs -f homeassistant
-docker compose logs -f card-builder
 
 # Stop everything
 docker compose -f docker-compose.yml -f docker-compose.linux.yml down
@@ -73,14 +71,12 @@ docker-compose restart homeassistant
 
 **Note**: Only restart the container if you've changed `docker-compose.yml` or need to troubleshoot container issues. For code changes, the UI restart is faster.
 
-### Frontend (TypeScript/Lit) Development
+### Frontend Cards Development
 
-1. Edit files in `src/`
-2. The `card-builder` service automatically rebuilds on save (via `npm run watch`)
-3. Check build logs: `docker-compose logs -f card-builder`
-4. Hard refresh browser to see changes: `Ctrl+Shift+R` (or `Cmd+Shift+R` on Mac)
+Frontend cards are in a separate repository. For cards development:
 
-**Note**: The card builder only watches TypeScript files in `src/`. Backend Python changes won't trigger rebuilds.
+1. See [ha-chorebot-cards repository](https://github.com/kylerm42/ha-chorebot-cards)
+2. For full-stack workflow (integration + cards), use git submodules (see Phase 3 in `.holocode/20260109-repository-split-plan.md`)
 
 ### Config and Data
 
@@ -91,22 +87,16 @@ docker-compose restart homeassistant
   - `.storage/` - HA state and ChoreBot data (gitignored)
   - `home-assistant_v2.db` - SQLite database (gitignored)
   - `custom_components/` - Integration mount point (via Docker)
-  - `www/community/chorebot/` - Frontend cards mount point (via Docker)
 
 ### Volume Mounts
 
-The Docker Compose setup uses these mounts:
+The Docker Compose setup uses this mount:
 
 ```yaml
 homeassistant:
   - ./dev-config → /config # HA config
-  - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code & built cards
-
-card-builder:
-  - ./ → /app # Entire project for building
+  - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code
 ```
-
-**Note**: Built cards in `custom_components/chorebot/dist/` are served by the integration via `/hacsfiles/chorebot/` route.
 
 ## Common Commands
 
@@ -127,13 +117,8 @@ docker compose down
 # Restart HA only
 docker compose restart homeassistant
 
-# Restart card builder (if package.json changes)
-docker compose restart card-builder
-
 # View logs
-docker compose logs -f                # Both services
-docker compose logs -f homeassistant  # HA only
-docker compose logs -f card-builder   # Builder only
+docker compose logs -f homeassistant
 
 # Rebuild containers (after Dockerfile changes)
 docker compose up -d --build
@@ -173,12 +158,9 @@ docker exec -it homeassistant-chorebot-dev tail -f /config/home-assistant.log
        custom_components.chorebot: debug
    ```
 
-### Frontend (TypeScript/Lit)
+### Frontend Cards
 
-1. Check build errors: `docker-compose logs -f card-builder`
-2. Browser console for runtime errors (F12)
-3. Verify files exist: `ls -la dist/`
-4. Check HA is serving files: http://localhost:8123/hacsfiles/chorebot/chorebot-grouped-card.js
+Frontend cards are in a separate repository. See [ha-chorebot-cards](https://github.com/kylerm42/ha-chorebot-cards) for card development.
 
 ## Testing Changes
 
@@ -217,40 +199,11 @@ data:
 service: chorebot.sync
 ```
 
-## Build System
+## Frontend Cards
 
-### Frontend Card Build
+Dashboard cards are in a separate repository: [ha-chorebot-cards](https://github.com/kylerm42/ha-chorebot-cards)
 
-The card builder uses:
-
-- **Rollup**: Bundles TypeScript → JavaScript
-- **TypeScript**: Type checking and modern JS features
-- **Lit**: Web Components framework
-- **Terser**: Minification for production
-
-**IMPORTANT FOR HACS COMPATIBILITY:**
-
-Cards **MUST** be built to `dist/` directory. HACS automatically serves frontend files from `dist/` at `/hacsfiles/{repo_name}/` for plugin-type repositories. See: https://hacs.xyz/docs/publish/plugin/#repository-structure
-
-Build outputs (in `dist/`):
-
-- `chorebot-grouped-card.js` - Tag-based grouped view
-- `chorebot-add-task-card.js` - Add task dialog
-- `chorebot-person-points-card.js` - Person points display
-- `chorebot-person-rewards-card.js` - Person-specific rewards
-
-### Manual Build (Outside Container)
-
-```bash
-# Install dependencies (one-time)
-npm install
-
-# Development mode (auto-rebuild)
-npm run watch
-
-# Production build (minified)
-npm run build
-```
+For frontend development, see that repository's DEVELOPMENT.md.
 
 ## Platform-Specific Networking
 
@@ -298,14 +251,6 @@ The HA container runs as root by default. If you see permission issues:
 # Fix ownership of dev-config
 sudo chown -R $USER:$USER dev-config/
 ```
-
-### Card Changes Not Appearing
-
-1. Check build succeeded: `docker-compose logs card-builder`
-2. Hard refresh browser: `Ctrl+Shift+R`
-3. Check file was updated: `ls -la dist/chorebot-grouped-card.js`
-4. Verify the mount point exists: `docker exec homeassistant-chorebot-dev ls -la /config/www/community/chorebot/`
-5. Clear browser cache if still not working
 
 ### HA Won't Start
 
