@@ -75,6 +75,16 @@ data:
   person_id: person.kyle # Optional: Assign default person for list
 ```
 
+**`chorebot.update_list`** - Update list metadata (name, person assignment):
+
+```yaml
+service: chorebot.update_list
+data:
+  list_id: todo.chorebot_family_tasks
+  name: "Updated List Name"
+  person_id: person.kyle # Or use clear_person: true to remove assignment
+```
+
 **`chorebot.add_task`** - Add a task with full field support:
 
 ```yaml
@@ -140,6 +150,14 @@ data:
   reward_id: "reward_id_here"
 ```
 
+**`chorebot.delete_reward`** - Delete a reward from the system:
+
+```yaml
+service: chorebot.delete_reward
+data:
+  reward_id: "reward_id_here"
+```
+
 **`chorebot.adjust_points`** - Manually adjust points (admin use):
 
 ```yaml
@@ -198,6 +216,13 @@ ChoreBot provides dashboard cards in a [separate repository](https://github.com/
 
 After installing the cards plugin from HACS → Frontend, add cards to your dashboard:
 
+### Available Cards
+
+- **chorebot-grouped-card** - Tag-based grouped task view with progress tracking
+- **chorebot-add-task-card** - Quick task creation with full field support
+- **chorebot-person-points-card** - Visual points balance with progress bar
+- **chorebot-person-rewards-card** - Rewards catalog with inline redemption
+
 ### Quick Examples
 
 ```yaml
@@ -209,10 +234,10 @@ person_entity: person.kyle
 type: custom:chorebot-person-rewards-card
 person_entity: person.kyle
 
-# Grouped Task Card
+# Grouped Task Card (tag-based organization)
 type: custom:chorebot-grouped-card
 entity: todo.chorebot_family_tasks
-person_entity: person.kyle
+person_entity: person.kyle # Optional: filter by person
 
 # Add Task Card
 type: custom:chorebot-add-task-card
@@ -228,7 +253,9 @@ ChoreBot is split into two repositories for HACS compatibility:
 1. **ha-chorebot** (this repo) - Python backend integration
    - TodoListEntity platform for native HA todo entities
    - Points & rewards system with person management
-   - TickTick synchronization (OAuth2)
+   - TickTick synchronization with **Local Master model** (local JSON is source of truth)
+   - Recurring tasks with template + instance architecture
+   - Streak tracking with bonus rewards
    - Custom services for task/reward management
    - Sensor entities exposing points/rewards data
 
@@ -236,6 +263,15 @@ ChoreBot is split into two repositories for HACS compatibility:
    - Single bundle with 4 cards (grouped, add-task, person-points, person-rewards)
    - HACS plugin for automatic frontend resource registration
    - Independent versioning and releases
+
+### Key Features
+
+- **Local Master Sync**: Local JSON storage is the source of truth, sync reconciles with TickTick
+- **Recurring Tasks**: Template + instance model with automatic next occurrence creation
+- **Streak Tracking**: Strict consecutive tracking with configurable streak bonus rewards
+- **Anti-Farming Protection**: Uncompleting tasks disassociates them from streak progression
+- **Person Assignment**: Assign tasks via lists, sections, or individual tasks
+- **Floating Points Animation**: Visual feedback when completing tasks with points
 
 ### Development
 

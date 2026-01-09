@@ -130,6 +130,474 @@
           "task_summary": "TT Kyle",
           "list_id": "test"
         }
+      },
+      {
+        "id": "txn_8a8b5aba29c5",
+        "timestamp": "2026-01-09T19:45:10.888477Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_399555bd8bba",
+        "timestamp": "2026-01-09T19:45:13.359821Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_45e6e07a57ab",
+        "timestamp": "2026-01-09T19:45:15.964730Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_55134c08532f",
+        "timestamp": "2026-01-09T20:03:25.880246Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_2b2e7f16dc5a",
+        "timestamp": "2026-01-09T20:06:59.172343Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_d59d8c52dca4",
+        "timestamp": "2026-01-09T20:07:04.046363Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_7014229e12e4",
+        "timestamp": "2026-01-09T20:07:07.868458Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_4bd2b20818ef",
+        "timestamp": "2026-01-09T20:07:09.063868Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_9bd30004b97b",
+        "timestamp": "2026-01-09T20:09:08.455174Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_087265df3d6e",
+        "timestamp": "2026-01-09T20:09:10.539748Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_5cacd590763e",
+        "timestamp": "2026-01-09T20:09:28.694827Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_64bc747a90ff",
+        "timestamp": "2026-01-09T20:09:29.827327Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_8697e0d0c315",
+        "timestamp": "2026-01-09T20:09:33.394813Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_11ddfe32f7dc",
+        "timestamp": "2026-01-09T20:09:34.169356Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_6c91616a00aa",
+        "timestamp": "2026-01-09T20:09:43.185842Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_484e81d8f800",
+        "timestamp": "2026-01-09T20:09:44.645762Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_06313844a7ff",
+        "timestamp": "2026-01-09T20:12:26.984740Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_2a7d870c6680",
+        "timestamp": "2026-01-09T20:12:27.846353Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_cfd35fce33f5",
+        "timestamp": "2026-01-09T20:13:48.947461Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_230bfe8e6816",
+        "timestamp": "2026-01-09T20:13:50.359655Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_9089303db35b",
+        "timestamp": "2026-01-09T20:13:53.902717Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_bc147bb921e6",
+        "timestamp": "2026-01-09T20:13:57.694954Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_7317d09ea4b6",
+        "timestamp": "2026-01-09T20:14:21.178986Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_373ebaa1b62a",
+        "timestamp": "2026-01-09T20:14:21.827405Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_89b120556c8e",
+        "timestamp": "2026-01-09T20:14:24.843372Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_c90d746c4761",
+        "timestamp": "2026-01-09T20:14:25.421935Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_20dbbe1a3781",
+        "timestamp": "2026-01-09T20:14:28.837045Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_c841b539037e",
+        "timestamp": "2026-01-09T20:14:29.402696Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_f08fb459c6d4",
+        "timestamp": "2026-01-09T20:14:32.840790Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_c35e17d2963e",
+        "timestamp": "2026-01-09T20:15:26.108226Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_6f7934ee84a3",
+        "timestamp": "2026-01-09T20:17:43.088888Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_9ae0588ae8ef",
+        "timestamp": "2026-01-09T20:17:43.998756Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_97e9967581ca",
+        "timestamp": "2026-01-09T20:17:50.447406Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_ff40fc0684ae",
+        "timestamp": "2026-01-09T20:17:51.245571Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_d25f6b4771cf",
+        "timestamp": "2026-01-09T20:17:55.040264Z",
+        "person_id": "person.kyle",
+        "amount": -10,
+        "balance_after": 1000,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_1f55d7129dcf",
+        "timestamp": "2026-01-09T20:17:55.867680Z",
+        "person_id": "person.kyle",
+        "amount": 10,
+        "balance_after": 1010,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "be09948b-bb58-44d6-ad78-b36a3612b72d",
+          "task_summary": "TT Kyle",
+          "list_id": "test"
+        }
       }
     ]
   }
