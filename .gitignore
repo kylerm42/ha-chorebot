@@ -1,8 +1,9 @@
 __pycache__/
 
-# Frontend submodule (for local dev only)
-# Submodule is tracked in .gitmodules but contents are gitignored
-frontend/
+# Frontend submodule contents (tracked via .gitmodules)
+# We track the submodule pointer but not the actual submodule files
+frontend/*
+!frontend/.gitkeep
 
 # Dev config - exclude runtime and sensitive files
 dev-config/.storage/*

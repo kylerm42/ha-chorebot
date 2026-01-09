@@ -71,12 +71,85 @@ docker-compose restart homeassistant
 
 **Note**: Only restart the container if you've changed `docker-compose.yml` or need to troubleshoot container issues. For code changes, the UI restart is faster.
 
-### Frontend Cards Development
+### Full-Stack Development (Integration + Cards)
 
-Frontend cards are in a separate repository. For cards development:
+For developing both integration and cards simultaneously, the setup uses git submodules:
 
-1. See [ha-chorebot-cards repository](https://github.com/kylerm42/ha-chorebot-cards)
-2. For full-stack workflow (integration + cards), use git submodules (see Phase 3 in `.holocode/20260109-repository-split-plan.md`)
+#### Initial Setup
+
+The cards repository is already configured as a submodule at `frontend/`:
+
+```bash
+# Clone integration repo (includes submodule reference)
+git clone git@github.com:kylerm42/ha-chorebot.git
+cd ha-chorebot
+
+# Initialize submodule (automatic via dev.sh, or manual)
+git submodule update --init --recursive
+
+# Start development environment
+./dev.sh up
+```
+
+The `dev.sh up` command automatically initializes the submodule if needed.
+
+#### Development Workflow
+
+**Backend (Python) Changes:**
+1. Edit files in `custom_components/chorebot/`
+2. Restart HA from Developer Tools → Server Controls
+
+**Frontend (TypeScript) Changes:**
+1. Edit files in `frontend/src/`
+2. Card builder auto-rebuilds `frontend/dist/chorebot-cards.js` (watch mode)
+3. Check build logs: `./dev.sh logs card-builder`
+4. Hard refresh browser (Ctrl+Shift+R)
+
+**How It Works:**
+- `card-builder` container mounts `./frontend` (the submodule)
+- Runs `npm run watch` automatically on start
+- Rebuilds single bundle on TypeScript changes
+- `homeassistant` container mounts `./frontend/dist` to `/config/www/community/chorebot-cards`
+- Cards served at `/local/community/chorebot-cards/chorebot-cards.js` (mimics HACS)
+
+#### Submodule Management
+
+```bash
+# Update cards to latest
+cd frontend
+git pull origin main
+cd ..
+git add frontend
+git commit -m "Update cards submodule"
+
+# Make changes in cards repo
+cd frontend
+# Edit src/*.ts files
+git add .
+git commit -m "Card changes"
+git push origin main
+cd ..
+
+# Sync submodule pointer
+git add frontend
+git commit -m "Update cards submodule pointer"
+
+# Push integration changes
+git push origin main
+```
+
+#### Standalone Cards Development
+
+For cards-only development without integration:
+
+```bash
+cd frontend  # or clone ha-chorebot-cards separately
+npm install
+npm run watch
+# Copy dist/chorebot-cards.js to HA manually
+```
+
+See [ha-chorebot-cards DEVELOPMENT.md](https://github.com/kylerm42/ha-chorebot-cards/blob/main/DEVELOPMENT.md) for more details.
 
 ### Config and Data
 
@@ -90,13 +163,22 @@ Frontend cards are in a separate repository. For cards development:
 
 ### Volume Mounts
 
-The Docker Compose setup uses this mount:
+The Docker Compose setup uses these mounts:
 
 ```yaml
 homeassistant:
-  - ./dev-config → /config # HA config
-  - ./custom_components/chorebot → /config/custom_components/chorebot # Live Python code
+  - ./dev-config → /config                                    # HA config
+  - ./custom_components/chorebot → /config/custom_components/chorebot  # Live Python code
+  - ./frontend/dist → /config/www/community/chorebot-cards    # Built cards (mimics HACS path)
+
+card-builder:
+  - ./frontend → /app  # Cards repo for building
 ```
+
+**Key Points:**
+- Cards are served from `/local/community/chorebot-cards/chorebot-cards.js`
+- This mimics the HACS plugin path for production-like testing
+- Card builder watches `frontend/src/` and rebuilds to `frontend/dist/`
 
 ## Common Commands
 

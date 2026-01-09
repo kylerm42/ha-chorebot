@@ -21,6 +21,12 @@ shift || true
 
 case "$CMD" in
     up)
+        # Initialize/update submodule if needed
+        if [ ! -d "frontend/src" ]; then
+            echo "📦 Initializing frontend submodule..."
+            git submodule update --init --recursive
+        fi
+        
         echo "🚀 Starting ChoreBot development environment..."
         docker compose $COMPOSE_FILES up -d "$@"
         echo "✅ Services started!"

@@ -6,8 +6,10 @@ services:
     volumes:
       # Main HA config directory
       - ./dev-config:/config
-      # Mount integration Python files and built frontend cards (live editing)
+      # Mount integration Python files (live editing)
       - ./custom_components/chorebot:/config/custom_components/chorebot
+      # Mount cards repo dist to www/community (mimics HACS plugin path)
+      - ./frontend/dist:/config/www/community/chorebot-cards
     ports:
       - "8123:8123"
     restart: unless-stopped
@@ -21,7 +23,7 @@ services:
     image: node:20-alpine
     working_dir: /app
     volumes:
-      # Mount entire project for access to src, dist, configs
-      - ./:/app
+      # Mount entire cards repo for building
+      - ./frontend:/app
     command: sh -c "npm install && npm run watch"
     restart: unless-stopped
