@@ -802,6 +802,53 @@ All cards automatically use custom display via shared utilities:
       - Consistent terminology throughout UI
       - Enhances engagement (e.g., kids prefer "stars" over "points")
 
+14. **Person Grouped Card** (Completed 2025-01-15):
+    - **Overview**: Mobile-first personal task dashboard combining person points display with tag-grouped task views
+    - **Key Features**:
+      - Interactive person selector dropdown with smooth animations
+      - Auto-detection of logged-in user (fallback to config default → first alphabetically)
+      - Task filtering by selected person using backend-computed `computed_person_id`
+      - Tag-based grouping with per-group progress tracking
+      - Color inheritance from person accent color (config → person profile → theme)
+      - Optional progress bar showing completion percentage
+      - Shared utilities for maximum code reuse (60% reduction via utilities)
+    - **Configuration Options**:
+      - `entity`: Required todo entity (e.g., `todo.chorebot_family_tasks`)
+      - `default_person_entity`: Override auto-detection (e.g., `person.kyle`)
+      - `show_all_people`: Show all people or only those with tasks (default: false)
+      - `show_progress`: Display progress bar in person header (default: true)
+      - `show_title`, `hide_card_background`, `accent_color`: Standard display options
+      - `show_dateless_tasks`, `show_future_tasks`, `show_points`: Task view options
+      - `untagged_header`, `tag_group_order`: Grouping customization
+      - `filter_section_id`: Combine person filter with section filter
+    - **Minimal Example**:
+      ```yaml
+      - type: custom:chorebot-person-grouped-card
+        entity: todo.chorebot_family_tasks
+      ```
+    - **Full Example**:
+      ```yaml
+      - type: custom:chorebot-person-grouped-card
+        entity: todo.chorebot_family_tasks
+        default_person_entity: person.kyle
+        show_all_people: true
+        show_progress: true
+        show_points: true
+        tag_group_order: ["Morning", "Afternoon", "Evening"]
+        filter_section_id: "Morning Routine"
+      ```
+    - **Implementation Details**:
+      - Created `src/person-grouped-card.ts` (~800 lines)
+      - Extracted `src/utils/person-display-utils.ts` with 7 shared functions
+      - Refactored existing cards to use person utilities
+      - Smooth grid-based dropdown animation (GPU-accelerated)
+      - Re-uses grouped-card logic (edit dialog, task completion, confetti)
+      - Backend-computed `computed_person_id` ensures consistency
+    - **Use Cases**:
+      - Mobile personal dashboards with quick person switching
+      - Family task views where each member sees only their tasks
+      - Filtered section views (e.g., "Morning Routine" for specific person)
+
 ### 🚧 In Progress / Next Steps
 
 1. **Testing & Validation**: Test OAuth flow, sync operations, edge cases, conflict resolution

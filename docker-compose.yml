@@ -20,7 +20,7 @@ services:
 
   card-builder:
     container_name: chorebot-card-builder
-    image: node:20-alpine
+    image: node:20
     working_dir: /app
     volumes:
       # Mount entire cards repo for building
