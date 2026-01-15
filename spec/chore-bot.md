@@ -107,11 +107,11 @@ All dates use ISO 8601 format in UTC with Z suffix: `YYYY-MM-DDTHH:MM:SSZ`
   2.  When a recurring task instance is completed after its `due` date, the template's `streak_current` is reset to 0.
   3.  If `streak_current` exceeds `streak_longest`, `streak_longest` is updated.
   4.  A daily background job checks for overdue instances (past due date and not completed) and resets the template's `streak_current` to 0.
-- **Daily Maintenance Job:** Runs at midnight to:
-  1.  Archive completed instances older than 30 days to `chorebot_{list_id}_archive.json`
-  2.  Soft-delete completed recurring instances from the current day (hides them from UI)
+- **Daily Maintenance Job:** Runs at midnight (00:00:00) each day to:
+  1.  Archive completed tasks (both recurring instances and regular tasks) older than 30 days to `chorebot_{list_id}_archive.json`
+  2.  Soft-delete all completed tasks from yesterday or earlier (hides them from UI)
   3.  Reset streaks for templates with overdue instances
-- **Progress Tracking:** Completed instances remain visible for the day they were completed, enabling daily progress tracking (e.g., "5/10 tasks completed today").
+- **Progress Tracking:** Completed tasks remain visible for the day they were completed, enabling daily progress tracking (e.g., "5/10 tasks completed today").
 
 ### 3.3. Remote Backend Synchronization (TickTick, Todoist, etc.)
 

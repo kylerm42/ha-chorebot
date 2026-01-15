@@ -547,7 +547,10 @@ class ChoreBotStore:
         return result
 
     async def async_archive_old_instances(self, list_id: str, days: int = 30) -> int:
-        """Archive instances completed more than N days ago. Returns count archived."""
+        """Archive all completed tasks (recurring instances and regular tasks) more than N days ago.
+        
+        Returns count archived.
+        """
         async with self._lock:
             if list_id not in self._task_stores:
                 _LOGGER.error("Cannot archive for unknown list: %s", list_id)
@@ -566,20 +569,25 @@ class ChoreBotStore:
             # Load from two-array structure
             all_tasks = [Task.from_dict(t) for t in task_data.get("tasks", [])]
 
-            # Find instances to archive (completed recurring instances older than cutoff)
+            # Find tasks to archive (all completed tasks older than cutoff)
+            # This includes both recurring instances and regular tasks
             to_archive = [
                 task
                 for task in all_tasks
-                if task.is_recurring_instance()
-                and task.status == "completed"
+                if task.status == "completed"
                 and task.modified < cutoff_str
             ]
 
             if not to_archive:
                 return 0
 
+            # Count by type for logging
+            recurring_count = sum(1 for t in to_archive if t.is_recurring_instance())
+            regular_count = len(to_archive) - recurring_count
+            
             _LOGGER.info(
-                "Archiving %d old instances from list %s", len(to_archive), list_id
+                "Archiving %d old completed tasks from list %s (%d recurring instances, %d regular tasks)",
+                len(to_archive), list_id, recurring_count, regular_count
             )
 
             # Remove from cache

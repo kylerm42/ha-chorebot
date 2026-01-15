@@ -18,7 +18,7 @@ from homeassistant.helpers import (
     config_validation as cv,
     entity_registry as er,
 )
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
 from homeassistant.util import slugify
 
 from .const import (
@@ -902,7 +902,13 @@ async def _handle_manage_section(
 
 
 async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> None:
-    """Daily maintenance: archive old instances, hide completed instances, check streaks."""
+    """Daily maintenance: archive old completed tasks, soft-delete completed tasks from yesterday, check streaks.
+    
+    Runs at midnight (00:00:00) each day to:
+    1. Archive completed tasks (recurring instances and regular tasks) older than 30 days
+    2. Soft-delete all completed tasks from yesterday or earlier (enables daily progress tracking)
+    3. Reset streaks for recurring templates with overdue instances
+    """
     _LOGGER.debug("Running daily maintenance job")
 
     # Get all lists
@@ -918,12 +924,13 @@ async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> 
                 "Archived %d old instances from list %s", archived_count, list_id
             )
 
-        # 2. Soft-delete completed recurring instances that weren't completed today
+        # 2. Soft-delete ALL completed tasks that weren't completed today
+        # This enables daily progress tracking while cleaning up old completed tasks
         tasks = store.get_tasks_for_list(list_id)
         today = datetime.now(UTC).date()
 
         for task in tasks:
-            if task.is_recurring_instance() and task.status == "completed":
+            if task.status == "completed":
                 # Only soft-delete if NOT completed today
                 if task.last_completed:
                     completed_date = datetime.fromisoformat(
@@ -931,8 +938,10 @@ async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> 
                     ).date()
 
                     if completed_date < today:
+                        task_type = "recurring instance" if task.is_recurring_instance() else "regular task"
                         _LOGGER.debug(
-                            "Soft-deleting completed instance: %s (completed %s)",
+                            "Soft-deleting completed %s: %s (completed %s)",
+                            task_type,
                             task.summary,
                             completed_date,
                         )
@@ -1003,9 +1012,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Wrapper for daily maintenance."""
         await _daily_maintenance(hass, store, now)
 
-    # Run daily at midnight
-    hass.data[DOMAIN]["daily_maintenance"] = async_track_time_interval(
-        hass, daily_maintenance, timedelta(days=1)
+    # Run daily at midnight (hour=0, minute=0, second=0)
+    # Uses async_track_time_change to trigger at a specific time each day
+    hass.data[DOMAIN]["daily_maintenance"] = async_track_time_change(
+        hass, daily_maintenance, hour=0, minute=0, second=0
     )
 
     # Set up periodic sync
