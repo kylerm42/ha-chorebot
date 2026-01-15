@@ -27,7 +27,7 @@
         "summary": "TT Kyle Recurring Morning",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.143892Z",
-        "modified": "2026-01-15T19:55:39.686539Z",
+        "modified": "2026-01-15T23:30:50.287924Z",
         "tags": [
           "morning"
         ],
@@ -40,8 +40,8 @@
             "id": "69163e9672b70c0c7e70f1c6",
             "status": "synced",
             "etag": "i1ygqccm",
-            "last_synced_at": "2026-01-15T19:55:39.687447Z",
-            "last_synced_occurrence_index": 2
+            "last_synced_at": "2026-01-15T23:30:50.290354Z",
+            "last_synced_occurrence_index": 1
           }
         }
       }
@@ -100,12 +100,12 @@
         "summary": "TT Kyle Recurring Morning",
         "status": "completed",
         "created": "2025-11-24T19:03:52.144449Z",
-        "modified": "2026-01-15T19:50:23.795359Z",
-        "due": "2025-11-12T00:00:00Z",
+        "modified": "2026-01-15T23:30:50.283748Z",
+        "due": "2025-11-12T05:00:00Z",
         "tags": [
           "morning"
         ],
-        "last_completed": "2026-01-15T19:50:23.795355Z",
+        "last_completed": "2026-01-15T23:30:50.283664Z",
         "parent_uid": "e428560b-21e5-4fb5-9ebe-25341cb9f0f2",
         "occurrence_index": 0,
         "is_all_day": true,
@@ -116,7 +116,8 @@
         "summary": "TT Kyle",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.144891Z",
-        "modified": "2026-01-12T14:49:55.044484Z",
+        "modified": "2026-01-10T00:20:59.418952Z",
+        "last_completed": "2026-01-10T00:20:57.348135Z",
         "points_value": 10,
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
@@ -124,7 +125,7 @@
             "id": "6914fbfa4c0c4c7fe64dddda",
             "status": "synced",
             "etag": "2b6p2je2",
-            "last_synced_at": "2026-01-12T14:49:55.044955Z"
+            "last_synced_at": "2026-01-10T00:20:59.517439Z"
           }
         }
       },
@@ -185,33 +186,17 @@
         }
       },
       {
-        "uid": "6ecfb0da-404f-4a6e-b0ab-96dbb45208b0",
-        "summary": "TT Kyle Recurring Morning",
-        "status": "completed",
-        "created": "2026-01-15T19:50:14.902319Z",
-        "modified": "2026-01-15T19:55:39.685357Z",
-        "due": "2025-11-13T00:00:00Z",
-        "tags": [
-          "morning"
-        ],
-        "last_completed": "2026-01-15T19:55:39.685342Z",
-        "parent_uid": "e428560b-21e5-4fb5-9ebe-25341cb9f0f2",
-        "occurrence_index": 1,
-        "is_all_day": true,
-        "section_id": null
-      },
-      {
-        "uid": "1995639d-fabb-4957-b48a-1d1e6c0eba3b",
+        "uid": "32c11081-3611-4dd5-8f27-89722976aacb",
         "summary": "TT Kyle Recurring Morning",
         "status": "needs_action",
-        "created": "2026-01-15T19:55:39.686000Z",
-        "modified": "2026-01-15T19:55:39.687068Z",
+        "created": "2026-01-15T23:30:50.286542Z",
+        "modified": "2026-01-15T23:30:50.289216Z",
         "due": "2026-01-15T05:00:00Z",
         "tags": [
           "morning"
         ],
         "parent_uid": "e428560b-21e5-4fb5-9ebe-25341cb9f0f2",
-        "occurrence_index": 2,
+        "occurrence_index": 1,
         "is_all_day": true,
         "section_id": "6914ddf84c0c4c7fe64ddd8e"
       }
@@ -220,17 +205,20 @@
       {
         "id": "6914de074c0c4c7fe64ddd9a",
         "name": "Campbell",
-        "sort_order": 2199023255552
+        "sort_order": 2199023255552,
+        "person_id": "person.campbell"
       },
       {
         "id": "6914c0834c0c4c7fe64ddd2c",
         "name": "Courtney",
-        "sort_order": 1099511627776
+        "sort_order": 1099511627776,
+        "person_id": "person.courtney"
       },
       {
         "id": "6914ddf84c0c4c7fe64ddd8e",
         "name": "Kyle",
-        "sort_order": 0
+        "sort_order": 0,
+        "person_id": "person.kyle"
       }
     ],
     "metadata": {
