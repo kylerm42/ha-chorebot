@@ -9,7 +9,7 @@
         "summary": "TT Kyle Recurring",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.142063Z",
-        "modified": "2025-11-24T19:03:52.142063Z",
+        "modified": "2026-01-16T19:15:08.576682Z",
         "rrule": "FREQ=DAILY;INTERVAL=1",
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "is_template": true,
@@ -17,8 +17,9 @@
           "ticktick": {
             "id": "69163e7672b70c0c7e70f1bb",
             "status": "synced",
-            "etag": "tpziq0o3",
-            "last_synced_at": "2025-11-24T19:03:52.142096Z"
+            "etag": "7g3417gr",
+            "last_synced_at": "2026-01-16T19:15:08.578147Z",
+            "last_synced_occurrence_index": 2
           }
         }
       },
@@ -27,7 +28,11 @@
         "summary": "TT Kyle Recurring Morning",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.143892Z",
+<<<<<<< HEAD
         "modified": "2026-01-15T23:30:50.287924Z",
+=======
+        "modified": "2026-01-16T19:15:08.651150Z",
+>>>>>>> d6cd703 (reorganize documentation)
         "tags": [
           "morning"
         ],
@@ -39,9 +44,15 @@
           "ticktick": {
             "id": "69163e9672b70c0c7e70f1c6",
             "status": "synced",
+<<<<<<< HEAD
             "etag": "i1ygqccm",
             "last_synced_at": "2026-01-15T23:30:50.290354Z",
             "last_synced_occurrence_index": 1
+=======
+            "etag": "8pqujyob",
+            "last_synced_at": "2026-01-16T19:15:08.653227Z",
+            "last_synced_occurrence_index": 2
+>>>>>>> d6cd703 (reorganize documentation)
           }
         }
       }
@@ -50,10 +61,11 @@
       {
         "uid": "9f11ffe4-25eb-4bcb-b64c-145f889fdf62",
         "summary": "TT Kyle Recurring",
-        "status": "needs_action",
+        "status": "completed",
         "created": "2025-11-24T19:03:52.142594Z",
-        "modified": "2025-11-24T19:03:52.142594Z",
+        "modified": "2026-01-16T18:41:56.094225Z",
         "due": "2025-11-18T00:00:00Z",
+        "last_completed": "2026-01-16T18:41:56.094221Z",
         "parent_uid": "9e4ba644-5aa9-471d-bf19-188c30c2ec34",
         "occurrence_index": 0,
         "section_id": "6914ddf84c0c4c7fe64ddd8e"
@@ -82,7 +94,7 @@
         "summary": "TT Kyle Recurring",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.143437Z",
-        "modified": "2025-11-25T17:43:18.325745Z",
+        "modified": "2026-01-16T19:15:08.727552Z",
         "due": "2025-11-26T00:00:00Z",
         "points_value": 31,
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
@@ -90,18 +102,23 @@
           "ticktick": {
             "id": "691b53a34c0c4c70b2ccb1e4",
             "status": "synced",
-            "etag": "52qbtobx",
-            "last_synced_at": "2025-11-25T17:43:19.056959Z"
+            "etag": "x1v0f5z7",
+            "last_synced_at": "2026-01-16T19:15:08.728551Z"
           }
         }
       },
       {
         "uid": "f3c64c62-3b2d-466c-8029-4ab2b9476c0a",
         "summary": "TT Kyle Recurring Morning",
-        "status": "completed",
+        "status": "needs_action",
         "created": "2025-11-24T19:03:52.144449Z",
+<<<<<<< HEAD
         "modified": "2026-01-15T23:30:50.283748Z",
         "due": "2025-11-12T05:00:00Z",
+=======
+        "modified": "2026-01-16T19:15:08.652026Z",
+        "due": "2025-11-12T00:00:00Z",
+>>>>>>> d6cd703 (reorganize documentation)
         "tags": [
           "morning"
         ],
@@ -116,16 +133,25 @@
         "summary": "TT Kyle",
         "status": "needs_action",
         "created": "2025-11-24T19:03:52.144891Z",
+<<<<<<< HEAD
         "modified": "2026-01-10T00:20:59.418952Z",
         "last_completed": "2026-01-10T00:20:57.348135Z",
+=======
+        "modified": "2026-01-16T19:15:08.944143Z",
+>>>>>>> d6cd703 (reorganize documentation)
         "points_value": 10,
         "section_id": "6914ddf84c0c4c7fe64ddd8e",
         "sync": {
           "ticktick": {
             "id": "6914fbfa4c0c4c7fe64dddda",
             "status": "synced",
+<<<<<<< HEAD
             "etag": "2b6p2je2",
             "last_synced_at": "2026-01-10T00:20:59.517439Z"
+=======
+            "etag": "jbdze615",
+            "last_synced_at": "2026-01-16T19:15:08.945033Z"
+>>>>>>> d6cd703 (reorganize documentation)
           }
         }
       },
@@ -198,6 +224,29 @@
         "parent_uid": "e428560b-21e5-4fb5-9ebe-25341cb9f0f2",
         "occurrence_index": 1,
         "is_all_day": true,
+        "section_id": "6914ddf84c0c4c7fe64ddd8e"
+      },
+      {
+        "uid": "9cd37881-81a1-4a60-9798-b7b1489cc3fa",
+        "summary": "TT Kyle Recurring",
+        "status": "completed",
+        "created": "2026-01-16T18:41:56.094951Z",
+        "modified": "2026-01-16T18:42:09.502757Z",
+        "due": "2025-11-19T00:00:00Z",
+        "last_completed": "2026-01-16T18:42:09.502723Z",
+        "parent_uid": "9e4ba644-5aa9-471d-bf19-188c30c2ec34",
+        "occurrence_index": 1,
+        "section_id": null
+      },
+      {
+        "uid": "49263902-b76a-4d50-b2b3-b31aceb63bb7",
+        "summary": "TT Kyle Recurring",
+        "status": "needs_action",
+        "created": "2026-01-16T18:42:09.503532Z",
+        "modified": "2026-01-16T19:15:08.577621Z",
+        "due": "2026-01-16T00:00:00Z",
+        "parent_uid": "9e4ba644-5aa9-471d-bf19-188c30c2ec34",
+        "occurrence_index": 2,
         "section_id": "6914ddf84c0c4c7fe64ddd8e"
       }
     ],
