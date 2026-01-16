@@ -74,7 +74,7 @@ class ChoreBotList(TodoListEntity):
         _LOGGER.info("Initialized ChoreBotList entity: %s (id: %s)", list_name, list_id)
 
     @property
-    def todo_items(self) -> list[TodoItem] | None: # pyright: ignore[reportIncompatibleVariableOverride]
+    def todo_items(self) -> list[TodoItem] | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the todo items (HA format)."""
         # Get tasks from store (templates already separated, only returns tasks)
         tasks = self._store.get_tasks_for_list(self._list_id)
@@ -92,7 +92,7 @@ class ChoreBotList(TodoListEntity):
         return [self._task_to_todo_item(task) for task in visible_tasks]
 
     @property
-    def extra_state_attributes(self) -> dict: # pyright: ignore[reportIncompatibleVariableOverride]
+    def extra_state_attributes(self) -> dict:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Expose additional ChoreBot data to frontend."""
         # Get tasks (regular tasks and recurring instances)
         tasks = self._store.get_tasks_for_list(self._list_id)
@@ -108,6 +108,7 @@ class ChoreBotList(TodoListEntity):
         # HA's state machine won't recognize that the contents changed, causing
         # the UI to show stale data until restart. Deep copy ensures new references.
         import copy
+
         sections = copy.deepcopy(self._store.get_sections_for_list(self._list_id))
 
         # Extract all unique tags from tasks and templates
@@ -843,7 +844,14 @@ class ChoreBotList(TodoListEntity):
     def _calculate_next_due_date_from_template(
         self, template: Task, current_due_str: str | None
     ) -> datetime | None:
-        """Calculate next due date from template's rrule."""
+        """Calculate next due date from template's rrule.
+
+        For overdue tasks, calculates the next occurrence from NOW (matching TickTick's behavior).
+        This allows users to catch up on yesterday's instance and still complete today's instance
+        for points, rather than forcing them to skip today entirely.
+
+        For on-time completions, calculates from the due date to maintain the schedule.
+        """
         if not template.rrule or not current_due_str:
             return None
 
@@ -853,12 +861,23 @@ class ChoreBotList(TodoListEntity):
             if not current_due:
                 return None
 
-            # Parse rrule from template
-            # Create a rrule from the string, starting from current due date
+            # Parse rrule from template, using the original due date as dtstart
             rule = rrulestr(template.rrule, dtstart=current_due)
 
-            # Get next occurrence after current due date
-            return rule.after(current_due)
+            # Get current time in the same timezone as the due date
+            now = datetime.now(current_due.tzinfo if current_due.tzinfo else UTC)
+
+            # For overdue tasks, calculate next occurrence from NOW (TickTick's behavior)
+            # This allows users to complete yesterday's instance and still get today's points
+            # For on-time tasks, calculate from due date to maintain the schedule
+            if now > current_due:
+                # Task is overdue - find next occurrence from now
+                # This will return "today's" instance if it hasn't passed yet,
+                # or tomorrow's instance if today has passed
+                return rule.after(now)
+            else:
+                # Task completed on-time - maintain schedule by calculating from due date
+                return rule.after(current_due)
         except (ValueError, TypeError, AttributeError) as e:
             _LOGGER.error(
                 "Error calculating next due date for template %s: %s", template.uid, e
@@ -914,21 +933,23 @@ class ChoreBotList(TodoListEntity):
 
         for uid in uids:
             task = self._store.get_task(self._list_id, uid)
-            
+
             if task and task.is_recurring():
                 # Recurring task: delete template + all incomplete instances
                 _LOGGER.info(
                     "Deleting recurring task '%s' (uid: %s) - will delete template and all incomplete instances",
                     task.summary,
-                    uid
+                    uid,
                 )
-                deleted_uids = await self._store.async_delete_recurring_task_and_instances(
-                    self._list_id, uid
+                deleted_uids = (
+                    await self._store.async_delete_recurring_task_and_instances(
+                        self._list_id, uid
+                    )
                 )
                 all_deleted_uids.extend(deleted_uids)
                 _LOGGER.info(
                     "Deleted recurring task: %d total items (template + incomplete instances)",
-                    len(deleted_uids)
+                    len(deleted_uids),
                 )
             else:
                 # Regular task: use existing logic

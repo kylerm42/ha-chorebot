@@ -598,6 +598,32 @@
           "task_summary": "TT Kyle",
           "list_id": "test"
         }
+      },
+      {
+        "id": "txn_2ab89e5afd68",
+        "timestamp": "2026-01-16T19:31:19.195867Z",
+        "person_id": "person.kyle",
+        "amount": 1,
+        "balance_after": 1011,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "3ccb3c0a-2f5b-422c-aeb9-4968e3efc8e6",
+          "task_summary": "Recurring",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_9dc03211ef5b",
+        "timestamp": "2026-01-16T20:04:04.558000Z",
+        "person_id": "person.kyle",
+        "amount": 1,
+        "balance_after": 1012,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9f215a08-7f2e-4427-9335-c44b2c224125",
+          "task_summary": "Recurring",
+          "list_id": "test"
+        }
       }
     ]
   }

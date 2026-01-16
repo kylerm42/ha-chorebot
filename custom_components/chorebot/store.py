@@ -406,23 +406,25 @@ class ChoreBotStore:
     ) -> list[str]:
         """
         Delete a recurring template and all its incomplete instances.
-        
+
         When a user deletes a recurring task, this method:
         1. Finds the template (either directly or via parent_uid)
         2. Deletes all incomplete instances (status != "completed")
         3. Deletes the template itself
         4. Preserves completed instances (historical record)
-        
+
         Args:
             list_id: The list containing the task
             task_uid: UID of the task or instance being deleted
-            
+
         Returns:
             list[str]: List of all deleted UIDs (for sync purposes)
         """
         async with self._lock:
             if list_id not in self._tasks_cache:
-                _LOGGER.error("Cannot delete recurring task from unknown list: %s", list_id)
+                _LOGGER.error(
+                    "Cannot delete recurring task from unknown list: %s", list_id
+                )
                 return []
 
             cache = self._tasks_cache[list_id]
@@ -430,7 +432,7 @@ class ChoreBotStore:
 
             # Resolve template UID
             template_uid = None
-            
+
             # Check if the given UID is a template
             if task_uid in cache["templates"]:
                 template_uid = task_uid
@@ -440,14 +442,18 @@ class ChoreBotStore:
                 task = cache["tasks"][task_uid]
                 if task.parent_uid:
                     template_uid = task.parent_uid
-                    _LOGGER.debug("Task %s is an instance with parent %s", task_uid, template_uid)
+                    _LOGGER.debug(
+                        "Task %s is an instance with parent %s", task_uid, template_uid
+                    )
                 else:
-                    # Not a recurring task, just delete the single task
+                    # Not a recurring task, just delete the single task (inline logic, we already hold lock)
                     _LOGGER.warning(
                         "Task %s is not a recurring task, falling back to regular delete",
-                        task_uid
+                        task_uid,
                     )
-                    await self.async_delete_task(list_id, task_uid)
+                    task.mark_deleted()
+                    del cache["tasks"][task_uid]
+                    await self.async_save_tasks(list_id)
                     return [task_uid]
             else:
                 _LOGGER.error("Task %s not found in list %s", task_uid, list_id)
@@ -455,26 +461,36 @@ class ChoreBotStore:
 
             # Verify template exists
             if template_uid not in cache["templates"]:
-                _LOGGER.error(
-                    "Template %s not found for recurring task deletion (orphaned instance?)",
-                    template_uid
+                _LOGGER.warning(
+                    "Template %s not found for recurring task deletion (orphaned instance?). "
+                    "Deleting orphaned instance %s.",
+                    template_uid,
+                    task_uid,
                 )
-                # Fallback: just delete the instance if template is missing
+                # Fallback: just delete the orphaned instance (inline logic, we already hold lock)
                 if task_uid in cache["tasks"]:
-                    await self.async_delete_task(list_id, task_uid)
+                    task = cache["tasks"][task_uid]
+                    task.mark_deleted()
+                    del cache["tasks"][task_uid]
+                    await self.async_save_tasks(list_id)
                     return [task_uid]
-                return []
+                else:
+                    _LOGGER.error(
+                        "Orphaned instance %s not found in tasks cache", task_uid
+                    )
+                    return []
 
             # Get all instances for this template
             instances = [
-                task for task in cache["tasks"].values()
+                task
+                for task in cache["tasks"].values()
                 if task.parent_uid == template_uid
             ]
 
             _LOGGER.info(
                 "Deleting recurring task: template=%s, total_instances=%d",
                 template_uid,
-                len(instances)
+                len(instances),
             )
 
             # Delete incomplete instances only (preserve completed instances)
@@ -483,7 +499,7 @@ class ChoreBotStore:
                     _LOGGER.debug(
                         "Deleting incomplete instance: %s (status=%s)",
                         instance.uid,
-                        instance.status
+                        instance.status,
                     )
                     instance.mark_deleted()
                     del cache["tasks"][instance.uid]
@@ -493,7 +509,7 @@ class ChoreBotStore:
                         "Preserving instance: %s (status=%s, deleted=%s)",
                         instance.uid,
                         instance.status,
-                        instance.is_deleted()
+                        instance.is_deleted(),
                     )
 
             # Delete the template
@@ -505,7 +521,7 @@ class ChoreBotStore:
             _LOGGER.info(
                 "Deleted recurring task: template + %d incomplete instances (preserved %d completed)",
                 len(deleted_uids) - 1,  # -1 for template
-                len([i for i in instances if i.status == "completed"])
+                len([i for i in instances if i.status == "completed"]),
             )
 
             # Save changes
@@ -623,7 +639,9 @@ class ChoreBotStore:
         # CRITICAL: Must return the actual cached list, not a default empty list
         # If list_id is not in cache, initialize it properly
         if list_id not in self._sections_cache:
-            _LOGGER.warning("Sections cache miss for list %s, initializing empty list", list_id)
+            _LOGGER.warning(
+                "Sections cache miss for list %s, initializing empty list", list_id
+            )
             self._sections_cache[list_id] = []
         return self._sections_cache[list_id]
 

@@ -1,8 +1,11 @@
 # TickTick Synchronization Architecture
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** 2026-01-16  
 **Status:** Comprehensive Technical Reference
+
+**Recent Changes:**
+- **v1.1 (2026-01-16)**: Added "Overdue Task Completion Behavior" section documenting the fix for recurring task date calculation bug
 
 ---
 
@@ -419,7 +422,7 @@ Triggered by:
 | **Remove task from section** | Pull sync: `columnId` null/missing | Task's `section_id` set to None | TickTick is source of truth for section assignment |
 | **Complete recurring task** | Pull sync: due date changed on template | Old instance marked complete, new instance created | Uses `last_synced_occurrence_index` to find old instance |
 | **Update recurring task** | Pull sync: etag changed on template | Template and active instances updated | Changes propagate to all incomplete instances |
-| **Delete recurring task** | Pull sync: missing from bulk query, 404 on fetch | Template soft deleted, all instances hidden | Local maintains history |
+| **Delete recurring task** | Pull sync: missing from bulk query, individual fetch returns 200 with repeatFlag | Template + all instances soft deleted | Special handling: TickTick API returns 200 for deleted recurring tasks, detected by absence from bulk query |
 
 ---
 
@@ -598,6 +601,48 @@ Recurring tasks use a **template + instance model** that only partially syncs to
 - Updating an instance locally → no push (unless updating template)
 - Completing an instance locally → pushes template with new due date
 - Creating instances locally (from completion) → no push
+
+### Overdue Task Completion Behavior
+
+**Fixed:** 2026-01-16 - Changed next occurrence calculation to match TickTick's behavior
+
+**Problem (Before Fix):**
+When completing an overdue recurring task, ChoreBot calculated the next occurrence from the **old due date** instead of from **now**, causing:
+- 38-day overdue task → next instance due 37 days ago
+- Mismatch with TickTick (which correctly calculated "due today")
+- Users couldn't catch up and earn today's points
+
+**Solution (After Fix):**
+Next occurrence is now calculated from **now** for overdue tasks, matching TickTick's behavior:
+
+```python
+# In _calculate_next_due_date_from_template()
+if now > current_due:
+    # Task is overdue - calculate from now (TickTick's behavior)
+    return rule.after(now)
+else:
+    # Task completed on-time - maintain schedule
+    return rule.after(current_due)
+```
+
+**Benefits:**
+- **Catch-up support**: Complete yesterday's instance, get yesterday's points, then immediately complete today's instance for today's points
+- **Sync alignment**: Both HA and TickTick show the same due date
+- **Points system**: Users don't lose out on points due to forgetting to check off tasks
+
+**Example Scenarios:**
+
+| Scenario | Old Behavior | New Behavior |
+|----------|-------------|--------------|
+| Complete 38-day overdue daily task | Next = 37 days ago ❌ | Next = today ✅ |
+| Complete yesterday's daily task today | Next = tomorrow (can't get today's points) ❌ | Next = today (can get both days' points) ✅ |
+| Complete today's task on-time | Next = tomorrow ✅ | Next = tomorrow ✅ (unchanged) |
+
+**Points Scenario:**
+1. Forgot to check off yesterday's "take vitamins" task
+2. Remember today, check off yesterday's instance → +10 points
+3. New instance appears for today → check it off immediately → +10 points
+4. Total: 20 points (both days) instead of only 10 points
 
 ---
 
@@ -978,6 +1023,48 @@ if tt_task.get("status") == 2:  # Completed
             _LOGGER.debug("Skipping old completed task: %s", tt_task["title"])
             continue
 ```
+
+---
+
+### 7. **Orphaned Recurring Template Detection**
+
+**Issue:** When a recurring task is deleted in TickTick, the API behavior differs from regular tasks:
+- Bulk query (`/project/{id}/data`) excludes the task
+- Individual query (`/project/{id}/task/{task_id}`) still returns 200 OK with full task data
+
+**Impact:** Without special handling, orphaned recurring templates would persist locally forever because the orphan detection logic assumes "200 OK = task was completed" rather than "task was deleted."
+
+**Solution (Implemented 2026-01-16):** Added special handling for recurring templates in orphan detection:
+
+```python
+# In async_pull_changes(), after individual task fetch succeeds:
+if local_task.is_recurring_template() and tt_task.get("repeatFlag"):
+    # Template not in bulk response but API still returns it = deleted remotely
+    # Delete template AND all its instances
+    instances = self.store.get_instances_for_template(list_id, local_task.uid)
+    
+    _LOGGER.info("ORPHANED recurring template: soft-deleting template and %d instances", len(instances))
+    
+    # Soft-delete template
+    local_task.mark_deleted()
+    await self.store.async_update_task(local_list_id, local_task)
+    
+    # Soft-delete all instances
+    for instance in instances:
+        if not instance.is_deleted():
+            instance.mark_deleted()
+            await self.store.async_update_task(local_list_id, instance)
+```
+
+**Behavior:**
+- Recurring template not in bulk response → detected as deleted remotely
+- Template soft-deleted locally (sets `deleted_at`)
+- All instances (completed and incomplete) soft-deleted
+- Respects user's remote deletion action
+- Maintains local history (soft delete, not hard delete)
+
+**Why This Happens:**
+TickTick's API behavior for deleted recurring tasks differs from regular tasks. The individual task endpoint continues returning task data even after deletion, possibly due to how TickTick handles recurring task records internally. This necessitates special detection logic based on the task's presence in bulk queries.
 
 ---
 

@@ -554,13 +554,15 @@ class TickTickBackend(SyncBackend):
                         # Start with existing section if it exists (preserves person_id and other local fields)
                         section = existing_sections_map.get(col_id, {}).copy()
                         # Update with TickTick data (name and sort_order from remote)
-                        section.update({
-                            "id": col_id,
-                            "name": col.get("name"),
-                            "sort_order": col.get("sortOrder", 0),
-                        })
+                        section.update(
+                            {
+                                "id": col_id,
+                                "name": col.get("name"),
+                                "sort_order": col.get("sortOrder", 0),
+                            }
+                        )
                         sections.append(section)
-                        
+
                         # Log if we preserved a person_id during merge
                         if "person_id" in section:
                             _LOGGER.info(
@@ -715,9 +717,88 @@ class TickTickBackend(SyncBackend):
                             tt_task = await self._client.get_task(
                                 project_id, ticktick_id
                             )
-                            # Task exists on TickTick - it's likely completed, update locally
+
+                            # Special handling for recurring templates:
+                            # If a template is missing from bulk response but still exists individually,
+                            # it might be "hidden" in TickTick (deleted but API still returns it).
+                            # In this case, delete the template AND all its instances to respect the
+                            # remote deletion.
+                            if local_task.is_recurring_template() and tt_task.get(
+                                "repeatFlag"
+                            ):
+                                instances = self.store.get_instances_for_template(
+                                    local_list_id, local_task.uid
+                                )
+                                active_instances = [
+                                    i
+                                    for i in instances
+                                    if i.status != "completed" and not i.is_deleted()
+                                ]
+
+                                # Template not in bulk response = user deleted it remotely
+                                # Delete template and all instances
+                                _LOGGER.info(
+                                    "ORPHANED recurring template on TickTick: '%s' (uid: %s) - "
+                                    "deleted remotely, soft-deleting template and %d instance(s) locally",
+                                    local_task.summary,
+                                    local_task.uid,
+                                    len(instances),
+                                )
+
+                                # Soft-delete the template
+                                local_task.mark_deleted()
+                                await self.store.async_update_task(
+                                    local_list_id, local_task
+                                )
+                                stats["deleted"] += 1
+
+                                # Soft-delete all instances
+                                for instance in instances:
+                                    if not instance.is_deleted():
+                                        instance.mark_deleted()
+                                        await self.store.async_update_task(
+                                            local_list_id, instance
+                                        )
+                                        stats["deleted"] += 1
+                                        _LOGGER.debug(
+                                            "Soft-deleted instance '%s' of orphaned template",
+                                            instance.uid,
+                                        )
+
+                                continue  # Skip the normal update logic
+                                active_instances = [
+                                    i
+                                    for i in instances
+                                    if i.status != "completed" and not i.is_deleted()
+                                ]
+
+                                if not active_instances:
+                                    # No active instances - template should be cleaned up
+                                    _LOGGER.info(
+                                        "ORPHANED recurring template on TickTick: '%s' (uid: %s) - "
+                                        "no active instances, soft-deleting locally",
+                                        local_task.summary,
+                                        local_task.uid,
+                                    )
+                                    local_task.mark_deleted()
+                                    await self.store.async_update_task(
+                                        local_list_id, local_task
+                                    )
+                                    stats["deleted"] += 1
+                                    continue  # Skip the normal update logic
+                                else:
+                                    # Has active instances - keep template but log warning
+                                    _LOGGER.warning(
+                                        "Recurring template '%s' (uid: %s) not in bulk response "
+                                        "but has %d active instance(s) - keeping template",
+                                        local_task.summary,
+                                        local_task.uid,
+                                        len(active_instances),
+                                    )
+
+                            # Task exists on TickTick - update locally (likely completed or just hidden from bulk)
                             _LOGGER.info(
-                                "COMPLETED task on TickTick: '%s' (uid: %s) - updating locally",
+                                "UPDATED task from TickTick individual query: '%s' (uid: %s)",
                                 local_task.summary,
                                 local_task.uid,
                             )
