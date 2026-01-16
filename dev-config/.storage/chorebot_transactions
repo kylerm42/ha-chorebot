@@ -624,6 +624,58 @@
           "task_summary": "Recurring",
           "list_id": "test"
         }
+      },
+      {
+        "id": "txn_83fbd0e678e1",
+        "timestamp": "2026-01-16T20:22:48.226947Z",
+        "person_id": "person.kyle",
+        "amount": 1,
+        "balance_after": 1013,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "6261939e-8689-4df9-b964-ef010bfba38c",
+          "task_summary": "Recurring",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_be1dc1b25399",
+        "timestamp": "2026-01-16T20:31:53.140703Z",
+        "person_id": "person.kyle",
+        "amount": 1,
+        "balance_after": 1014,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "3234e778-e934-408b-9bce-12045f17d59e",
+          "task_summary": "Recurring",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_6b7e84a8149a",
+        "timestamp": "2026-01-16T20:35:56.484894Z",
+        "person_id": "person.kyle",
+        "amount": 1,
+        "balance_after": 1015,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "85fc81dc-123f-45cd-8cd1-403181bbb440",
+          "task_summary": "Recurring",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_ff178a522dde",
+        "timestamp": "2026-01-16T20:37:47.878065Z",
+        "person_id": "person.kyle",
+        "amount": 1,
+        "balance_after": 1016,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "db4beafa-4fdd-4e15-9d90-49f12fd65996",
+          "task_summary": "Recurring 2",
+          "list_id": "test"
+        }
       }
     ]
   }

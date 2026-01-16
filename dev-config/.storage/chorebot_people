@@ -6,9 +6,9 @@
     "people": {
       "person.kyle": {
         "entity_id": "person.kyle",
-        "points_balance": 1012,
-        "lifetime_points": 222,
-        "last_updated": "2026-01-16T20:04:04.558000Z",
+        "points_balance": 1016,
+        "lifetime_points": 226,
+        "last_updated": "2026-01-16T20:37:47.878065Z",
         "accent_color": "#b29fe8"
       },
       "person.other": {

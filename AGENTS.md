@@ -132,7 +132,7 @@ ChoreBot uses a **split storage model** with separate files optimized for differ
 ├── chorebot_transactions              # Cold: audit trail (rarely read, append-only)
 ├── chorebot_redemptions               # Cold: redemption history (rarely read, append-only)
 ├── chorebot_list_{list_id}            # List data: tasks, templates, sections, list_metadata
-└── chorebot_list_{list_id}_archive    # Archived completed tasks (recurring instances and regular tasks, 30+ days old)
+└── chorebot_list_{list_id}_archive    # Archived completed instances (30+ days old)
 ```
 
 ### Design Rationale
@@ -267,7 +267,7 @@ Tasks are stored in `.storage/chorebot_list_{list_id}.json` using a **two-array 
 - **Templates** store the `rrule`, default tags, and accumulated streak data. They have `is_template: true`, no `due` date, and are physically stored in the `recurring_templates` array. Hidden from UI.
 - **Instances** are individual occurrences with specific due dates. They have `parent_uid` pointing to their template and `occurrence_index` tracking their sequence. Stored in the `tasks` array alongside regular tasks.
 - **No Streak Duplication**: Instances do NOT store `streak_current` or `streak_longest`. They reference their parent template for current streak values.
-- **Archive Storage**: `chorebot_list_{list_id}_archive.json` stores completed tasks (both recurring instances and regular tasks) older than 30 days.
+- **Archive Storage**: `chorebot_list_{list_id}_archive.json` stores completed instances older than 30 days.
 
 ### Recurring Instance Completion Logic
 
@@ -616,7 +616,7 @@ All cards automatically use custom display via shared utilities:
 - **Check for existing instances** before creating new ones to prevent duplicates (by `occurrence_index`)
 - **Completed instances stay visible** until midnight when daily maintenance job soft-deletes them
 - **Streak tracking is strict consecutive** - late completion resets streak to 0
-- Daily maintenance job runs at midnight (00:00:00) each day: archives completed tasks 30+ days old (both recurring instances and regular tasks), soft-deletes all completed tasks from yesterday or earlier, resets streaks for overdue recurring templates
+- Daily maintenance job runs at midnight: archives old instances, soft-deletes completed instances, resets streaks for overdue instances
 - **Storage file naming**: List files use `chorebot_list_{list_id}` prefix to avoid namespace collisions. Archive files use `chorebot_list_{list_id}_archive`.
 - **People data optimization**: Use specific save methods (`async_save_people()`, `async_save_rewards()`, etc.) instead of `async_save()` to avoid writing all 4 files on every operation.
 
@@ -644,7 +644,7 @@ All cards automatically use custom display via shared utilities:
    - Strict consecutive streak tracking
    - Duplicate prevention via `occurrence_index`
 3. **Custom Services**: `chorebot.create_list`, `chorebot.add_task`, and `chorebot.sync` with full field support
-4. **Daily Maintenance Job**: Runs at midnight to: (1) Archive completed tasks 30+ days old, (2) Soft-delete completed tasks from yesterday or earlier, (3) Reset streaks for overdue recurring templates
+4. **Daily Maintenance Job**: Archival (30+ days), soft-deletion of completed instances, streak resets
 5. **Backend Synchronization Infrastructure**:
    - Native HA OAuth2 integration with `application_credentials`
    - Abstract `SyncBackend` interface for multi-provider support

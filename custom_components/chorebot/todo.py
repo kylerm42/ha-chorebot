@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 import logging
 
 from dateutil.rrule import rrulestr
@@ -798,6 +798,7 @@ class ChoreBotList(TodoListEntity):
                     is_template=False,
                     occurrence_index=next_occurrence_index,
                     is_all_day=template.is_all_day,  # Inherit from template
+                    section_id=template.section_id,  # Inherit section from template
                 )
 
                 _LOGGER.info("Created new instance for next occurrence: %s", next_due)
@@ -871,10 +872,22 @@ class ChoreBotList(TodoListEntity):
             # This allows users to complete yesterday's instance and still get today's points
             # For on-time tasks, calculate from due date to maintain the schedule
             if now > current_due:
-                # Task is overdue - find next occurrence from now
-                # This will return "today's" instance if it hasn't passed yet,
-                # or tomorrow's instance if today has passed
-                return rule.after(now)
+                # Task is overdue - find next occurrence based on task type
+
+                if template.is_all_day:
+                    # For all-day tasks, find "today's" occurrence
+                    # All-day tasks represent "do it anytime today", so even though
+                    # today's occurrence (midnight) is technically in the past, it's
+                    # still valid to complete today
+                    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+                    # Get the first occurrence at or after today's midnight
+                    # Subtract 1 second to ensure we get today's occurrence, not tomorrow's
+                    return rule.after(today_start - timedelta(seconds=1))
+                else:
+                    # For timed tasks, find next occurrence after now
+                    # Could be later today or on a future day
+                    return rule.after(now)
             else:
                 # Task completed on-time - maintain schedule by calculating from due date
                 return rule.after(current_due)

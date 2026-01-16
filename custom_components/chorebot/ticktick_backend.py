@@ -157,7 +157,9 @@ class TickTickBackend(SyncBackend):
 
         return user_description, metadata
 
-    def _format_ticktick_date(self, iso_date: str) -> tuple[str, str]:
+    def _format_ticktick_date(
+        self, iso_date: str, is_all_day: bool = False
+    ) -> tuple[str, str]:
         """Convert ISO 8601 date to TickTick format with system timezone.
 
         TickTick expects dates in format: yyyy-MM-dd'T'HH:mm:ss+0000
@@ -165,6 +167,7 @@ class TickTickBackend(SyncBackend):
 
         Args:
             iso_date: Date string in ISO 8601 format (may be naive or aware)
+            is_all_day: Whether this is an all-day task (affects date handling)
 
         Returns:
             Tuple of (formatted_date_string, timezone_name)
@@ -191,12 +194,22 @@ class TickTickBackend(SyncBackend):
             # Fallback: assume it's a naive datetime in system timezone
             dt = datetime.fromisoformat(iso_date)
 
-        # If datetime is naive, assume it's in system timezone
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=system_tz)
+        if is_all_day:
+            # For all-day tasks, extract the UTC date and create a new datetime
+            # at midnight in the system timezone
+            # This prevents "2026-01-16T00:00:00Z" from becoming Jan 15 in EST
+            year = dt.year if dt.tzinfo is None else dt.astimezone(UTC).year
+            month = dt.month if dt.tzinfo is None else dt.astimezone(UTC).month
+            day = dt.day if dt.tzinfo is None else dt.astimezone(UTC).day
+
+            # Create new datetime at midnight in system timezone
+            dt = datetime(year, month, day, 0, 0, 0, tzinfo=system_tz)
         else:
-            # Convert to system timezone
-            dt = dt.astimezone(system_tz)
+            # For timed tasks, convert to system timezone
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=system_tz)
+            else:
+                dt = dt.astimezone(system_tz)
 
         # Format for TickTick: yyyy-MM-dd'T'HH:mm:ss+0000
         # Get the UTC offset in the format +0000 or -0500
@@ -253,7 +266,9 @@ class TickTickBackend(SyncBackend):
 
         # Add due date (for instances or regular tasks)
         if task.due and not task.is_template:
-            formatted_date, timezone_name = self._format_ticktick_date(task.due)
+            formatted_date, timezone_name = self._format_ticktick_date(
+                task.due, task.is_all_day
+            )
             ticktick_task["dueDate"] = formatted_date
             ticktick_task["timeZone"] = timezone_name
             ticktick_task["isAllDay"] = task.is_all_day  # Use task's is_all_day flag
@@ -289,7 +304,7 @@ class TickTickBackend(SyncBackend):
                     current_instance = incomplete_instances[0]
                     if current_instance.due:
                         formatted_date, timezone_name = self._format_ticktick_date(
-                            current_instance.due
+                            current_instance.due, task.is_all_day
                         )
                         ticktick_task["dueDate"] = formatted_date
                         ticktick_task["timeZone"] = timezone_name
@@ -461,7 +476,7 @@ class TickTickBackend(SyncBackend):
                     # Update TickTick task with new due date (if instance has one)
                     if latest_instance.due:
                         formatted_date, timezone_name = self._format_ticktick_date(
-                            latest_instance.due
+                            latest_instance.due, task.is_all_day
                         )
                         update_data = {
                             "id": ticktick_id,
@@ -982,6 +997,7 @@ class TickTickBackend(SyncBackend):
                     is_template=False,
                     occurrence_index=next_occurrence_index,
                     is_all_day=template.is_all_day,
+                    section_id=template.section_id,  # Inherit section from template
                 )
 
                 await self.store.async_add_task(list_id, new_instance)
