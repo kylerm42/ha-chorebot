@@ -10,6 +10,7 @@ from uuid import uuid4
 from .const import (
     FIELD_DELETED_AT,
     FIELD_IS_ALL_DAY,
+    FIELD_IS_DATELESS_RECURRING,
     FIELD_IS_TEMPLATE,
     FIELD_LAST_COMPLETED,
     FIELD_OCCURRENCE_INDEX,
@@ -50,6 +51,7 @@ class Task:
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
     is_all_day: bool = False  # True if this is an all-day task (no specific time)
     section_id: str | None = None  # Section/column this task belongs to
+    is_dateless_recurring: bool = False  # True if recurring without due dates (templates only)
     custom_fields: dict[str, Any] = field(
         default_factory=dict
     )  # Backend-specific metadata
@@ -138,6 +140,8 @@ class Task:
         result[FIELD_SECTION_ID] = self.section_id
         if self.is_template:
             result[FIELD_IS_TEMPLATE] = self.is_template
+        if self.is_dateless_recurring:
+            result[FIELD_IS_DATELESS_RECURRING] = self.is_dateless_recurring
 
         # Add sync metadata (backend-specific)
         if self.sync:
@@ -179,6 +183,7 @@ class Task:
             occurrence_index=data.get(FIELD_OCCURRENCE_INDEX, 0),
             is_all_day=data.get(FIELD_IS_ALL_DAY, False),
             section_id=data.get(FIELD_SECTION_ID),
+            is_dateless_recurring=data.get(FIELD_IS_DATELESS_RECURRING, False),
             custom_fields={},  # No longer used for ChoreBot fields
             sync=data.get("sync", {}),
         )
@@ -188,8 +193,12 @@ class Task:
         return self.deleted_at is not None
 
     def is_recurring_template(self) -> bool:
-        """Check if task is a recurring task template."""
-        return self.is_template and self.rrule is not None
+        """Check if task is a recurring task template (date-based or dateless)."""
+        return self.is_template and (self.rrule is not None or self.is_dateless_recurring)
+
+    def is_dateless_recurring_template(self) -> bool:
+        """Check if task is a dateless recurring template."""
+        return self.is_template and self.is_dateless_recurring
 
     def is_recurring_instance(self) -> bool:
         """Check if task is an instance of a recurring task."""

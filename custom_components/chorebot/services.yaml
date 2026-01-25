@@ -74,11 +74,18 @@ add_task:
         text:
     rrule:
       name: Recurrence Rule
-      description: iCalendar RRULE string for recurring tasks (e.g., "FREQ=DAILY;INTERVAL=1" for daily tasks).
+      description: iCalendar RRULE string for recurring tasks (e.g., "FREQ=DAILY;INTERVAL=1" for daily tasks). Requires 'due' to be set. Mutually exclusive with is_dateless_recurring.
       required: false
       example: "FREQ=DAILY;INTERVAL=1"
       selector:
         text:
+    is_dateless_recurring:
+      name: Dateless Recurring
+      description: Create a recurring task without due dates that spawns a new instance immediately upon completion. Mutually exclusive with rrule.
+      required: false
+      default: false
+      selector:
+        boolean:
 
 update_task:
   name: Update Task

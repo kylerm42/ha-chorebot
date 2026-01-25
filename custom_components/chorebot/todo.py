@@ -230,18 +230,20 @@ class ChoreBotList(TodoListEntity):
         points_value: int = 0,
         streak_bonus_points: int = 0,
         streak_bonus_interval: int = 0,
+        is_dateless_recurring: bool = False,
     ) -> None:
         """Internal method to create task(s) - used by both entity and services.
 
         This is the single source of truth for task creation.
-        Handles regular tasks and recurring tasks (template + instance).
+        Handles regular tasks, date-based recurring, and dateless recurring tasks.
         """
         _LOGGER.info(
-            "Creating task internally: %s (recurring=%s)", summary, bool(rrule)
+            "Creating task internally: %s (recurring=%s, dateless=%s)", 
+            summary, bool(rrule), is_dateless_recurring
         )
 
         if rrule and due:
-            # Create recurring task: template + first instance
+            # Case 1: Date-based recurring task (existing logic)
             template = Task.create_new(
                 summary=summary,
                 description=description,
@@ -272,7 +274,7 @@ class ChoreBotList(TodoListEntity):
             )
             # Note: Instances do NOT store bonus fields - they reference their parent template
 
-            _LOGGER.debug("Creating recurring task template and first instance")
+            _LOGGER.debug("Creating date-based recurring task template and first instance")
             await self._store.async_add_task(self._list_id, template)
             await self._store.async_add_task(self._list_id, first_instance)
 
@@ -282,6 +284,55 @@ class ChoreBotList(TodoListEntity):
             # Push to remote backend if sync is enabled (only sync template for recurring)
             if self._sync_coordinator:
                 await self._sync_coordinator.async_push_task(self._list_id, template)
+
+        elif is_dateless_recurring:
+            # Case 2: Dateless recurring task (NEW)
+            # Validation: Cannot have both rrule and dateless
+            if rrule:
+                _LOGGER.error("Cannot create task with both rrule and is_dateless_recurring")
+                return
+
+            # Create template
+            template = Task.create_new(
+                summary=summary,
+                description=description,
+                due=None,
+                tags=tags or [],
+                rrule=None,  # No rrule for dateless
+                is_template=True,
+                is_all_day=False,
+                section_id=section_id,
+                points_value=points_value,
+            )
+            template.is_dateless_recurring = True  # Mark as dateless (template only)
+            template.streak_bonus_points = streak_bonus_points
+            template.streak_bonus_interval = streak_bonus_interval
+
+            # Create first instance (no is_dateless_recurring field needed)
+            first_instance = Task.create_new(
+                summary=summary,
+                description=description,
+                due=None,  # Dateless instance
+                tags=(tags or []).copy() if tags else [],
+                rrule=None,
+                parent_uid=template.uid,
+                is_template=False,
+                occurrence_index=0,
+                is_all_day=False,
+                section_id=section_id,
+                points_value=points_value,
+            )
+
+            _LOGGER.info("Creating dateless recurring task (local-only, no sync)")
+            await self._store.async_add_task(self._list_id, template)
+            await self._store.async_add_task(self._list_id, first_instance)
+
+            # Write state immediately
+            self.async_write_ha_state()
+
+            # DO NOT sync dateless recurring to TickTick (local-only)
+            _LOGGER.debug("Dateless recurring task created, skipping sync")
+
         else:
             # Create regular task
             task = Task.create_new(
@@ -723,37 +774,49 @@ class ChoreBotList(TodoListEntity):
             _LOGGER.error("Template not found for instance: %s", instance.parent_uid)
             return
 
-        # Check if completed on time
-        completed_on_time = False
-        if instance.due:
-            due_dt = self._parse_datetime(instance.due)
-            if instance.is_all_day:
-                # For all-day tasks, compare dates only
-                # Task completed "on time" if completed on or before due date
-                now = datetime.now(UTC)
-                completed_on_time = due_dt and now.date() <= due_dt.date()
-            else:
-                # For timed tasks, compare full datetime
-                now = datetime.now(due_dt.tzinfo if due_dt else None)
-                completed_on_time = due_dt and now <= due_dt
+        # Determine if this is a dateless recurring instance (lookup from template)
+        is_dateless = template.is_dateless_recurring
 
-        # Update streak on template (strict consecutive)
-        if completed_on_time:
+        if is_dateless:
+            # Dateless recurring: Always increment streak (no concept of "late")
             template.streak_current += 1
-            template.streak_longest = max(
-                template.streak_longest, template.streak_current
-            )
+            template.streak_longest = max(template.streak_longest, template.streak_current)
             _LOGGER.info(
-                "Streak incremented for template %s: current=%d, longest=%d",
-                template.summary,
-                template.streak_current,
-                template.streak_longest,
+                "Dateless recurring instance completed. Streak: %d", 
+                template.streak_current
             )
         else:
-            _LOGGER.info(
-                "Instance completed late, resetting streak for: %s", template.summary
-            )
-            template.streak_current = 0
+            # Date-based recurring: Check on-time completion
+            completed_on_time = False
+            if instance.due:
+                due_dt = self._parse_datetime(instance.due)
+                if instance.is_all_day:
+                    # For all-day tasks, compare dates only
+                    # Task completed "on time" if completed on or before due date
+                    now = datetime.now(UTC)
+                    completed_on_time = due_dt and now.date() <= due_dt.date()
+                else:
+                    # For timed tasks, compare full datetime
+                    now = datetime.now(due_dt.tzinfo if due_dt else None)
+                    completed_on_time = due_dt and now <= due_dt
+
+            # Update streak on template (strict consecutive)
+            if completed_on_time:
+                template.streak_current += 1
+                template.streak_longest = max(
+                    template.streak_longest, template.streak_current
+                )
+                _LOGGER.info(
+                    "Streak incremented for template %s: current=%d, longest=%d",
+                    template.summary,
+                    template.streak_current,
+                    template.streak_longest,
+                )
+            else:
+                _LOGGER.info(
+                    "Instance completed late, resetting streak for: %s", template.summary
+                )
+                template.streak_current = 0
 
         # Mark instance as completed
         instance.status = "completed"
@@ -780,29 +843,50 @@ class ChoreBotList(TodoListEntity):
             # Write state immediately
             self.async_write_ha_state()
         else:
-            # Calculate next due date from template
-            next_due = self._calculate_next_due_date_from_template(
-                template, instance.due
-            )
+            # Create next instance based on template type
+            new_instance = None
 
-            if next_due:
-                # Create new instance from template
+            if is_dateless:
+                # Dateless: Create identical instance immediately (no due date calculation)
                 new_instance = Task.create_new(
                     summary=template.summary,
                     description=template.description,
-                    due=next_due.isoformat().replace("+00:00", "Z"),
+                    due=None,  # No due date
                     tags=template.tags.copy(),
-                    rrule=None,  # Instances don't have rrule
+                    rrule=None,
                     points_value=template.points_value,
                     parent_uid=template.uid,
                     is_template=False,
                     occurrence_index=next_occurrence_index,
-                    is_all_day=template.is_all_day,  # Inherit from template
-                    section_id=template.section_id,  # Inherit section from template
+                    is_all_day=False,
+                    section_id=template.section_id,
+                )
+                _LOGGER.info("Created next dateless instance (occurrence %d)", next_occurrence_index)
+            else:
+                # Date-based: Calculate next due date from rrule (existing logic)
+                next_due = self._calculate_next_due_date_from_template(
+                    template, instance.due
                 )
 
-                _LOGGER.info("Created new instance for next occurrence: %s", next_due)
+                if next_due:
+                    new_instance = Task.create_new(
+                        summary=template.summary,
+                        description=template.description,
+                        due=next_due.isoformat().replace("+00:00", "Z"),
+                        tags=template.tags.copy(),
+                        rrule=None,  # Instances don't have rrule
+                        points_value=template.points_value,
+                        parent_uid=template.uid,
+                        is_template=False,
+                        occurrence_index=next_occurrence_index,
+                        is_all_day=template.is_all_day,  # Inherit from template
+                        section_id=template.section_id,  # Inherit section from template
+                    )
+                    _LOGGER.info("Created next dated instance: %s", next_due)
+                else:
+                    _LOGGER.warning("Could not calculate next due date for template: %s", template.uid)
 
+            if new_instance:
                 # Save: update instance, update template, add new instance
                 await self._store.async_update_task(self._list_id, instance)
                 template.update_modified()
@@ -812,8 +896,8 @@ class ChoreBotList(TodoListEntity):
                 # Write state immediately before sync
                 self.async_write_ha_state()
 
-                # Sync to remote backend if enabled (non-blocking for frontend)
-                if self._sync_coordinator:
+                # Sync only for date-based recurring (dateless is local-only)
+                if self._sync_coordinator and not is_dateless:
                     # Complete the remote task (will auto-create next instance on their end)
                     await self._sync_coordinator.async_complete_task(
                         self._list_id, template
@@ -825,16 +909,18 @@ class ChoreBotList(TodoListEntity):
 
             else:
                 _LOGGER.warning(
-                    "Could not calculate next occurrence for template: %s", template.uid
+                    "Could not create next occurrence for template: %s", template.uid
                 )
-                # Just save the completed instance
+                # Save the completed instance and updated template (streak was already updated)
                 await self._store.async_update_task(self._list_id, instance)
+                template.update_modified()
+                await self._store.async_update_task(self._list_id, template)
 
                 # Write state immediately
                 self.async_write_ha_state()
 
-                # Sync to remote backend if enabled (non-blocking for frontend)
-                if self._sync_coordinator:
+                # Sync to remote backend if enabled (date-based only)
+                if self._sync_coordinator and not is_dateless:
                     await self._sync_coordinator.async_complete_task(
                         self._list_id, template
                     )

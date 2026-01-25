@@ -19,9 +19,9 @@
       },
       "person.campbell": {
         "entity_id": "person.campbell",
-        "points_balance": 0,
-        "lifetime_points": 0,
-        "last_updated": "2025-12-03T20:36:40.688712Z",
+        "points_balance": 25,
+        "lifetime_points": 27,
+        "last_updated": "2026-01-25T16:36:21.709267Z",
         "accent_color": "#91aaf0"
       },
       "person.courtney": {

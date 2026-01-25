@@ -72,6 +72,7 @@ ADD_TASK_SCHEMA = vol.Schema(
         vol.Optional("streak_bonus_points"): cv.positive_int,
         vol.Optional("streak_bonus_interval"): cv.positive_int,
         vol.Optional("rrule"): cv.string,
+        vol.Optional("is_dateless_recurring"): cv.boolean,
     }
 )
 
@@ -311,6 +312,9 @@ def _extract_task_data_from_service_call(
     if "rrule" in call.data:
         data["rrule"] = call.data["rrule"]
 
+    if "is_dateless_recurring" in call.data:
+        data["is_dateless_recurring"] = call.data["is_dateless_recurring"]
+
     if "include_future_occurrences" in call.data:
         data["include_future_occurrences"] = call.data["include_future_occurrences"]
 
@@ -402,6 +406,11 @@ async def _handle_add_task(
         store=store,
         list_id=list_id,
     )
+
+    # Validation: Cannot have both rrule and is_dateless_recurring
+    if task_data.get("rrule") and task_data.get("is_dateless_recurring"):
+        _LOGGER.error("Cannot specify both rrule and is_dateless_recurring")
+        return
 
     # Call entity's internal method - single source of truth!
     # This ensures consistent state updates, sync, and no dispatcher needed

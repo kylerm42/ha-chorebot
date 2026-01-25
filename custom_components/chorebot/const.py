@@ -26,6 +26,7 @@ FIELD_IS_TEMPLATE = "is_template"
 FIELD_OCCURRENCE_INDEX = "occurrence_index"
 FIELD_IS_ALL_DAY = "is_all_day"
 FIELD_SECTION_ID = "section_id"
+FIELD_IS_DATELESS_RECURRING = "is_dateless_recurring"
 # FIELD_TICKTICK_ID removed - now stored in sync.ticktick.id instead of custom_fields
 
 # Configuration keys

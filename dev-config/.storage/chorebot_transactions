@@ -676,6 +676,331 @@
           "task_summary": "Recurring 2",
           "list_id": "test"
         }
+      },
+      {
+        "id": "txn_5239b47162d2",
+        "timestamp": "2026-01-25T15:39:35.459637Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 1,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "28198df6-876d-47c6-9498-60b6b7b0173a",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_d64c0434a5b6",
+        "timestamp": "2026-01-25T15:39:41.830832Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 2,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "618981a2-21cf-4aab-a27d-b5ee955fac15",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_8ba9ad898dee",
+        "timestamp": "2026-01-25T15:39:59.313025Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 3,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "324efcc9-26df-4430-b3be-2e2aee5d6464",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_f63873bd66d8",
+        "timestamp": "2026-01-25T15:40:10.995688Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 4,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "2ac92b29-532b-4397-98cb-7cbb50e4cdf6",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_0f13a2d26db3",
+        "timestamp": "2026-01-25T15:40:12.520034Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 5,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "ccc4e2fa-4363-4549-bd24-4af7d7e692bc",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_cdb9eefc4e12",
+        "timestamp": "2026-01-25T15:40:19.535206Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 6,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "c1f29861-61aa-44ee-b266-597d413fce33",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_3c4870df0cfc",
+        "timestamp": "2026-01-25T15:40:21.158236Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 7,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "348edf2d-f2a0-44c2-a0f5-602500dc5d6c",
+          "task_summary": "Practice",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_f7f1355cf573",
+        "timestamp": "2026-01-25T16:06:18.148867Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 8,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "e8e43281-76ba-4947-b3fa-79913e319e9a",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_432af7340d18",
+        "timestamp": "2026-01-25T16:06:24.717537Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 9,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "b8db9adc-8d9a-448b-aed6-be44ba0950ba",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_39d11a3930af",
+        "timestamp": "2026-01-25T16:06:28.873092Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 10,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "d1a3ec11-468d-4b19-b5f8-2d76013d37d7",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_e9b650143279",
+        "timestamp": "2026-01-25T16:06:36.991141Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 11,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "5bb7ece2-7722-423b-aa29-9bf90f845593",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_47cd5150d659",
+        "timestamp": "2026-01-25T16:06:48.561539Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 12,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9566c55c-29d9-48ec-94be-97e413626140",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_1dc47f88e768",
+        "timestamp": "2026-01-25T16:06:49.964022Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 13,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "6b4f8c36-22d7-4e16-aca1-2350c1701c7c",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_4c5ea1e98c13",
+        "timestamp": "2026-01-25T16:06:52.122940Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 14,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9a2e7d52-ca5d-42e9-9d36-07499fedec80",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_9e50d37c8446",
+        "timestamp": "2026-01-25T16:06:53.149760Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 15,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "9ef73c3c-67c8-4096-84b4-a4ec36f62a46",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_649f5e91a72f",
+        "timestamp": "2026-01-25T16:14:43.155676Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 16,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "8e9b6468-efae-4fd3-9e60-453006a68fde",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_63c57d786931",
+        "timestamp": "2026-01-25T16:14:44.075704Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 17,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "a8d507f2-6ee4-4953-a5e7-9979cc293bbc",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_e21d63c57ef6",
+        "timestamp": "2026-01-25T16:14:44.799864Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 18,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "57ab779b-83d2-43ce-910a-7980c9978153",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_525145a35e8f",
+        "timestamp": "2026-01-25T16:14:48.801149Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 19,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "8b584ad9-baa1-4441-bf6f-4cf45a944c15",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_4517f57c2cfa",
+        "timestamp": "2026-01-25T16:18:19.138349Z",
+        "person_id": "person.campbell",
+        "amount": -1,
+        "balance_after": 18,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "8b584ad9-baa1-4441-bf6f-4cf45a944c15",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_d790accdc96d",
+        "timestamp": "2026-01-25T16:18:21.050216Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 19,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "8b584ad9-baa1-4441-bf6f-4cf45a944c15",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_60b7281ae1cd",
+        "timestamp": "2026-01-25T16:18:23.283481Z",
+        "person_id": "person.campbell",
+        "amount": -1,
+        "balance_after": 18,
+        "type": "task_uncomplete",
+        "metadata": {
+          "task_uid": "8b584ad9-baa1-4441-bf6f-4cf45a944c15",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_e6aa7e7de5b6",
+        "timestamp": "2026-01-25T16:18:24.250386Z",
+        "person_id": "person.campbell",
+        "amount": 1,
+        "balance_after": 19,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "8b584ad9-baa1-4441-bf6f-4cf45a944c15",
+          "task_summary": "P2",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_f8f090013bfe",
+        "timestamp": "2026-01-25T16:36:19.279259Z",
+        "person_id": "person.campbell",
+        "amount": 3,
+        "balance_after": 22,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "fdaf2a9b-5402-433d-b907-aaf52b0bb148",
+          "task_summary": "Eat new food",
+          "list_id": "test"
+        }
+      },
+      {
+        "id": "txn_952c2859388a",
+        "timestamp": "2026-01-25T16:36:21.709267Z",
+        "person_id": "person.campbell",
+        "amount": 3,
+        "balance_after": 25,
+        "type": "task_completion",
+        "metadata": {
+          "task_uid": "f4f52aed-222e-46d1-b528-d3e43e4b214d",
+          "task_summary": "Eat new food",
+          "list_id": "test"
+        }
       }
     ]
   }
