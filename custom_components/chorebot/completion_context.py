@@ -213,6 +213,12 @@ class CompletionContextBuilder:
             # Get next occurrence after current due date
             next_occurrence = rrule.after(due_dt)
             if next_occurrence:
+                # DEFENSIVE: Normalize all-day dates to midnight UTC
+                # Ensures consistency even if rrule calculation produces non-midnight times
+                if template.is_all_day:
+                    next_occurrence = next_occurrence.replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
                 return next_occurrence.isoformat().replace("+00:00", "Z")
 
             _LOGGER.warning(

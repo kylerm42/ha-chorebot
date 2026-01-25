@@ -61,6 +61,37 @@ class ChoreBotList(TodoListEntity):
         | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
     )
 
+    @staticmethod
+    def _normalize_all_day_date(due_str: str | None, is_all_day: bool) -> str | None:
+        """Normalize all-day dates to midnight UTC.
+        
+        DEFENSIVE: Ensures all-day task dates are always at 00:00:00 UTC,
+        preventing timezone-related off-by-one errors in the frontend.
+        
+        Args:
+            due_str: ISO 8601 date string (e.g., "2026-01-22T00:00:00Z")
+            is_all_day: Whether this is an all-day task
+            
+        Returns:
+            Normalized ISO 8601 string with Z suffix, or None if input is None
+        """
+        if not due_str or not is_all_day:
+            return due_str
+            
+        try:
+            due_dt = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
+            # Normalize to midnight UTC
+            normalized = due_dt.replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=UTC
+            )
+            return normalized.isoformat().replace("+00:00", "Z")
+        except (ValueError, AttributeError) as e:
+            _LOGGER.warning(
+                "Failed to normalize all-day date %s: %s. Returning as-is.", 
+                due_str, e
+            )
+            return due_str
+
     def __init__(
         self, hass: HomeAssistant, store: ChoreBotStore, list_id: str, list_name: str
     ) -> None:
@@ -245,6 +276,9 @@ class ChoreBotList(TodoListEntity):
             summary, bool(rrule), is_dateless_recurring
         )
 
+        # DEFENSIVE: Normalize all-day dates to midnight UTC
+        due = self._normalize_all_day_date(due, is_all_day)
+
         if rrule and due:
             # Case 1: Date-based recurring task (existing logic)
             template = Task.create_new(
@@ -400,6 +434,10 @@ class ChoreBotList(TodoListEntity):
             include_future_occurrences,
         )
 
+        # DEFENSIVE: Normalize all-day dates to midnight UTC if both provided
+        if due is not None and is_all_day is not None:
+            due = self._normalize_all_day_date(due, is_all_day)
+
         # Get existing task
         task = self._store.get_task(self._list_id, uid)
         if not task:
@@ -466,7 +504,9 @@ class ChoreBotList(TodoListEntity):
                 task.description = description
                 template.description = description
             if due is not None and due != "":
-                task.due = due
+                # DEFENSIVE: Normalize using effective is_all_day flag
+                effective_is_all_day = is_all_day if is_all_day is not None else task.is_all_day
+                task.due = self._normalize_all_day_date(due, effective_is_all_day)
             if tags is not None:
                 task.tags = tags
                 template.tags = tags.copy()
@@ -544,7 +584,12 @@ class ChoreBotList(TodoListEntity):
             task.description = description
         if due is not None:
             # Empty string means clear the due date
-            task.due = due if due != "" else None
+            if due == "":
+                task.due = None
+            else:
+                # DEFENSIVE: Normalize using either provided or existing is_all_day flag
+                effective_is_all_day = is_all_day if is_all_day is not None else task.is_all_day
+                task.due = self._normalize_all_day_date(due, effective_is_all_day)
         if status is not None:
             task.status = status
         if tags is not None:
