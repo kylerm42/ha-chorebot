@@ -19,16 +19,16 @@
       },
       "person.campbell": {
         "entity_id": "person.campbell",
-        "points_balance": 25,
-        "lifetime_points": 27,
-        "last_updated": "2026-01-25T16:36:21.709267Z",
+        "points_balance": 34,
+        "lifetime_points": 40,
+        "last_updated": "2026-01-25T20:50:13.375269Z",
         "accent_color": "#91aaf0"
       },
       "person.courtney": {
         "entity_id": "person.courtney",
-        "points_balance": 0,
-        "lifetime_points": 0,
-        "last_updated": "2025-12-03T20:36:29.436370Z",
+        "points_balance": 11,
+        "lifetime_points": 13,
+        "last_updated": "2026-01-25T21:38:30.682695Z",
         "accent_color": "#80b7cc"
       }
     }

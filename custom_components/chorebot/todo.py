@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .completion_context import CompletionContextBuilder
 from .const import DOMAIN
 from .store import ChoreBotStore
 from .task import Task
@@ -71,6 +72,8 @@ class ChoreBotList(TodoListEntity):
         self._attr_name = f"ChoreBot {list_name}"
         self._attr_unique_id = f"{DOMAIN}_{list_id}"
         self._sync_coordinator = hass.data[DOMAIN].get("sync_coordinator")
+        self._completion_builder = CompletionContextBuilder(store, list_id)
+        self._audit_logger = hass.data[DOMAIN].get("audit_logger")
         _LOGGER.info("Initialized ChoreBotList entity: %s (id: %s)", list_name, list_id)
 
     @property
@@ -272,6 +275,8 @@ class ChoreBotList(TodoListEntity):
                 section_id=section_id,
                 points_value=points_value,
             )
+            # First instance starts at streak 0 (template starts at 0)
+            first_instance.streak_when_created = 0
             # Note: Instances do NOT store bonus fields - they reference their parent template
 
             _LOGGER.debug("Creating date-based recurring task template and first instance")
@@ -322,6 +327,8 @@ class ChoreBotList(TodoListEntity):
                 section_id=section_id,
                 points_value=points_value,
             )
+            # First instance starts at streak 0 (template starts at 0)
+            first_instance.streak_when_created = 0
 
             _LOGGER.info("Creating dateless recurring task (local-only, no sync)")
             await self._store.async_add_task(self._list_id, template)
@@ -562,21 +569,16 @@ class ChoreBotList(TodoListEntity):
             old_status == "needs_action" and task.status == "completed"
         )
 
-        # Handle points logic (only if status changed)
-        new_status = task.status
-        if old_status != new_status:
-            await self._handle_points_for_status_change(task, old_status, new_status)
-
-        # Handle recurring instance completion
-        if status_changed_to_completed and task.is_recurring_instance():
-            await self._handle_recurring_instance_completion(task)
+        # Handle completion using new context-based approach
+        if status_changed_to_completed:
+            person_id = self._resolve_person_id_for_task(task)
+            context = await self._completion_builder.build_context(task, person_id)
+            await self._process_completion(context)
+        elif old_status != task.status:
+            # Handle uncomplete
+            await self._handle_uncomplete(task, old_status, task.status)
         else:
-            # Set last_completed timestamp for any task being marked completed
-            if status_changed_to_completed:
-                task.last_completed = (
-                    datetime.now(UTC).isoformat().replace("+00:00", "Z")
-                )
-
+            # No status change, just update
             task.update_modified()
             await self._store.async_update_task(self._list_id, task)
 
@@ -632,96 +634,222 @@ class ChoreBotList(TodoListEntity):
             # Those can only be updated via chorebot.update_task service
         )
 
-    async def _handle_points_for_status_change(
+    async def _process_completion(self, context) -> None:
+        """Execute completion using pre-validated context.
+
+        Args:
+            context: CompletionContext with all decisions pre-calculated
+        """
+        from .completion_context import CompletionContext
+
+        # Type hint for context
+        ctx: CompletionContext = context
+
+        # 1. Update instance with metadata
+        ctx.instance.status = "completed"
+        ctx.instance.last_completed = ctx.completion_timestamp
+        ctx.instance.completed_on_time = ctx.is_on_time
+        ctx.instance.points_earned = ctx.total_points_earned
+        ctx.instance.streak_at_completion = ctx.streak_after
+        ctx.instance.update_modified()
+
+        # 2. Audit log task completed
+        if self._audit_logger:
+            self._audit_logger.log_task_completed(
+                task_uid=ctx.instance.uid,
+                task_summary=ctx.instance.summary,
+                list_id=self._list_id,
+                on_time=ctx.is_on_time,
+                is_recurring=ctx.instance.is_recurring_instance(),
+            )
+
+        # 3. Award points (with audit logs)
+        if ctx.person_id and ctx.base_points_earned > 0:
+            people_store = self.hass.data[DOMAIN].get("people_store")
+            if people_store and self._validate_person_entity(ctx.person_id):
+                # Award base points
+                await people_store.async_add_points(
+                    ctx.person_id,
+                    ctx.base_points_earned,
+                    "task_completion",
+                    {
+                        "task_uid": ctx.instance.uid,
+                        "task_summary": ctx.instance.summary,
+                        "list_id": self._list_id,
+                    },
+                )
+                if self._audit_logger:
+                    self._audit_logger.log_points_awarded(
+                        person_id=ctx.person_id,
+                        amount=ctx.base_points_earned,
+                        task_uid=ctx.instance.uid,
+                        task_summary=ctx.instance.summary,
+                        reason="task_completion",
+                    )
+
+                # Award bonus points if earned
+                if ctx.bonus_points_earned > 0:
+                    await people_store.async_add_points(
+                        ctx.person_id,
+                        ctx.bonus_points_earned,
+                        "streak_bonus",
+                        {
+                            "task_uid": ctx.instance.uid,
+                            "task_summary": ctx.instance.summary,
+                            "streak": ctx.streak_after,
+                        },
+                    )
+                    if self._audit_logger:
+                        self._audit_logger.log_bonus_awarded(
+                            person_id=ctx.person_id,
+                            amount=ctx.bonus_points_earned,
+                            task_uid=ctx.instance.uid,
+                            task_summary=ctx.instance.summary,
+                            streak=ctx.streak_after,
+                            reason=ctx.bonus_awarded_reason or "streak milestone",
+                        )
+                    _LOGGER.info(
+                        "Awarded streak bonus: %d points for %d-day streak",
+                        ctx.bonus_points_earned,
+                        ctx.streak_after,
+                    )
+
+                # Trigger immediate sensor update
+                points_sensor = self.hass.data[DOMAIN].get("points_sensor")
+                if points_sensor:
+                    points_sensor.async_write_ha_state()
+
+        # 4. Update template streak (with audit log)
+        if ctx.template:
+            old_streak = ctx.streak_before
+            ctx.template.streak_current = ctx.streak_after
+            ctx.template.streak_longest = max(
+                ctx.template.streak_longest, ctx.streak_after
+            )
+            ctx.template.update_modified()
+
+            if self._audit_logger:
+                reason = (
+                    "on_time_completion" if ctx.is_valid_for_streak else "late_completion"
+                )
+                self._audit_logger.log_streak_updated(
+                    task_uid=ctx.template.uid,
+                    task_summary=ctx.template.summary,
+                    old_streak=old_streak,
+                    new_streak=ctx.streak_after,
+                    reason=reason,
+                )
+
+            _LOGGER.info(
+                "Streak updated for template %s: %d → %d",
+                ctx.template.summary,
+                old_streak,
+                ctx.streak_after,
+            )
+
+        # 5. Save all changes
+        await self._store.async_update_task(self._list_id, ctx.instance)
+        if ctx.template:
+            await self._store.async_update_task(self._list_id, ctx.template)
+
+        # 6. Create next instance (with audit log)
+        if ctx.should_create_next and ctx.template:
+            await self._create_next_instance_from_context(ctx)
+
+        # 7. Write state to HA
+        self.async_write_ha_state()
+
+        # 8. Sync to remote backend if enabled (dateless is local-only)
+        if self._sync_coordinator and ctx.template and not ctx.template.is_dateless_recurring:
+            await self._sync_coordinator.async_complete_task(self._list_id, ctx.template)
+            await self._sync_coordinator.async_push_task(self._list_id, ctx.template)
+
+    async def _create_next_instance_from_context(self, context) -> None:
+        """Create next recurring instance from completion context.
+
+        Args:
+            context: CompletionContext with next instance details
+        """
+        from .completion_context import CompletionContext
+
+        ctx: CompletionContext = context
+
+        if not ctx.template:
+            return
+
+        next_occurrence_index = ctx.instance.occurrence_index + 1
+
+        new_instance = Task.create_new(
+            summary=ctx.template.summary,
+            description=ctx.template.description,
+            due=ctx.next_due_date,
+            tags=ctx.template.tags.copy(),
+            rrule=None,
+            points_value=ctx.template.points_value,
+            parent_uid=ctx.template.uid,
+            is_template=False,
+            occurrence_index=next_occurrence_index,
+            is_all_day=ctx.template.is_all_day,
+            section_id=ctx.template.section_id,
+        )
+        # Snapshot template's current streak (after increment)
+        new_instance.streak_when_created = ctx.streak_after
+
+        await self._store.async_add_task(self._list_id, new_instance)
+
+        if self._audit_logger:
+            self._audit_logger.log_instance_created(
+                instance_uid=new_instance.uid,
+                template_uid=ctx.template.uid,
+                task_summary=ctx.template.summary,
+                occurrence_index=next_occurrence_index,
+                due_date=ctx.next_due_date,
+                streak_snapshot=ctx.streak_after,
+            )
+
+        _LOGGER.info(
+            "Created next instance (occurrence %d) for template %s",
+            next_occurrence_index,
+            ctx.template.summary,
+        )
+
+    async def _handle_uncomplete(
         self,
         task: Task,
         old_status: str,
         new_status: str,
     ) -> None:
-        """Handle point awards/deductions on status change."""
-        # Get people store
-        people_store = self.hass.data[DOMAIN].get("people_store")
-        if not people_store:
-            return
+        """Handle task uncomplete (status change from completed to needs_action).
 
-        # Only award points if task has points_value
-        if task.points_value == 0:
-            return
+        Args:
+            task: Task being uncompleted
+            old_status: Previous status
+            new_status: New status
+        """
+        if new_status == "needs_action" and old_status == "completed":
+            # Get people store
+            people_store = self.hass.data[DOMAIN].get("people_store")
+            if people_store and task.points_value > 0:
+                person_id = self._resolve_person_id_for_task(task)
+                if person_id and self._validate_person_entity(person_id):
+                    # Deduct points (no streak bonus deduction)
+                    await people_store.async_add_points(
+                        person_id,
+                        -task.points_value,
+                        "task_uncomplete",
+                        {
+                            "task_uid": task.uid,
+                            "task_summary": task.summary,
+                            "list_id": self._list_id,
+                        },
+                    )
 
-        # Resolve person_id
-        person_id = self._resolve_person_id_for_task(task)
-        if not person_id:
-            return
-
-        # Validate person exists in HA
-        if not self._validate_person_entity(person_id):
-            _LOGGER.warning("Person entity not found: %s", person_id)
-            return
-
-        # Handle completion
-        if new_status == "completed" and old_status == "needs_action":
-            # Award base points
-            await people_store.async_add_points(
-                person_id,
-                task.points_value,
-                "task_completion",
-                {
-                    "task_uid": task.uid,
-                    "task_summary": task.summary,
-                    "list_id": self._list_id,
-                },
-            )
-
-            # Check for streak bonus (recurring tasks only)
-            if task.is_recurring_instance() and task.streak_bonus_points > 0:
-                # parent_uid is guaranteed non-None by is_recurring_instance check
-                assert task.parent_uid is not None
-                template = self._store.get_template(self._list_id, task.parent_uid)
-                if template and template.streak_bonus_interval > 0:
-                    # Check if current streak is a milestone
-                    if (
-                        template.streak_current > 0
-                        and template.streak_current % template.streak_bonus_interval
-                        == 0
-                    ):
-                        await people_store.async_add_points(
-                            person_id,
-                            template.streak_bonus_points,
-                            "streak_bonus",
-                            {
-                                "task_uid": task.uid,
-                                "task_summary": task.summary,
-                                "streak": template.streak_current,
-                            },
-                        )
-                        _LOGGER.info(
-                            "Awarded streak bonus: %d points for %d-day streak",
-                            template.streak_bonus_points,
-                            template.streak_current,
-                        )
-
-            # Trigger immediate sensor update
-            points_sensor = self.hass.data[DOMAIN].get("points_sensor")
-            if points_sensor:
-                points_sensor.async_write_ha_state()
-                _LOGGER.debug("Triggered points sensor update after task completion")
-
-        # Handle uncomplete
-        elif new_status == "needs_action" and old_status == "completed":
-            # Deduct points (no streak bonus deduction)
-            await people_store.async_add_points(
-                person_id,
-                -task.points_value,
-                "task_uncomplete",
-                {
-                    "task_uid": task.uid,
-                    "task_summary": task.summary,
-                    "list_id": self._list_id,
-                },
-            )
+                    # Trigger immediate sensor update
+                    points_sensor = self.hass.data[DOMAIN].get("points_sensor")
+                    if points_sensor:
+                        points_sensor.async_write_ha_state()
 
             # Disassociate recurring instances from template to prevent farming
-            # This converts the instance into a regular one-time task
             if task.is_recurring_instance():
                 _LOGGER.info(
                     "Disassociating uncompleted recurring instance %s from template %s",
@@ -731,11 +859,15 @@ class ChoreBotList(TodoListEntity):
                 task.parent_uid = None
                 task.occurrence_index = 0
 
-            # Trigger immediate sensor update
-            points_sensor = self.hass.data[DOMAIN].get("points_sensor")
-            if points_sensor:
-                points_sensor.async_write_ha_state()
-                _LOGGER.debug("Triggered points sensor update after task uncomplete")
+            task.update_modified()
+            await self._store.async_update_task(self._list_id, task)
+
+            # Write state immediately
+            self.async_write_ha_state()
+
+            # Push to remote backend if sync is enabled
+            if self._sync_coordinator:
+                await self._sync_coordinator.async_push_task(self._list_id, task)
 
     def _resolve_person_id_for_task(self, task: Task) -> str | None:
         """Resolve person_id: section > list > None."""
@@ -759,174 +891,6 @@ class ChoreBotList(TodoListEntity):
         """Check if person entity exists in HA."""
         return person_id in self.hass.states.async_entity_ids("person")
 
-    async def _handle_recurring_instance_completion(self, instance: Task) -> None:
-        """Handle completion of a recurring task instance."""
-        _LOGGER.info("Handling recurring instance completion for: %s", instance.summary)
-
-        if not instance.parent_uid:
-            _LOGGER.error("Instance has no parent_uid: %s", instance.uid)
-            return
-
-        # Get the template (parent_uid is guaranteed non-None by check above)
-        assert instance.parent_uid is not None
-        template = self._store.get_template(self._list_id, instance.parent_uid)
-        if not template:
-            _LOGGER.error("Template not found for instance: %s", instance.parent_uid)
-            return
-
-        # Determine if this is a dateless recurring instance (lookup from template)
-        is_dateless = template.is_dateless_recurring
-
-        if is_dateless:
-            # Dateless recurring: Always increment streak (no concept of "late")
-            template.streak_current += 1
-            template.streak_longest = max(template.streak_longest, template.streak_current)
-            _LOGGER.info(
-                "Dateless recurring instance completed. Streak: %d", 
-                template.streak_current
-            )
-        else:
-            # Date-based recurring: Check on-time completion
-            completed_on_time = False
-            if instance.due:
-                due_dt = self._parse_datetime(instance.due)
-                if instance.is_all_day:
-                    # For all-day tasks, compare dates only
-                    # Task completed "on time" if completed on or before due date
-                    now = datetime.now(UTC)
-                    completed_on_time = due_dt and now.date() <= due_dt.date()
-                else:
-                    # For timed tasks, compare full datetime
-                    now = datetime.now(due_dt.tzinfo if due_dt else None)
-                    completed_on_time = due_dt and now <= due_dt
-
-            # Update streak on template (strict consecutive)
-            if completed_on_time:
-                template.streak_current += 1
-                template.streak_longest = max(
-                    template.streak_longest, template.streak_current
-                )
-                _LOGGER.info(
-                    "Streak incremented for template %s: current=%d, longest=%d",
-                    template.summary,
-                    template.streak_current,
-                    template.streak_longest,
-                )
-            else:
-                _LOGGER.info(
-                    "Instance completed late, resetting streak for: %s", template.summary
-                )
-                template.streak_current = 0
-
-        # Mark instance as completed
-        instance.status = "completed"
-        instance.last_completed = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        instance.update_modified()
-
-        # Check if next instance already exists (e.g., if this was uncompleted then re-completed)
-        next_occurrence_index = instance.occurrence_index + 1
-        instances = self._store.get_instances_for_template(self._list_id, template.uid)
-        next_instance_exists = any(
-            inst.occurrence_index == next_occurrence_index for inst in instances
-        )
-
-        if next_instance_exists:
-            _LOGGER.info(
-                "Next instance already exists for occurrence_index %d, skipping creation",
-                next_occurrence_index,
-            )
-            # Just save the completed instance and updated template
-            await self._store.async_update_task(self._list_id, instance)
-            template.update_modified()
-            await self._store.async_update_task(self._list_id, template)
-
-            # Write state immediately
-            self.async_write_ha_state()
-        else:
-            # Create next instance based on template type
-            new_instance = None
-
-            if is_dateless:
-                # Dateless: Create identical instance immediately (no due date calculation)
-                new_instance = Task.create_new(
-                    summary=template.summary,
-                    description=template.description,
-                    due=None,  # No due date
-                    tags=template.tags.copy(),
-                    rrule=None,
-                    points_value=template.points_value,
-                    parent_uid=template.uid,
-                    is_template=False,
-                    occurrence_index=next_occurrence_index,
-                    is_all_day=False,
-                    section_id=template.section_id,
-                )
-                _LOGGER.info("Created next dateless instance (occurrence %d)", next_occurrence_index)
-            else:
-                # Date-based: Calculate next due date from rrule (existing logic)
-                next_due = self._calculate_next_due_date_from_template(
-                    template, instance.due
-                )
-
-                if next_due:
-                    new_instance = Task.create_new(
-                        summary=template.summary,
-                        description=template.description,
-                        due=next_due.isoformat().replace("+00:00", "Z"),
-                        tags=template.tags.copy(),
-                        rrule=None,  # Instances don't have rrule
-                        points_value=template.points_value,
-                        parent_uid=template.uid,
-                        is_template=False,
-                        occurrence_index=next_occurrence_index,
-                        is_all_day=template.is_all_day,  # Inherit from template
-                        section_id=template.section_id,  # Inherit section from template
-                    )
-                    _LOGGER.info("Created next dated instance: %s", next_due)
-                else:
-                    _LOGGER.warning("Could not calculate next due date for template: %s", template.uid)
-
-            if new_instance:
-                # Save: update instance, update template, add new instance
-                await self._store.async_update_task(self._list_id, instance)
-                template.update_modified()
-                await self._store.async_update_task(self._list_id, template)
-                await self._store.async_add_task(self._list_id, new_instance)
-
-                # Write state immediately before sync
-                self.async_write_ha_state()
-
-                # Sync only for date-based recurring (dateless is local-only)
-                if self._sync_coordinator and not is_dateless:
-                    # Complete the remote task (will auto-create next instance on their end)
-                    await self._sync_coordinator.async_complete_task(
-                        self._list_id, template
-                    )
-                    # Push updated template (with new streaks and metadata)
-                    await self._sync_coordinator.async_push_task(
-                        self._list_id, template
-                    )
-
-            else:
-                _LOGGER.warning(
-                    "Could not create next occurrence for template: %s", template.uid
-                )
-                # Save the completed instance and updated template (streak was already updated)
-                await self._store.async_update_task(self._list_id, instance)
-                template.update_modified()
-                await self._store.async_update_task(self._list_id, template)
-
-                # Write state immediately
-                self.async_write_ha_state()
-
-                # Sync to remote backend if enabled (date-based only)
-                if self._sync_coordinator and not is_dateless:
-                    await self._sync_coordinator.async_complete_task(
-                        self._list_id, template
-                    )
-                    await self._sync_coordinator.async_push_task(
-                        self._list_id, template
-                    )
 
     def _calculate_next_due_date_from_template(
         self, template: Task, current_due_str: str | None

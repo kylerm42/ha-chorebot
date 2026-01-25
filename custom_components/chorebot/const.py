@@ -20,6 +20,7 @@ FIELD_LAST_COMPLETED = "last_completed"
 FIELD_POINTS_VALUE = "points_value"
 FIELD_STREAK_BONUS_POINTS = "streak_bonus_points"
 FIELD_STREAK_BONUS_INTERVAL = "streak_bonus_interval"
+FIELD_STREAK_WHEN_CREATED = "streak_when_created"
 FIELD_DELETED_AT = "deleted_at"
 FIELD_PARENT_UID = "parent_uid"
 FIELD_IS_TEMPLATE = "is_template"
@@ -27,6 +28,9 @@ FIELD_OCCURRENCE_INDEX = "occurrence_index"
 FIELD_IS_ALL_DAY = "is_all_day"
 FIELD_SECTION_ID = "section_id"
 FIELD_IS_DATELESS_RECURRING = "is_dateless_recurring"
+FIELD_COMPLETED_ON_TIME = "completed_on_time"
+FIELD_POINTS_EARNED = "points_earned"
+FIELD_STREAK_AT_COMPLETION = "streak_at_completion"
 # FIELD_TICKTICK_ID removed - now stored in sync.ticktick.id instead of custom_fields
 
 # Configuration keys

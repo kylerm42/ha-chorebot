@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from .const import (
+    FIELD_COMPLETED_ON_TIME,
     FIELD_DELETED_AT,
     FIELD_IS_ALL_DAY,
     FIELD_IS_DATELESS_RECURRING,
@@ -15,13 +16,16 @@ from .const import (
     FIELD_LAST_COMPLETED,
     FIELD_OCCURRENCE_INDEX,
     FIELD_PARENT_UID,
+    FIELD_POINTS_EARNED,
     FIELD_POINTS_VALUE,
     FIELD_RRULE,
     FIELD_SECTION_ID,
+    FIELD_STREAK_AT_COMPLETION,
     FIELD_STREAK_BONUS_INTERVAL,
     FIELD_STREAK_BONUS_POINTS,
     FIELD_STREAK_CURRENT,
     FIELD_STREAK_LONGEST,
+    FIELD_STREAK_WHEN_CREATED,
     FIELD_TAGS,
 )
 
@@ -49,9 +53,13 @@ class Task:
     parent_uid: str | None = None  # Points to template task if this is an instance
     is_template: bool = False  # True if this is a recurring task template
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
+    streak_when_created: int = 0  # Template's streak_current when this instance was created
     is_all_day: bool = False  # True if this is an all-day task (no specific time)
     section_id: str | None = None  # Section/column this task belongs to
     is_dateless_recurring: bool = False  # True if recurring without due dates (templates only)
+    completed_on_time: bool | None = None  # Was this completed on or before due date? None if not completed.
+    points_earned: int = 0  # Total points awarded for this completion (base + bonus). 0 if not completed.
+    streak_at_completion: int = 0  # Template's streak value after this completion. 0 if not recurring or not completed.
     custom_fields: dict[str, Any] = field(
         default_factory=dict
     )  # Backend-specific metadata
@@ -133,6 +141,8 @@ class Task:
             result[FIELD_PARENT_UID] = self.parent_uid
             # Always store occurrence_index for instances (even if 0)
             result[FIELD_OCCURRENCE_INDEX] = self.occurrence_index
+        if self.streak_when_created > 0:
+            result[FIELD_STREAK_WHEN_CREATED] = self.streak_when_created
         if self.is_all_day:
             result[FIELD_IS_ALL_DAY] = self.is_all_day
         # ALWAYS include section_id (even if None) to ensure TickTick's state is persisted
@@ -142,6 +152,13 @@ class Task:
             result[FIELD_IS_TEMPLATE] = self.is_template
         if self.is_dateless_recurring:
             result[FIELD_IS_DATELESS_RECURRING] = self.is_dateless_recurring
+        # Completion metadata (set when task is completed)
+        if self.completed_on_time is not None:
+            result[FIELD_COMPLETED_ON_TIME] = self.completed_on_time
+        if self.points_earned > 0:
+            result[FIELD_POINTS_EARNED] = self.points_earned
+        if self.streak_at_completion > 0:
+            result[FIELD_STREAK_AT_COMPLETION] = self.streak_at_completion
 
         # Add sync metadata (backend-specific)
         if self.sync:
@@ -181,9 +198,13 @@ class Task:
             parent_uid=data.get(FIELD_PARENT_UID),
             is_template=template_value,
             occurrence_index=data.get(FIELD_OCCURRENCE_INDEX, 0),
+            streak_when_created=data.get(FIELD_STREAK_WHEN_CREATED, 0),
             is_all_day=data.get(FIELD_IS_ALL_DAY, False),
             section_id=data.get(FIELD_SECTION_ID),
             is_dateless_recurring=data.get(FIELD_IS_DATELESS_RECURRING, False),
+            completed_on_time=data.get(FIELD_COMPLETED_ON_TIME),
+            points_earned=data.get(FIELD_POINTS_EARNED, 0),
+            streak_at_completion=data.get(FIELD_STREAK_AT_COMPLETION, 0),
             custom_fields={},  # No longer used for ChoreBot fields
             sync=data.get("sync", {}),
         )

@@ -1,6 +1,6 @@
 ---
 title: Per-Instance Streak Display
-status: proposed
+status: implemented
 created: 2026-01-25
 updated: 2026-01-25
 author: AP-5 (Architect)
@@ -389,10 +389,10 @@ None. Requirements clarified with user:
 
 ## Success Criteria
 
-- [ ] Each visible recurring instance shows unique streak value
-- [ ] First instance (streak_when_created=0) hides indicator
-- [ ] After streak reset, old instances hide indicators (stale values)
-- [ ] New streak progression displays correctly (1, 2, 3...)
-- [ ] Dateless recurring tasks show unbounded streak accumulation
-- [ ] Legacy instances without field default to 0 and hide indicators
-- [ ] No performance degradation or data corruption
+- [x] Each visible recurring instance shows unique streak value
+- [x] First instance (streak_when_created=0) hides indicator
+- [x] After streak reset, old instances hide indicators (stale values)
+- [x] New streak progression displays correctly (1, 2, 3...)
+- [x] Dateless recurring tasks show unbounded streak accumulation
+- [x] Legacy instances without field default to 0 and hide indicators
+- [x] No performance degradation or data corruption

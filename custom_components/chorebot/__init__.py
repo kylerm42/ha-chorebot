@@ -40,6 +40,7 @@ from .const import (
     SERVICE_SYNC_PEOPLE,
     SERVICE_UPDATE_TASK,
 )
+from .audit_log import AuditLogger
 from .oauth_api import AsyncConfigEntryAuth
 from .people import PeopleStore
 from .store import ChoreBotStore
@@ -990,6 +991,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await people_store.async_load()
     hass.data[DOMAIN]["people_store"] = people_store
     _LOGGER.info("People store initialized")
+
+    # Initialize audit logger
+    audit_log_path = hass.config.path(".storage", "chorebot_audit.log")
+    audit_logger = AuditLogger(audit_log_path)
+    hass.data[DOMAIN]["audit_logger"] = audit_logger
+    _LOGGER.info("Audit logger initialized")
 
     # Automatically sync people with HA person entities on setup
     person_entity_ids = list(hass.states.async_entity_ids("person"))
