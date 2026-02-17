@@ -27,7 +27,6 @@ class CompletionContext:
 
     # Validation results
     is_on_time: bool
-    is_valid_for_streak: bool
     completion_timestamp: str  # ISO 8601
 
     # Points calculation
@@ -83,41 +82,32 @@ class CompletionContextBuilder:
                 )
 
         # 2. Check on-time (DATE-ONLY comparison for ALL tasks)
+        # This is used for completion metadata tracking only
         is_on_time = self._check_completion_timeliness(instance)
 
-        # 3. Determine if valid for streak (dateless recurring OR on-time)
-        is_valid_for_streak = False
-        if template:
-            is_valid_for_streak = template.is_dateless_recurring or is_on_time
-
-        # 4. Calculate streak outcome
+        # 3. Calculate streak outcome
+        # Daily maintenance resets streak to 0 at midnight for missed tasks
+        # Completion always increments from current value (including from 0)
         streak_before = template.streak_current if template else 0
-        if template:
-            if is_valid_for_streak:
-                streak_after = template.streak_current + 1
-            else:
-                streak_after = 0  # Late = reset
-        else:
-            streak_after = 0
+        streak_after = (template.streak_current + 1) if template else 0
 
-        # 5. Calculate points
+        # 4. Calculate points
         base_points = instance.points_value
         bonus_points = 0
         bonus_reason = None
         streak_milestone_reached = False
 
-        # Check for streak bonus (ON milestone, not after)
+        # Check for streak bonus at milestones
+        # The streak value itself tells us if they've been completing on time
         if (
             template
-            and is_valid_for_streak
             and template.streak_bonus_points > 0
             and template.streak_bonus_interval > 0
+            and streak_after % template.streak_bonus_interval == 0
         ):
-            # Bonus awarded ON milestone (check streak_after, not streak_current)
-            if streak_after % template.streak_bonus_interval == 0:
-                bonus_points = template.streak_bonus_points
-                bonus_reason = f"{streak_after}-day streak milestone"
-                streak_milestone_reached = True
+            bonus_points = template.streak_bonus_points
+            bonus_reason = f"{streak_after}-day streak milestone"
+            streak_milestone_reached = True
 
         total_points = base_points + bonus_points
 
@@ -146,7 +136,6 @@ class CompletionContextBuilder:
             template=template,
             person_id=person_id,
             is_on_time=is_on_time,
-            is_valid_for_streak=is_valid_for_streak,
             completion_timestamp=completion_timestamp,
             base_points_earned=base_points,
             bonus_points_earned=bonus_points,
@@ -184,10 +173,14 @@ class CompletionContextBuilder:
             _LOGGER.error("Failed to parse due date %s: %s", instance.due, e)
             return True  # Benefit of doubt
 
-    def _calculate_next_due_date(
-        self, instance: Task, template: Task
-    ) -> str | None:
+    def _calculate_next_due_date(self, instance: Task, template: Task) -> str | None:
         """Calculate next due date for recurring instance.
+
+        For overdue tasks, calculates from today's date to allow users to catch up.
+        For on-time completions, maintains the schedule by calculating from due date.
+
+        The time component is treated as a scheduling hint, not a deadline.
+        Completing an 8am task at any time during the day results in tomorrow at 8am.
 
         Args:
             instance: Current instance being completed
@@ -209,9 +202,18 @@ class CompletionContextBuilder:
 
             due_dt = datetime.fromisoformat(instance.due.replace("Z", "+00:00"))
             rrule = rrulestr(template.rrule, dtstart=due_dt)
+            now = datetime.now(UTC)
 
-            # Get next occurrence after current due date
-            next_occurrence = rrule.after(due_dt)
+            # Determine calculation base: overdue uses today, on-time uses due date
+            if now > due_dt:
+                # Overdue: Find next occurrence after today (midnight)
+                # This allows catch-up without creating backlog of missed instances
+                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                next_occurrence = rrule.after(today_start)
+            else:
+                # On-time: Maintain schedule from due date
+                next_occurrence = rrule.after(due_dt)
+
             if next_occurrence:
                 # DEFENSIVE: Normalize all-day dates to midnight UTC
                 # Ensures consistency even if rrule calculation produces non-midnight times
@@ -221,9 +223,7 @@ class CompletionContextBuilder:
                     )
                 return next_occurrence.isoformat().replace("+00:00", "Z")
 
-            _LOGGER.warning(
-                "No next occurrence found for rrule: %s", template.rrule
-            )
+            _LOGGER.warning("No next occurrence found for rrule: %s", template.rrule)
             return None
         except Exception as e:
             _LOGGER.error("Failed to calculate next due date: %s", e)

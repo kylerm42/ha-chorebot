@@ -53,11 +53,17 @@ class Task:
     parent_uid: str | None = None  # Points to template task if this is an instance
     is_template: bool = False  # True if this is a recurring task template
     occurrence_index: int = 0  # Which occurrence this is (0-indexed)
-    streak_when_created: int = 0  # Template's streak_current when this instance was created
+    streak_when_created: int = (
+        0  # Template's streak_current when this instance was created
+    )
     is_all_day: bool = False  # True if this is an all-day task (no specific time)
     section_id: str | None = None  # Section/column this task belongs to
-    is_dateless_recurring: bool = False  # True if recurring without due dates (templates only)
-    completed_on_time: bool | None = None  # Was this completed on or before due date? None if not completed.
+    is_dateless_recurring: bool = (
+        False  # True if recurring without due dates (templates only)
+    )
+    completed_on_time: bool | None = (
+        None  # Was this completed on or before due date? None if not completed.
+    )
     points_earned: int = 0  # Total points awarded for this completion (base + bonus). 0 if not completed.
     streak_at_completion: int = 0  # Template's streak value after this completion. 0 if not recurring or not completed.
     custom_fields: dict[str, Any] = field(
@@ -125,10 +131,16 @@ class Task:
             result[FIELD_TAGS] = self.tags
         if self.rrule:
             result[FIELD_RRULE] = self.rrule
-        if self.streak_current > 0:
+        # Always serialize streak fields for templates (including 0 to show resets)
+        if self.is_template:
             result[FIELD_STREAK_CURRENT] = self.streak_current
-        if self.streak_longest > 0:
             result[FIELD_STREAK_LONGEST] = self.streak_longest
+        else:
+            # For non-templates, only write if non-zero (backward compatibility)
+            if self.streak_current > 0:
+                result[FIELD_STREAK_CURRENT] = self.streak_current
+            if self.streak_longest > 0:
+                result[FIELD_STREAK_LONGEST] = self.streak_longest
         if self.last_completed:
             result[FIELD_LAST_COMPLETED] = self.last_completed
         if self.points_value > 0:
@@ -175,7 +187,9 @@ class Task:
             is_template: Override to set template status (inferred from storage location).
         """
         template_value = (
-            is_template if is_template is not None else data.get(FIELD_IS_TEMPLATE, False)
+            is_template
+            if is_template is not None
+            else data.get(FIELD_IS_TEMPLATE, False)
         )
 
         return cls(
@@ -215,7 +229,9 @@ class Task:
 
     def is_recurring_template(self) -> bool:
         """Check if task is a recurring task template (date-based or dateless)."""
-        return self.is_template and (self.rrule is not None or self.is_dateless_recurring)
+        return self.is_template and (
+            self.rrule is not None or self.is_dateless_recurring
+        )
 
     def is_dateless_recurring_template(self) -> bool:
         """Check if task is a dateless recurring template."""

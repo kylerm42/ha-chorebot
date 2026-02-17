@@ -64,20 +64,20 @@ class ChoreBotList(TodoListEntity):
     @staticmethod
     def _normalize_all_day_date(due_str: str | None, is_all_day: bool) -> str | None:
         """Normalize all-day dates to midnight UTC.
-        
+
         DEFENSIVE: Ensures all-day task dates are always at 00:00:00 UTC,
         preventing timezone-related off-by-one errors in the frontend.
-        
+
         Args:
             due_str: ISO 8601 date string (e.g., "2026-01-22T00:00:00Z")
             is_all_day: Whether this is an all-day task
-            
+
         Returns:
             Normalized ISO 8601 string with Z suffix, or None if input is None
         """
         if not due_str or not is_all_day:
             return due_str
-            
+
         try:
             due_dt = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
             # Normalize to midnight UTC
@@ -87,8 +87,7 @@ class ChoreBotList(TodoListEntity):
             return normalized.isoformat().replace("+00:00", "Z")
         except (ValueError, AttributeError) as e:
             _LOGGER.warning(
-                "Failed to normalize all-day date %s: %s. Returning as-is.", 
-                due_str, e
+                "Failed to normalize all-day date %s: %s. Returning as-is.", due_str, e
             )
             return due_str
 
@@ -272,8 +271,10 @@ class ChoreBotList(TodoListEntity):
         Handles regular tasks, date-based recurring, and dateless recurring tasks.
         """
         _LOGGER.info(
-            "Creating task internally: %s (recurring=%s, dateless=%s)", 
-            summary, bool(rrule), is_dateless_recurring
+            "Creating task internally: %s (recurring=%s, dateless=%s)",
+            summary,
+            bool(rrule),
+            is_dateless_recurring,
         )
 
         # DEFENSIVE: Normalize all-day dates to midnight UTC
@@ -313,7 +314,9 @@ class ChoreBotList(TodoListEntity):
             first_instance.streak_when_created = 0
             # Note: Instances do NOT store bonus fields - they reference their parent template
 
-            _LOGGER.debug("Creating date-based recurring task template and first instance")
+            _LOGGER.debug(
+                "Creating date-based recurring task template and first instance"
+            )
             await self._store.async_add_task(self._list_id, template)
             await self._store.async_add_task(self._list_id, first_instance)
 
@@ -328,7 +331,9 @@ class ChoreBotList(TodoListEntity):
             # Case 2: Dateless recurring task (NEW)
             # Validation: Cannot have both rrule and dateless
             if rrule:
-                _LOGGER.error("Cannot create task with both rrule and is_dateless_recurring")
+                _LOGGER.error(
+                    "Cannot create task with both rrule and is_dateless_recurring"
+                )
                 return
 
             # Create template
@@ -505,7 +510,9 @@ class ChoreBotList(TodoListEntity):
                 template.description = description
             if due is not None and due != "":
                 # DEFENSIVE: Normalize using effective is_all_day flag
-                effective_is_all_day = is_all_day if is_all_day is not None else task.is_all_day
+                effective_is_all_day = (
+                    is_all_day if is_all_day is not None else task.is_all_day
+                )
                 task.due = self._normalize_all_day_date(due, effective_is_all_day)
             if tags is not None:
                 task.tags = tags
@@ -588,7 +595,9 @@ class ChoreBotList(TodoListEntity):
                 task.due = None
             else:
                 # DEFENSIVE: Normalize using either provided or existing is_all_day flag
-                effective_is_all_day = is_all_day if is_all_day is not None else task.is_all_day
+                effective_is_all_day = (
+                    is_all_day if is_all_day is not None else task.is_all_day
+                )
                 task.due = self._normalize_all_day_date(due, effective_is_all_day)
         if status is not None:
             task.status = status
@@ -774,9 +783,7 @@ class ChoreBotList(TodoListEntity):
             ctx.template.update_modified()
 
             if self._audit_logger:
-                reason = (
-                    "on_time_completion" if ctx.is_valid_for_streak else "late_completion"
-                )
+                reason = "on_time_completion" if ctx.is_on_time else "late_completion"
                 self._audit_logger.log_streak_updated(
                     task_uid=ctx.template.uid,
                     task_summary=ctx.template.summary,
@@ -805,8 +812,14 @@ class ChoreBotList(TodoListEntity):
         self.async_write_ha_state()
 
         # 8. Sync to remote backend if enabled (dateless is local-only)
-        if self._sync_coordinator and ctx.template and not ctx.template.is_dateless_recurring:
-            await self._sync_coordinator.async_complete_task(self._list_id, ctx.template)
+        if (
+            self._sync_coordinator
+            and ctx.template
+            and not ctx.template.is_dateless_recurring
+        ):
+            await self._sync_coordinator.async_complete_task(
+                self._list_id, ctx.template
+            )
             await self._sync_coordinator.async_push_task(self._list_id, ctx.template)
 
     async def _create_next_instance_from_context(self, context) -> None:
@@ -935,62 +948,6 @@ class ChoreBotList(TodoListEntity):
     def _validate_person_entity(self, person_id: str) -> bool:
         """Check if person entity exists in HA."""
         return person_id in self.hass.states.async_entity_ids("person")
-
-
-    def _calculate_next_due_date_from_template(
-        self, template: Task, current_due_str: str | None
-    ) -> datetime | None:
-        """Calculate next due date from template's rrule.
-
-        For overdue tasks, calculates the next occurrence from NOW (matching TickTick's behavior).
-        This allows users to catch up on yesterday's instance and still complete today's instance
-        for points, rather than forcing them to skip today entirely.
-
-        For on-time completions, calculates from the due date to maintain the schedule.
-        """
-        if not template.rrule or not current_due_str:
-            return None
-
-        try:
-            # Parse current due date
-            current_due = self._parse_datetime(current_due_str)
-            if not current_due:
-                return None
-
-            # Parse rrule from template, using the original due date as dtstart
-            rule = rrulestr(template.rrule, dtstart=current_due)
-
-            # Get current time in the same timezone as the due date
-            now = datetime.now(current_due.tzinfo if current_due.tzinfo else UTC)
-
-            # For overdue tasks, calculate next occurrence from NOW (TickTick's behavior)
-            # This allows users to complete yesterday's instance and still get today's points
-            # For on-time tasks, calculate from due date to maintain the schedule
-            if now > current_due:
-                # Task is overdue - find next occurrence based on task type
-
-                if template.is_all_day:
-                    # For all-day tasks, find "today's" occurrence
-                    # All-day tasks represent "do it anytime today", so even though
-                    # today's occurrence (midnight) is technically in the past, it's
-                    # still valid to complete today
-                    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-                    # Get the first occurrence at or after today's midnight
-                    # Subtract 1 second to ensure we get today's occurrence, not tomorrow's
-                    return rule.after(today_start - timedelta(seconds=1))
-                else:
-                    # For timed tasks, find next occurrence after now
-                    # Could be later today or on a future day
-                    return rule.after(now)
-            else:
-                # Task completed on-time - maintain schedule by calculating from due date
-                return rule.after(current_due)
-        except (ValueError, TypeError, AttributeError) as e:
-            _LOGGER.error(
-                "Error calculating next due date for template %s: %s", template.uid, e
-            )
-            return None
 
     def _is_latest_incomplete_instance(self, task: Task) -> bool:
         """Check if this is the latest incomplete instance of its template.
