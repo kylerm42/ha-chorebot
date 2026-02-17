@@ -18,7 +18,10 @@ from homeassistant.helpers import (
     config_validation as cv,
     entity_registry as er,
 )
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import (
+    async_track_time_change,
+    async_track_time_interval,
+)
 from homeassistant.util import slugify
 
 from .const import (
@@ -36,6 +39,7 @@ from .const import (
     SERVICE_MANAGE_PERSON,
     SERVICE_MANAGE_REWARD,
     SERVICE_REDEEM_REWARD,
+    SERVICE_RUN_MAINTENANCE,
     SERVICE_SYNC,
     SERVICE_SYNC_PEOPLE,
     SERVICE_UPDATE_TASK,
@@ -464,7 +468,7 @@ async def _handle_delete_task(
     sync_coordinator: SyncCoordinator | None,
 ) -> None:
     """Handle the chorebot.delete_task service.
-    
+
     Deletes a task from a list. Automatically handles recurring tasks by
     deleting the template and all incomplete instances, while preserving
     completed instances for historical record.
@@ -680,6 +684,28 @@ async def _handle_sync_people(
         _LOGGER.info("Sync complete: created %d new people records", created_count)
     else:
         _LOGGER.info("Sync complete: all person entities already exist")
+
+
+async def _handle_run_maintenance(
+    call: ServiceCall,
+    hass: HomeAssistant,
+    store: ChoreBotStore,
+) -> None:
+    """Handle the chorebot.run_maintenance service."""
+    _LOGGER.info("Manual maintenance triggered via service")
+
+    # Run the daily maintenance job immediately
+    await _daily_maintenance(hass, store, datetime.now(UTC))
+
+    # Trigger immediate entity state updates so frontend reflects changes
+    entities = hass.data[DOMAIN].get("entities", {})
+    for entity in entities.values():
+        entity.async_write_ha_state()
+    _LOGGER.debug(
+        "Updated state for all %d entities after manual maintenance", len(entities)
+    )
+
+    _LOGGER.info("Manual maintenance completed")
 
 
 async def _handle_manage_person(
@@ -928,26 +954,17 @@ async def _daily_maintenance(hass: HomeAssistant, store: ChoreBotStore, now) -> 
                 "Archived %d old instances from list %s", archived_count, list_id
             )
 
-        # 2. Soft-delete completed recurring instances that weren't completed today
+        # 2. Soft-delete completed tasks
         tasks = store.get_tasks_for_list(list_id)
-        today = datetime.now(UTC).date()
 
         for task in tasks:
-            if task.is_recurring_instance() and task.status == "completed":
-                # Only soft-delete if NOT completed today
-                if task.last_completed:
-                    completed_date = datetime.fromisoformat(
-                        task.last_completed.replace("Z", "+00:00")
-                    ).date()
-
-                    if completed_date < today:
-                        _LOGGER.debug(
-                            "Soft-deleting completed instance: %s (completed %s)",
-                            task.summary,
-                            completed_date,
-                        )
-                        task.mark_deleted()
-                        await store.async_update_task(list_id, task)
+            if task.status == "completed":
+                _LOGGER.debug(
+                    "Soft-deleting completed task: %s",
+                    task.summary,
+                )
+                task.mark_deleted()
+                await store.async_update_task(list_id, task)
 
     # 3. Check for overdue instances and reset template streaks
     templates = await store.async_get_all_recurring_templates()
@@ -1019,9 +1036,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Wrapper for daily maintenance."""
         await _daily_maintenance(hass, store, now)
 
-    # Run daily at midnight
-    hass.data[DOMAIN]["daily_maintenance"] = async_track_time_interval(
-        hass, daily_maintenance, timedelta(days=1)
+    # Run daily at midnight (00:00:00)
+    hass.data[DOMAIN]["daily_maintenance"] = async_track_time_change(
+        hass, daily_maintenance, hour=0, minute=0, second=0
     )
 
     # Set up periodic sync
@@ -1216,6 +1233,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, "manage_section", handle_manage_section, schema=MANAGE_SECTION_SCHEMA
     )
     _LOGGER.info("Service registered: manage_section")
+
+    # Register chorebot.run_maintenance service
+    async def handle_run_maintenance(call: ServiceCall) -> None:
+        await _handle_run_maintenance(call, hass, store)
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_RUN_MAINTENANCE, handle_run_maintenance
+    )
+    _LOGGER.info("Service registered: %s", SERVICE_RUN_MAINTENANCE)
 
     # Forward to TODO platform
     _LOGGER.info("Forwarding setup to platforms: %s", PLATFORMS)

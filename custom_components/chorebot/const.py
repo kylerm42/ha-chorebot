@@ -61,6 +61,7 @@ SERVICE_MANAGE_PERSON = "manage_person"
 SERVICE_MANAGE_REWARD = "manage_reward"
 SERVICE_MANAGE_SECTION = "manage_section"
 SERVICE_REDEEM_REWARD = "redeem_reward"
+SERVICE_RUN_MAINTENANCE = "run_maintenance"
 SERVICE_SYNC = "sync"  # Generic sync service (was sync_ticktick)
 SERVICE_SYNC_PEOPLE = "sync_people"
 SERVICE_UPDATE_LIST = "update_list"

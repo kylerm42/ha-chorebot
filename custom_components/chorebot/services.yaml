@@ -449,3 +449,7 @@ manage_section:
           min: 0
           max: 9999999999999
           mode: box
+
+run_maintenance:
+  name: Run Maintenance
+  description: Manually trigger the daily maintenance job. Archives old completed instances (30+ days), soft-deletes all completed tasks, and resets streaks for overdue recurring tasks. Useful for immediate cleanup without waiting for the automatic midnight run.

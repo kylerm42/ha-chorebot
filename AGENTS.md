@@ -48,7 +48,7 @@ See [ha-chorebot-cards repository](https://github.com/kylerm42/ha-chorebot-cards
 - **Archive Storage**: Completed instances older than 30 days are moved to `chorebot_list_{list_id}_archive.json` to preserve history without bloating active storage.
 - **Split Storage Files**: People, rewards, transactions, and redemptions are stored in separate files to optimize performance (hot data vs cold audit trails).
 - **Namespace Isolation**: List files use `chorebot_list_` prefix to prevent conflicts with global storage files.
-- **Progress Tracking**: Completed instances remain visible until midnight, enabling daily progress tracking.
+- **Task Cleanup**: Daily maintenance job soft-deletes completed tasks (runs at midnight automatically, or on-demand via service).
 
 ## Development Environment
 
@@ -281,8 +281,7 @@ When a recurring task instance is marked completed:
 6. Check if next instance already exists (by `occurrence_index + 1`)
 7. If not, calculate next due date from template's `rrule`
 8. Create new instance with next due date and incremented `occurrence_index`
-9. Completed instance stays visible until midnight
-10. Daily maintenance job soft-deletes completed instances at midnight
+9. Daily maintenance job soft-deletes completed instances (runs automatically at midnight, or manually via service)
 
 ### Recurring Instance Uncomplete Logic (Anti-Farming Protection)
 
@@ -614,9 +613,9 @@ All cards automatically use custom display via shared utilities:
 - **No streak duplication**: NEVER copy `streak_current` or `streak_longest` to instances - they belong only on templates
 - **Date format**: All dates must be in ISO Z format (UTC): `YYYY-MM-DDTHH:MM:SSZ`. Normalize TickTick dates with `_normalize_ticktick_date()`
 - **Check for existing instances** before creating new ones to prevent duplicates (by `occurrence_index`)
-- **Completed instances stay visible** until midnight when daily maintenance job soft-deletes them
 - **Streak tracking is strict consecutive** - late completion resets streak to 0
-- Daily maintenance job runs at midnight: archives old instances, soft-deletes completed instances, resets streaks for overdue instances
+- Daily maintenance job runs automatically at midnight: archives old instances (30+ days), soft-deletes completed tasks, resets streaks for overdue instances
+- Manual `chorebot.run_maintenance` service: trigger maintenance immediately without waiting for midnight (useful for on-demand cleanup)
 - **Storage file naming**: List files use `chorebot_list_{list_id}` prefix to avoid namespace collisions. Archive files use `chorebot_list_{list_id}_archive`.
 - **People data optimization**: Use specific save methods (`async_save_people()`, `async_save_rewards()`, etc.) instead of `async_save()` to avoid writing all 4 files on every operation.
 
